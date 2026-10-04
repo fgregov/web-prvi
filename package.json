@@ -1,0 +1,27 @@
+{
+  "name": "renvara",
+  "private": true,
+  "description": "RENVARA — B2B sales execution platform (monorepo)",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "check": "pnpm format:check && pnpm typecheck && pnpm test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
+    "db:types": "supabase gen types typescript --local --schema public > packages/database/src/database.types.ts && prettier --write packages/database/src/database.types.ts",
+    "db:new-migration": "supabase migration new"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9",
+    "supabase": "2.119.0",
+    "typescript": "7.0.2"
+  }
+}

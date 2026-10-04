@@ -1,0 +1,3 @@
+-- Local development seed (runs on `supabase db reset`).
+-- Intentionally empty in Phase 1: tests create their own fixtures, and demo
+-- data will be added together with the first user-facing flows.
