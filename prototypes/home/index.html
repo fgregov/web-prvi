@@ -91,6 +91,10 @@
       <symbol id="i-activity" viewBox="0 0 24 24">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
       </symbol>
+      <symbol id="i-log-out" viewBox="0 0 24 24">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5M21 12H9" />
+      </symbol>
     </svg>
 
     <div class="app">
@@ -108,9 +112,24 @@
             <svg class="icon"><use href="#i-bell" /></svg>
             <span class="bell__dot" aria-hidden="true"></span>
           </button>
-          <button class="avatar" type="button" aria-label="Moj profil">
-            <img src="assets/avatar-placeholder.svg" alt="" width="48" height="48" />
-          </button>
+          <div class="account">
+            <button
+              class="avatar"
+              type="button"
+              aria-label="Moj profil"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="account-menu"
+            >
+              <img src="assets/avatar-placeholder.svg" alt="" width="48" height="48" />
+            </button>
+            <div class="account-menu" id="account-menu" role="menu" aria-label="Račun" hidden>
+              <p class="account-menu__name" data-account-name>Moj račun</p>
+              <button type="button" role="menuitem" data-logout>
+                <svg class="icon"><use href="#i-log-out" /></svg>Odjava
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 

@@ -1,7 +1,7 @@
 {
   "name": "renvara",
   "private": true,
-  "description": "RENVARA — B2B sales execution platform (monorepo)",
+  "description": "RENVARA \u2014 B2B sales execution platform (monorepo)",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -10,6 +10,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "check": "pnpm format:check && pnpm typecheck && pnpm test",
+    "beta": "pnpm --filter @renvara/beta-web start",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:start": "supabase start",
