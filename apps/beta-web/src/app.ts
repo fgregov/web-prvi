@@ -22,6 +22,8 @@ export interface AppPaths {
   readonly loginDir: string;
   /** Folder with the approved dashboard (served in place, unchanged). */
   readonly dashboardDir: string;
+  /** Demo CRM client: pages/, js/, css/ (protected). */
+  readonly appDir: string;
 }
 
 export interface Logger {
@@ -35,7 +37,16 @@ const APP_DIR = resolve(import.meta.dirname, '..');
 export const defaultPaths: AppPaths = {
   loginDir: resolve(APP_DIR, 'public/login'),
   dashboardDir: resolve(APP_DIR, '../../prototypes/home'),
+  appDir: resolve(APP_DIR, 'public/app'),
 };
+
+/** Protected CRM pages → HTML shell in public/app/pages. */
+const CRM_PAGES: Record<string, string> = {
+  '/customers': 'customers.html',
+  '/opportunities': 'opportunities.html',
+  '/calendar': 'calendar.html',
+};
+const CUSTOMER_PAGE = /^\/customers\/[A-Za-z0-9_-]{1,64}$/;
 
 /** Structured logs. Never pass request bodies, passwords, tokens or cookies here. */
 export const consoleLogger: Logger = {
@@ -168,10 +179,10 @@ export function createApp(
   function handleSession(req: IncomingMessage, res: ServerResponse): void {
     const session = currentSession(req);
     if (!session) return sendJson(res, 200, { authenticated: false });
-    const { username, displayName, role } = session.user;
+    const { id, username, displayName, role } = session.user;
     return sendJson(res, 200, {
       authenticated: true,
-      user: { username, displayName, role },
+      user: { id, username, displayName, role },
       expiresAt: new Date(session.expiresAt * 1000).toISOString(),
     });
   }
@@ -245,6 +256,20 @@ export function createApp(
 
     if (path === DASHBOARD_PATH || path.startsWith(`${DASHBOARD_PATH}/`)) {
       return serveDashboard(req, res, path);
+    }
+
+    // ---- Demo CRM (protected) -------------------------------------------
+    const crmPage = CRM_PAGES[path] ?? (CUSTOMER_PAGE.test(path) ? 'customer.html' : null);
+    if (crmPage) {
+      if (!requireAuth(req, res)) return;
+      noStore(res);
+      return sendFile(res, resolve(paths.appDir, 'pages', crmPage));
+    }
+    if (path.startsWith('/app/')) {
+      if (!requireAuth(req, res)) return;
+      noStore(res);
+      const file = await resolveStaticFile(paths.appDir, path.slice('/app/'.length));
+      return file ? sendFile(res, file) : sendText(res, 404, 'Not found');
     }
 
     return sendText(res, 404, 'Not found');

@@ -60,6 +60,13 @@
     item.addEventListener('click', () => {
       setMenu(false);
       fab.focus();
+      if (item.dataset.action) {
+        // Handled by the CRM module (/app/js/pages/dashboard.js).
+        document.dispatchEvent(
+          new CustomEvent('renvara:quick-create', { detail: { action: item.dataset.action } }),
+        );
+        return;
+      }
       showToast(`${item.dataset.label} · uskoro`);
     });
     item.addEventListener('keydown', (event) => {
@@ -102,9 +109,8 @@
   // ------------------------------------------- placeholder destinations ---
   const placeholders = [
     ['.metric', (el) => el.querySelector('.metric__label').textContent],
-    ['.module__link', (el) => el.textContent.trim()],
+    ['.module__link[href^="#"]', (el) => el.textContent.trim()],
     ['.event', (el) => el.querySelector('.event__title').textContent],
-    ['.stage', (el) => el.querySelector('.stage__label').textContent],
     ['.waiting', (el) => el.querySelector('.waiting__name').textContent],
     ['.bell', () => 'Obavijesti'],
   ];

@@ -231,6 +231,48 @@ describe('entry routes and session endpoint', () => {
   });
 });
 
+describe('demo CRM routes', () => {
+  it('protects every CRM page and asset', async () => {
+    for (const path of [
+      '/customers',
+      '/customers/abc-123',
+      '/opportunities',
+      '/calendar',
+      '/app/js/core/store.js',
+      '/app/css/pages.css',
+    ]) {
+      const response = await get(server.url, path);
+      expect(response.status, path).toBe(302);
+      expect(response.headers.get('location')).toBe('/login');
+    }
+  });
+
+  it('serves CRM pages and modules with a session', async () => {
+    const cookie = await signIn();
+    for (const path of [
+      '/customers',
+      '/customers/9b2f1c3e-0000-4000-8000-000000000001',
+      '/opportunities',
+      '/calendar',
+    ]) {
+      const response = await get(server.url, path, cookie);
+      expect(response.status, path).toBe(200);
+      expect(await response.text()).toContain('type="module"');
+    }
+    const module = await get(server.url, '/app/js/core/store.js', cookie);
+    expect(module.headers.get('content-type')).toContain('text/javascript');
+    expect((await get(server.url, '/customers/bad%2Fid', cookie)).status).toBe(404);
+    expect((await get(server.url, '/app/../src/app.ts', cookie)).status).toBe(404);
+  });
+
+  it('session endpoint includes the user id used as CRM owner', async () => {
+    const body = (await (await get(server.url, '/api/auth/session', await signIn())).json()) as {
+      user: { id: string };
+    };
+    expect(body.user.id).toBe('beta-fgregov');
+  });
+});
+
 describe('production cookies', () => {
   it('uses Secure and the __Host- prefix when NODE_ENV=production', async () => {
     await server.close();

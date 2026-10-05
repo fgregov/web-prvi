@@ -77,6 +77,27 @@ default credentials.
 - **Logging.** Events only (`login_failed`, `login_succeeded`, `logout`) with
   IP and time. Never bodies, passwords, tokens or cookies.
 
+## Demo CRM (customers, meetings, opportunities)
+
+After login, the dashboard's **+** button opens Quick Create. *Novi kupac* opens
+a right-side drawer (prefilled with TVRTKA 1 d.o.o while `DEMO_PREFILL` is
+`true` in `public/app/js/core/constants.js`). Saving redirects to
+`/customers/{uuid}`, where meetings, opportunities, tasks, notes, contacts and
+e-mails can be added.
+
+| Route | Page |
+|---|---|
+| `/customers` | Customer list (+ "Obriši demo podatke") |
+| `/customers/{id}` | Customer Detail View |
+| `/opportunities` | Opportunity Pipeline (dashboard totals + created opportunities) |
+| `/calendar` | Sales kalendar (today's demo events + scheduled meetings) |
+
+All CRM pages and `/app/*` assets require a session. Data is stored **in the
+browser's localStorage** (`renvara.crm.v1`), per browser and per device. Code
+lives in `public/app/js`: `core/` (store, validation, formatting),
+`ui/` (drawer, form, toast, shell), `features/` (one module per form and per
+profile section) and `pages/` (one entry module per page).
+
 ## Tests
 
 ```bash

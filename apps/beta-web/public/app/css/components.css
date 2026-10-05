@@ -1,0 +1,543 @@
+/* Renvara demo CRM · shared components (drawer, form, buttons, badges, toast).
+   Namespaced with rv- so it can load next to the approved dashboard without
+   changing it. Values mirror the dashboard tokens in prototypes/home/styles.css. */
+
+:root {
+  --rv-red: #e32222;
+  --rv-red-hover: #c91c1c;
+  --rv-red-text: #c81e1e;
+  --rv-red-soft: #fff1f1;
+  --rv-red-tint: #fff7f7;
+  --rv-green: #12ae55;
+  --rv-green-text: #0a8541;
+  --rv-green-soft: #eaf8ef;
+  --rv-ink: #111111;
+  --rv-text-2: #3b3f45;
+  --rv-muted: #737982;
+  --rv-border: #eceef1;
+  --rv-divider: #f0f1f3;
+  --rv-field-border: #d5d9e0;
+  --rv-field-bg: #f8f9fa;
+  --rv-surface-muted: #f6f7f8;
+  --rv-bg: #ffffff;
+  --rv-font:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', Arial, sans-serif;
+  --rv-radius: 16px;
+  --rv-radius-sm: 10px;
+  --rv-radius-field: 12px;
+  --rv-shadow-card: 0 1px 2px rgba(17, 17, 17, 0.04), 0 4px 14px rgba(17, 17, 17, 0.04);
+  --rv-shadow-drawer: -18px 0 48px rgba(17, 17, 17, 0.16);
+}
+
+html.rv-scroll-lock {
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------- icons --- */
+.rv-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rv-icon--sm {
+  width: 15px;
+  height: 15px;
+}
+
+/* ----------------------------------------------------------- buttons --- */
+.rv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--rv-radius-field);
+  font-family: var(--rv-font);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.rv-btn:active {
+  transform: scale(0.98);
+}
+
+.rv-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.rv-btn:focus-visible,
+.rv-icon-btn:focus-visible,
+.rv-link-btn:focus-visible {
+  outline: 2px solid var(--rv-red);
+  outline-offset: 2px;
+}
+
+.rv-btn .rv-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.rv-btn--primary {
+  background: var(--rv-red);
+  color: #ffffff;
+}
+
+.rv-btn--primary:hover {
+  background: var(--rv-red-hover);
+}
+
+.rv-btn--dark {
+  background: var(--rv-ink);
+  color: #ffffff;
+}
+
+.rv-btn--dark:hover {
+  background: #2a2c30;
+}
+
+.rv-btn--secondary {
+  background: var(--rv-bg);
+  border-color: var(--rv-field-border);
+  color: var(--rv-ink);
+}
+
+.rv-btn--secondary:hover {
+  border-color: #b9bec7;
+}
+
+.rv-btn--soft {
+  min-height: 38px;
+  padding: 0 12px;
+  background: var(--rv-surface-muted);
+  color: var(--rv-text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rv-btn--soft:hover {
+  background: #eceef1;
+}
+
+.rv-btn--ghost {
+  background: transparent;
+  color: var(--rv-muted);
+  font-weight: 600;
+}
+
+.rv-btn--sm {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.rv-btn--lg {
+  min-height: 50px;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-size: 15.5px;
+}
+
+.rv-icon-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--rv-text-2);
+  cursor: pointer;
+}
+
+.rv-icon-btn:hover {
+  background: var(--rv-surface-muted);
+}
+
+.rv-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--rv-red);
+  font-family: var(--rv-font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ badges --- */
+.rv-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: var(--rv-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rv-badge--green {
+  background: var(--rv-green-soft);
+  color: var(--rv-green-text);
+}
+
+.rv-badge--red {
+  background: var(--rv-red-soft);
+  color: var(--rv-red-text);
+}
+
+.rv-badge--neutral {
+  background: var(--rv-surface-muted);
+  color: var(--rv-text-2);
+}
+
+.rv-badge--inline {
+  margin-left: 8px;
+  min-height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+/* ------------------------------------------------------------ drawer --- */
+.rv-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  font-family: var(--rv-font);
+  color: var(--rv-ink);
+}
+
+.rv-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.34);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.rv-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(520px, 100vw);
+  height: 100%;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--rv-bg);
+  box-shadow: var(--rv-shadow-drawer);
+  transform: translateX(104%);
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.rv-drawer-root.is-open .rv-drawer-backdrop {
+  opacity: 1;
+}
+
+.rv-drawer-root.is-open .rv-drawer {
+  transform: none;
+}
+
+.rv-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px 14px 24px;
+  border-bottom: 1px solid var(--rv-divider);
+}
+
+.rv-drawer__heading {
+  min-width: 0;
+  padding-top: 6px;
+}
+
+.rv-drawer__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.rv-drawer__subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--rv-muted);
+}
+
+.rv-drawer__form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rv-drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 24px 28px;
+}
+
+.rv-drawer__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  border-top: 1px solid var(--rv-divider);
+  background: var(--rv-bg);
+}
+
+@media (max-width: 520px) {
+  .rv-drawer__body,
+  .rv-drawer__footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .rv-drawer__footer .rv-btn {
+    flex: 1 1 0;
+  }
+}
+
+/* -------------------------------------------------------------- form --- */
+.rv-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.rv-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rv-form__section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rv-muted);
+}
+
+.rv-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 12px;
+}
+
+@media (max-width: 480px) {
+  .rv-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rv-field--full {
+  grid-column: 1 / -1;
+}
+
+.rv-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rv-text-2);
+}
+
+.rv-field__req {
+  color: var(--rv-red);
+}
+
+.rv-input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--rv-field-border);
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-field-bg);
+  color: var(--rv-ink);
+  font-family: var(--rv-font);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+textarea.rv-input {
+  min-height: 92px;
+  padding: 10px 14px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+select.rv-input {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23737982' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+}
+
+.rv-input:focus {
+  outline: 2px solid var(--rv-red);
+  outline-offset: 1px;
+  background-color: var(--rv-bg);
+}
+
+.rv-input[readonly] {
+  background: var(--rv-surface-muted);
+  border-color: var(--rv-border);
+  color: var(--rv-text-2);
+  font-weight: 600;
+}
+
+.rv-field--invalid .rv-input {
+  border-color: var(--rv-red);
+  background-color: #fffafa;
+}
+
+.rv-field__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--rv-muted);
+}
+
+.rv-field__error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--rv-red-text);
+}
+
+.rv-field__error[hidden],
+.rv-field--invalid .rv-field__hint {
+  display: none;
+}
+
+.rv-segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-surface-muted);
+}
+
+.rv-segmented__option {
+  position: relative;
+  flex: 1 1 0;
+}
+
+.rv-segmented__option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.rv-segmented__option span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rv-muted);
+  transition: background-color 0.15s ease;
+}
+
+.rv-segmented__option input:checked + span {
+  background: var(--rv-bg);
+  color: var(--rv-ink);
+  box-shadow: 0 1px 3px rgba(17, 17, 17, 0.1);
+}
+
+.rv-segmented__option input:focus-visible + span {
+  outline: 2px solid var(--rv-red);
+  outline-offset: 1px;
+}
+
+.rv-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-red-tint);
+  color: var(--rv-text-2);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.rv-notice .rv-icon {
+  width: 17px;
+  height: 17px;
+  color: var(--rv-red);
+}
+
+/* ------------------------------------------------------------- toast --- */
+.rv-toast {
+  position: fixed;
+  z-index: 1100;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--rv-ink);
+  color: #ffffff;
+  font-family: var(--rv-font);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(17, 17, 17, 0.2);
+}
+
+.rv-toast[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-drawer,
+  .rv-drawer-backdrop,
+  .rv-btn {
+    transition: none;
+  }
+}
