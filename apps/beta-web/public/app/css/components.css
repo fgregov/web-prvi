@@ -514,6 +514,7 @@ select.rv-input {
 
 /* ------------------------------------------------------------- toast --- */
 .rv-toast {
+  width: max-content;
   position: fixed;
   z-index: 1100;
   left: 50%;

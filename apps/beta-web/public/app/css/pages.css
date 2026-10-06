@@ -975,4 +975,49 @@ a.rv-agenda__row:hover {
   .rv-profile-header__name {
     font-size: 24px;
   }
+
+  /* Profile header on phones: compact identity, actions as an even grid. */
+  .rv-profile-header {
+    gap: 18px;
+    padding: 18px 16px;
+  }
+
+  .rv-profile-header__identity {
+    flex-basis: 100%;
+    gap: 14px;
+  }
+
+  .rv-company-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+    font-size: 18px;
+  }
+
+  .rv-profile-header__meta {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .rv-profile-actions__primary,
+  .rv-profile-actions__secondary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .rv-profile-actions__primary .rv-btn:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .rv-profile-actions .rv-btn {
+    width: 100%;
+    min-width: 0;
+    padding: 0 10px;
+    font-size: 14.5px;
+  }
+
+  .rv-profile-actions .rv-btn--soft {
+    font-size: 13.5px;
+  }
 }
