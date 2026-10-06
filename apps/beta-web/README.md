@@ -165,6 +165,19 @@ Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan.
 | `RENVARA_ORG_TIMEZONE` | `Europe/Zagreb`  | Interprets dates ("today", date-only entries) |
 | `RENVARA_DATA_FILE`    | `.data/crm.json` | BETA data file                                |
 
+## Static demo
+
+```bash
+pnpm --filter @renvara/beta-web demo:build   # → apps/beta-web/dist/demo
+```
+
+Builds a clickable demo that needs no server: the same pages and the same CRM
+services, with the API answered in the browser (`demo/runtime.js`) and data kept
+in the browser's localStorage. Any username and password sign in. Demo data is
+re-seeded once a day. Nothing in the app's sources changes: the build redirects
+`window.location`/`history` to an in-page router and fails if it finds any it
+does not handle.
+
 ## Tests
 
 ```bash

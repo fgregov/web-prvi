@@ -1,0 +1,39 @@
+<title>Renvara Demo</title>
+<meta name="theme-color" content="#ffffff" />
+<style>
+  /* Renvara demo shell. The app is light-only by design (see prototypes/home). */
+  :root {
+    color-scheme: light;
+    --rv-demo-bg: #ffffff;
+    --rv-demo-muted: #737982;
+    --rv-demo-note-bg: #fff1f1;
+    --rv-demo-note-ink: #c81e1e;
+  }
+  body {
+    background: var(--rv-demo-bg);
+  }
+  #rv-root:empty::before {
+    content: 'Učitavanje Renvare…';
+    display: block;
+    padding: 48px 16px;
+    color: var(--rv-demo-muted);
+    font:
+      15px -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Arial,
+      sans-serif;
+    text-align: center;
+  }
+  .intro .demo-note {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--rv-demo-note-bg);
+    color: var(--rv-demo-note-ink);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+</style>
+<div id="rv-root"></div>
+<script type="module" src="demo/runtime.js"></script>

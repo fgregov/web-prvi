@@ -5,7 +5,7 @@ import { ConfigError, loadAuthConfig } from './auth/config.ts';
 import { createAuthService } from './auth/service.ts';
 import { loadCrmConfig } from './crm/config.ts';
 import { createCrmServices } from './crm/index.ts';
-import { createFileRepository } from './crm/repository.ts';
+import { createFileRepository } from './crm/file-repository.ts';
 import { seedDemoData } from './crm/seed.ts';
 
 let config;

@@ -8,7 +8,8 @@
     "start": "node --env-file-if-exists=.env src/server.ts",
     "dev": "node --env-file-if-exists=.env --watch src/server.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo:build": "node demo/build.ts"
   },
   "engines": {
     "node": ">=22.18"
