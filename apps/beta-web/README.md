@@ -79,15 +79,19 @@ default credentials.
 
 ## Demo CRM (customers, meetings, opportunities)
 
-After login, the dashboard's **+** button opens Quick Create. *Novi kupac* opens
-a right-side drawer (prefilled with TVRTKA 1 d.o.o while `DEMO_PREFILL` is
-`true` in `public/app/js/core/constants.js`). Saving redirects to
-`/customers/{uuid}`, where meetings, opportunities, tasks, notes, contacts and
-e-mails can be added.
+After login, the dashboard's **+** button opens Quick Add. *Novi kupac*
+navigates (same tab) to the dedicated **New Customer screen** at
+`/customers/new`: a mobile task screen with its own header and back button, no
+bottom navigation, one-column form, unsaved-change confirmation and
+`Spremi kupca` / `Otkaži`. While `DEMO_PREFILL` is `true` in
+`public/app/js/core/constants.js` the form starts with TVRTKA 1 d.o.o. Saving
+redirects to `/customers/{uuid}`, where meetings, opportunities, tasks, notes,
+contacts and e-mails can be added.
 
 | Route | Page |
 |---|---|
 | `/customers` | Customer list (+ "Obriši demo podatke") |
+| `/customers/new` | New Customer screen |
 | `/customers/{id}` | Customer Detail View |
 | `/opportunities` | Opportunity Pipeline (dashboard totals + created opportunities) |
 | `/calendar` | Sales kalendar (today's demo events + scheduled meetings) |

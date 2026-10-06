@@ -28,6 +28,8 @@ export function validateCustomer(input, { existing = [], currentId = null } = {}
   if (postal && !/^\d{5}$/.test(postal)) errors.postalCode = 'Poštanski broj ima 5 znamenki.';
   if (text(input.email) && !EMAIL.test(text(input.email)))
     errors.email = 'Neispravna e-mail adresa.';
+  if (text(input.contactEmail) && !EMAIL.test(text(input.contactEmail)))
+    errors.contactEmail = 'Neispravna e-mail adresa.';
   return errors;
 }
 

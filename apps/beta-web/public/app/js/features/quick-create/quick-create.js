@@ -2,7 +2,6 @@
 import { crm } from '../../core/crm.js';
 import { setFlash, showToast } from '../../ui/toast.js';
 import { openContactForm } from '../contacts/contact-form.js';
-import { openCustomerForm } from '../customers/customer-form.js';
 import { openMeetingForm } from '../meetings/meeting-form.js';
 import { openNoteForm } from '../notes/note-form.js';
 import { openOpportunityForm } from '../opportunities/opportunity-form.js';
@@ -20,11 +19,8 @@ const needsCustomer = () => {
 };
 
 const ACTIONS = {
-  customer: () =>
-    openCustomerForm({
-      onSaved: (customer) =>
-        goToCustomer(customer.id, `${customer.companyName} uspješno kreirana.`),
-    }),
+  // Dedicated route-level screen (navigation push), not a drawer over the dashboard.
+  customer: () => window.location.assign('/customers/new'),
   opportunity: () =>
     needsCustomer() ||
     openOpportunityForm({

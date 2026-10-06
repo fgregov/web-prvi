@@ -56,6 +56,31 @@ describe('createCustomer', () => {
     });
   });
 
+  it("stores company e-mail/phone and the contact person's function, e-mail and phone", () => {
+    const { store } = setup();
+    const { id } = store.createCustomer(
+      {
+        ...DEMO_CUSTOMER,
+        email: 'info@tvrtka1.hr',
+        phone: '+385 51 000 000',
+        contactRole: 'Direktor',
+        contactEmail: 'alen@tvrtka1.hr',
+        contactPhone: '+385 91 000 000',
+      },
+      actor,
+    );
+    const profile = store.getProfile(id)!;
+    expect(profile).toMatchObject({ email: 'info@tvrtka1.hr', phone: '+385 51 000 000' });
+    expect(profile.primaryContact).toMatchObject({
+      role: 'Direktor',
+      email: 'alen@tvrtka1.hr',
+      phone: '+385 91 000 000',
+    });
+    expect(() =>
+      store.createCustomer({ ...DEMO_CUSTOMER, oib: '1', contactEmail: 'nije-email' }, actor),
+    ).toThrow(ValidationError);
+  });
+
   it('persists across store instances (page navigation / reload)', () => {
     const { store, options } = setup();
     const { id } = store.createCustomer({ ...DEMO_CUSTOMER }, actor);

@@ -6,6 +6,7 @@ const ICONS = {
   x: [['path', 'M18 6 6 18M6 6l12 12']],
   'arrow-left': [['path', 'm12 19-7-7 7-7M19 12H5']],
   'chevron-right': [['path', 'm9 18 6-6-6-6']],
+  'chevron-left': [['path', 'm15 18-6-6 6-6']],
   calendar: [
     ['rect', { x: 3, y: 4, width: 18, height: 18, rx: 2 }],
     ['path', 'M16 2v4M8 2v4M3 10h18'],

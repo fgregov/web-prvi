@@ -235,6 +235,7 @@ describe('demo CRM routes', () => {
   it('protects every CRM page and asset', async () => {
     for (const path of [
       '/customers',
+      '/customers/new',
       '/customers/abc-123',
       '/opportunities',
       '/calendar',
@@ -263,6 +264,15 @@ describe('demo CRM routes', () => {
     expect(module.headers.get('content-type')).toContain('text/javascript');
     expect((await get(server.url, '/customers/bad%2Fid', cookie)).status).toBe(404);
     expect((await get(server.url, '/app/../src/app.ts', cookie)).status).toBe(404);
+  });
+
+  it('serves the dedicated New Customer screen at /customers/new (not the profile page)', async () => {
+    const response = await get(server.url, '/customers/new', await signIn());
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('/app/js/pages/customer-new.js');
+    expect(html).not.toContain('/app/js/pages/customer.js');
+    expect(response.headers.get('cache-control')).toContain('no-store');
   });
 
   it('session endpoint includes the user id used as CRM owner', async () => {

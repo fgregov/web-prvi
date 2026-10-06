@@ -198,6 +198,8 @@ export function createCrmStore({
         address: clean(input.address),
         postalCode: clean(input.postalCode),
         city: clean(input.city),
+        email: clean(input.email),
+        phone: clean(input.phone),
         website: clean(input.website),
         status: input.status === 'inactive' ? 'inactive' : 'active',
         type: input.type === 'prospect' ? 'prospect' : 'customer',
@@ -213,9 +215,9 @@ export function createCrmStore({
         id: contactId,
         customerId: id,
         ...splitName(input.contactName),
-        role: 'Odgovorna osoba',
-        phone: clean(input.phone),
-        email: clean(input.email),
+        role: clean(input.contactRole) || 'Odgovorna osoba',
+        phone: clean(input.contactPhone),
+        email: clean(input.contactEmail),
         isPrimary: true,
         createdAt,
       });
@@ -235,6 +237,8 @@ export function createCrmStore({
         address: clean(input.address),
         postalCode: clean(input.postalCode),
         city: clean(input.city),
+        email: clean(input.email),
+        phone: clean(input.phone),
         website: clean(input.website),
         status: input.status === 'inactive' ? 'inactive' : 'active',
         type: input.type === 'prospect' ? 'prospect' : 'customer',
@@ -243,8 +247,9 @@ export function createCrmStore({
       const primary = data.contacts.find((c) => c.id === customer.primaryContactId);
       if (primary) {
         Object.assign(primary, splitName(input.contactName), {
-          phone: clean(input.phone),
-          email: clean(input.email),
+          role: clean(input.contactRole) || 'Odgovorna osoba',
+          phone: clean(input.contactPhone),
+          email: clean(input.contactEmail),
         });
       }
       touch(customer);

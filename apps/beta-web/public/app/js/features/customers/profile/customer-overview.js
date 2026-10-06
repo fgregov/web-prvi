@@ -31,6 +31,8 @@ export function customerOverview(profile) {
         row('OIB', profile.oib),
         row('Status', labelOf(CUSTOMER_STATUSES, profile.status)),
         row('Tip', labelOf(CUSTOMER_TYPES, profile.type)),
+        row('E-mail', profile.email),
+        row('Telefon', profile.phone),
         row('Web stranica', profile.website),
         row('Prodajni predstavnik', profile.ownerName),
         row('Kreirano', formatDateTime(profile.createdAt)),

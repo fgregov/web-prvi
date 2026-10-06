@@ -7,11 +7,11 @@ import { icon } from './icons.js';
  *   { name, label, type: 'text'|'email'|'tel'|'url'|'number'|'date'|'time'|'select'|'textarea'|'readonly'|'segmented',
  *     value, required, placeholder, options: [{value,label}], full, hint, inputmode, autocomplete, min, max, step, rows }
  */
-export function createForm(sections, { notice } = {}) {
+export function createForm(sections, { notice, single = false } = {}) {
   const controls = new Map(); // name → { field, control, error, def }
   const element = h(
     'div',
-    { class: 'rv-form' },
+    { class: single ? 'rv-form rv-form--single' : 'rv-form' },
     notice ? h('p', { class: 'rv-notice' }, icon('info'), h('span', {}, notice)) : null,
     sections.map((section) =>
       h(

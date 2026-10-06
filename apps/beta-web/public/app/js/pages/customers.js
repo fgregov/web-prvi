@@ -3,8 +3,6 @@ import { CUSTOMER_STATUSES, labelOf } from '../core/constants.js';
 import { crm } from '../core/crm.js';
 import { formatDateTime } from '../core/format.js';
 import { contactName } from '../core/store.js';
-import { goToCustomer } from '../features/quick-create/quick-create.js';
-import { openCustomerForm } from '../features/customers/customer-form.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { renderShell } from '../ui/shell.js';
@@ -14,8 +12,8 @@ renderShell('customers');
 const root = document.getElementById('app');
 let confirmReset = false;
 
-const createCustomer = () =>
-  openCustomerForm({ onSaved: (c) => goToCustomer(c.id, `${c.companyName} uspješno kreirana.`) });
+const newCustomerLink = () =>
+  h('a', { class: 'rv-btn rv-btn--primary', href: '/customers/new' }, icon('plus'), 'Novi kupac');
 
 function render() {
   const customers = crm.listCustomers();
@@ -52,12 +50,7 @@ function render() {
         'div',
         { class: 'rv-page-head__actions' },
         customers.length ? resetButton : null,
-        h(
-          'button',
-          { type: 'button', class: 'rv-btn rv-btn--primary', onClick: createCustomer },
-          icon('plus'),
-          'Novi kupac',
-        ),
+        newCustomerLink(),
       ),
     ),
     customers.length
@@ -104,11 +97,7 @@ function render() {
           'div',
           { class: 'rv-card rv-empty rv-empty--page' },
           h('p', {}, 'Još nema kupaca.'),
-          h(
-            'button',
-            { type: 'button', class: 'rv-btn rv-btn--primary', onClick: createCustomer },
-            'Novi kupac',
-          ),
+          newCustomerLink(),
         ),
   );
 }

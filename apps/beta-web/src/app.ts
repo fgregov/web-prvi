@@ -43,6 +43,7 @@ export const defaultPaths: AppPaths = {
 /** Protected CRM pages → HTML shell in public/app/pages. */
 const CRM_PAGES: Record<string, string> = {
   '/customers': 'customers.html',
+  '/customers/new': 'customer-new.html', // must win over the /customers/{id} pattern
   '/opportunities': 'opportunities.html',
   '/calendar': 'calendar.html',
 };
