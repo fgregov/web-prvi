@@ -15,6 +15,11 @@ import {
   sendText,
 } from './http/respond.ts';
 import { resolveStaticFile, sendFile } from './http/static.ts';
+import { createCrmServices, type CrmServices } from './crm/index.ts';
+import { createMemoryRepository } from './crm/repository.ts';
+import { createCrmRoutes } from './crm/routes.ts';
+import { seedDemoData } from './crm/seed.ts';
+import type { CrmContext } from './crm/types.ts';
 import { MESSAGES } from './messages.ts';
 
 export interface AppPaths {
@@ -40,14 +45,30 @@ export const defaultPaths: AppPaths = {
   appDir: resolve(APP_DIR, 'public/app'),
 };
 
-/** Protected CRM pages → HTML shell in public/app/pages. */
+/** Protected CRM pages → HTML shell in public/app/pages. Exact paths win over the patterns. */
 const CRM_PAGES: Record<string, string> = {
   '/customers': 'customers.html',
-  '/customers/new': 'customer-new.html', // must win over the /customers/{id} pattern
+  '/customers/new': 'customer-new.html',
+  '/contacts/new': 'contact-new.html',
   '/opportunities': 'opportunities.html',
+  '/opportunities/new': 'opportunity-new.html',
+  '/tasks': 'tasks.html',
+  '/tasks/new': 'task-form.html',
   '/calendar': 'calendar.html',
 };
-const CUSTOMER_PAGE = /^\/customers\/[A-Za-z0-9_-]{1,64}$/;
+const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
+  [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer.html'],
+  [/^\/tasks\/[A-Za-z0-9_-]{1,64}$/, 'task.html'],
+  [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form.html'],
+];
+
+export interface CrmOptions {
+  readonly services: CrmServices;
+  /** BETA: the single organization of the BETA account. */
+  readonly organizationId: string;
+  readonly timeZone: string;
+  readonly now?: () => Date;
+}
 
 /** Structured logs. Never pass request bodies, passwords, tokens or cookies here. */
 export const consoleLogger: Logger = {
@@ -92,10 +113,13 @@ export function parseCredentials(body: unknown): Credentials {
 
 export function createApp(
   auth: AuthService,
-  options: { paths?: AppPaths; logger?: Logger } = {},
+  options: { paths?: AppPaths; logger?: Logger; crm?: CrmOptions } = {},
 ): RequestListener {
   const paths = options.paths ?? defaultPaths;
   const logger = options.logger ?? consoleLogger;
+  const crm = options.crm ?? inMemoryCrm();
+  const crmRoutes = createCrmRoutes(crm.services);
+  const now = crm.now ?? (() => new Date());
   const logoFile = resolve(paths.dashboardDir, 'assets/renvara-logo.png');
 
   const sessionToken = (req: IncomingMessage) =>
@@ -119,6 +143,18 @@ export function createApp(
   function currentSession(req: IncomingMessage): AuthSession | null {
     const check = auth.checkSession(sessionToken(req));
     return check.status === 'valid' ? check.session : null;
+  }
+
+  /** Server-side CRM context: who, in which organization, at what time. Null without a session. */
+  function crmContext(req: IncomingMessage): CrmContext | null {
+    const session = currentSession(req);
+    if (!session) return null;
+    return {
+      organizationId: crm.organizationId,
+      user: { id: session.user.id, displayName: session.user.displayName },
+      timeZone: crm.timeZone,
+      now: now(),
+    };
   }
 
   async function handleLogin(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -219,6 +255,7 @@ export function createApp(
 
     // ---- API -------------------------------------------------------------
     if (path.startsWith('/api/')) {
+      if (await crmRoutes.handle(req, res, path, url.searchParams, () => crmContext(req))) return;
       const routes: Record<string, { method: string; handler: () => void | Promise<void> }> = {
         '/api/auth/login': { method: 'POST', handler: () => handleLogin(req, res) },
         '/api/auth/logout': { method: 'POST', handler: () => handleLogout(req, res) },
@@ -260,7 +297,8 @@ export function createApp(
     }
 
     // ---- Demo CRM (protected) -------------------------------------------
-    const crmPage = CRM_PAGES[path] ?? (CUSTOMER_PAGE.test(path) ? 'customer.html' : null);
+    const crmPage =
+      CRM_PAGES[path] ?? CRM_PAGE_PATTERNS.find(([pattern]) => pattern.test(path))?.[1] ?? null;
     if (crmPage) {
       if (!requireAuth(req, res)) return;
       noStore(res);
@@ -289,5 +327,22 @@ export function createApp(
       }
       return sendText(res, 500, MESSAGES.serverError);
     });
+  };
+}
+
+/** Seeded in-memory CRM (tests, or an app created without persistent storage). */
+function inMemoryCrm(): CrmOptions {
+  const organizationId = 'org-beta';
+  const timeZone = 'Europe/Zagreb';
+  const data = seedDemoData({
+    organizationId,
+    timeZone,
+    user: { id: 'beta-user', displayName: 'Demo' },
+    now: new Date(),
+  });
+  return {
+    services: createCrmServices(createMemoryRepository(data)),
+    organizationId,
+    timeZone,
   };
 }

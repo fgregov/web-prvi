@@ -13,6 +13,9 @@
   "engines": {
     "node": ">=22.18"
   },
+  "dependencies": {
+    "@renvara/domain": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.18.0",
     "typescript": "7.0.2",

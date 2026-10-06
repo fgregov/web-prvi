@@ -7,3 +7,6 @@ coverage/
 !.env.example
 .DS_Store
 .vs/
+
+# BETA CRM data (apps/beta-web, RENVARA_DATA_FILE)
+.data/

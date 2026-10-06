@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calendarDateInZone, isCalendarDate, startOfDayInZone } from './zoned';
+import { calendarDateInZone, isCalendarDate, startOfDayInZone } from './zoned.ts';
 
 describe('calendarDateInZone', () => {
   it('returns the local calendar day of an instant', () => {

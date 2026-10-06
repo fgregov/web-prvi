@@ -5,4 +5,6 @@ export const MESSAGES = {
   badRequest: 'Neispravan zahtjev.',
   tooManyAttempts: 'Previše neuspjelih pokušaja. Pokušajte ponovno za minutu.',
   serverError: 'Došlo je do pogreške. Pokušajte ponovno.',
+  sessionRequired: 'Sesija je istekla. Prijavite se ponovno.',
+  invalidInput: 'Provjerite označena polja.',
 } as const;

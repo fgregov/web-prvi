@@ -238,8 +238,14 @@ describe('demo CRM routes', () => {
       '/customers/new',
       '/customers/abc-123',
       '/opportunities',
+      '/opportunities/new',
+      '/contacts/new',
+      '/tasks',
+      '/tasks/new',
+      '/tasks/abc-123',
+      '/tasks/abc-123/edit',
       '/calendar',
-      '/app/js/core/store.js',
+      '/app/js/core/api.js',
       '/app/css/pages.css',
     ]) {
       const response = await get(server.url, path);
@@ -260,7 +266,19 @@ describe('demo CRM routes', () => {
       expect(response.status, path).toBe(200);
       expect(await response.text()).toContain('type="module"');
     }
-    const module = await get(server.url, '/app/js/core/store.js', cookie);
+    for (const [path, script] of [
+      ['/tasks', 'tasks.js'],
+      ['/tasks/new', 'task-form.js'],
+      ['/tasks/abc-123', 'task.js'],
+      ['/tasks/abc-123/edit', 'task-form.js'],
+      ['/contacts/new', 'contact-new.js'],
+      ['/opportunities/new', 'opportunity-new.js'],
+    ] as const) {
+      const response = await get(server.url, path, cookie);
+      expect(response.status, path).toBe(200);
+      expect(await response.text(), path).toContain(`/app/js/pages/${script}"`);
+    }
+    const module = await get(server.url, '/app/js/core/api.js', cookie);
     expect(module.headers.get('content-type')).toContain('text/javascript');
     expect((await get(server.url, '/customers/bad%2Fid', cookie)).status).toBe(404);
     expect((await get(server.url, '/app/../src/app.ts', cookie)).status).toBe(404);

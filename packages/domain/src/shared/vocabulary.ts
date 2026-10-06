@@ -52,11 +52,14 @@ export const ACTIVITY_SOURCES = [
 ] as const;
 export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];
 
+/** Ordered as in the DB enum. `follow_up` is a plain type (no follow-up engine yet). */
 export const TASK_TYPES = [
+  'general',
   'call',
   'email',
   'meeting',
   'follow_up',
+  'send_offer',
   'send_document',
   'other',
 ] as const;

@@ -1,5 +1,5 @@
-import type { OpportunityStatus, TaskStatus, TaskType } from '../shared/vocabulary';
-import { dueSortKey, dueState, type DueState, type TaskDue } from '../task/due';
+import type { OpportunityStatus, TaskStatus, TaskType } from '../shared/vocabulary.ts';
+import { dueSortKey, dueState, type DueState, type TaskDue } from '../task/due.ts';
 
 /**
  * Core RENVARA rule: "No active sales opportunity should exist without a known

@@ -122,9 +122,9 @@ describe('session tokens', () => {
       }),
     ).toString('base64url');
     expect(verifySessionToken(`${forged}.${signature}`, SECRET, now).status).toBe('invalid');
-    expect(verifySessionToken(`${body}.${signature.slice(0, -2)}AA`, SECRET, now).status).toBe(
-      'invalid',
-    );
+    // Change the first character: all of its bits are signature bits (the last one has padding bits).
+    const tampered = `${signature.startsWith('A') ? 'B' : 'A'}${signature.slice(1)}`;
+    expect(verifySessionToken(`${body}.${tampered}`, SECRET, now).status).toBe('invalid');
     expect(verifySessionToken(token, `${SECRET}x`, now).status).toBe('invalid');
     expect(verifySessionToken('not-a-token', SECRET, now).status).toBe('invalid');
     expect(verifySessionToken(undefined, SECRET, now).status).toBe('invalid');

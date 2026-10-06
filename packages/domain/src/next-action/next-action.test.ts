@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { taskDueFromColumns } from '../task/due';
-import { attentionReasons, selectNextAction, type NextActionCandidate } from './next-action';
+import { taskDueFromColumns } from '../task/due.ts';
+import { attentionReasons, selectNextAction, type NextActionCandidate } from './next-action.ts';
 
 const ZAGREB = 'Europe/Zagreb';
 const created = (iso: string) => new Date(iso);

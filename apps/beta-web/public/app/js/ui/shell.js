@@ -7,6 +7,7 @@ import { icon } from './icons.js';
 const NAV = [
   { href: '/customers', label: 'Kupci', key: 'customers' },
   { href: '/opportunities', label: 'Prilike', key: 'opportunities' },
+  { href: '/tasks', label: 'Zadaci', key: 'tasks' },
   { href: '/calendar', label: 'Kalendar', key: 'calendar' },
 ];
 

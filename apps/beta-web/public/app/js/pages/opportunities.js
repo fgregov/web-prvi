@@ -1,15 +1,22 @@
-// /opportunities · Opportunity Pipeline (same totals as the dashboard card)
-import { crm } from '../core/crm.js';
+// /opportunities · Opportunity Pipeline (same totals as the dashboard card) with next actions.
+import { api, onDataChanged } from '../core/api.js';
 import { formatDay, formatMoney } from '../core/format.js';
+import { nextActionLine } from '../features/customers/profile/customer-opportunities.js';
 import { h } from '../ui/dom.js';
+import { icon } from '../ui/icons.js';
+import { withParams } from '../ui/navigation.js';
 import { renderShell } from '../ui/shell.js';
+import { consumeFlash } from '../ui/toast.js';
 
 renderShell('opportunities');
 const root = document.getElementById('app');
 
-function render() {
-  const opportunities = crm.listOpportunities().filter((o) => o.status === 'open');
-  const totals = crm.pipelineTotals();
+async function load() {
+  const [opportunities, totals] = await Promise.all([
+    api.listOpportunities({ status: 'active' }),
+    api.pipeline(),
+  ]);
+  const missing = opportunities.filter((o) => o.needsNextAction).length;
   root.replaceChildren(
     h(
       'div',
@@ -21,8 +28,15 @@ function render() {
         h(
           'p',
           { class: 'rv-muted' },
-          `${totals.reduce((s, t) => s + t.total, 0)} otvorenih prilika`,
+          `${totals.reduce((s, t) => s + t.total, 0)} otvorenih prilika` +
+            (missing ? ` · ${missing} bez sljedeće akcije` : ''),
         ),
+      ),
+      h(
+        'a',
+        { class: 'rv-btn rv-btn--primary', href: '/opportunities/new?returnTo=/opportunities' },
+        icon('plus'),
+        'Nova prilika',
       ),
     ),
     h(
@@ -30,7 +44,7 @@ function render() {
       { class: 'rv-board' },
       totals.map((stage) => {
         const items = opportunities.filter((o) => o.stage === stage.value);
-        const demo = stage.total - items.length;
+        const demo = stage.total - stage.created;
         return h(
           'section',
           { class: 'rv-board__col', 'aria-label': stage.label },
@@ -42,23 +56,34 @@ function render() {
           ),
           items.map((o) =>
             h(
-              'a',
-              {
-                class: 'rv-card rv-board__card',
-                href: `/customers/${encodeURIComponent(o.customerId)}`,
-              },
-              h('strong', {}, o.title),
-              h('span', { class: 'rv-board__customer' }, o.customerName),
+              'div',
+              { class: 'rv-card rv-board__card' },
               h(
-                'span',
-                { class: 'rv-board__meta' },
-                [
-                  formatMoney(o.value),
-                  o.probability !== null ? `${o.probability} %` : null,
-                  o.expectedCloseDate ? formatDay(o.expectedCloseDate) : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · '),
+                'a',
+                {
+                  class: 'rv-board__link',
+                  href: `/customers/${encodeURIComponent(o.companyId)}#prilike`,
+                },
+                h('strong', {}, o.title),
+                h('span', { class: 'rv-board__customer' }, o.customerName),
+                h(
+                  'span',
+                  { class: 'rv-board__meta' },
+                  [
+                    formatMoney(o.value, o.currency),
+                    o.expectedCloseDate ? formatDay(o.expectedCloseDate) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
+                ),
+              ),
+              nextActionLine(
+                o,
+                withParams('/tasks/new', {
+                  opportunityId: o.id,
+                  type: 'follow_up',
+                  returnTo: '/opportunities',
+                }),
               ),
             ),
           ),
@@ -69,5 +94,6 @@ function render() {
   );
 }
 
-crm.subscribe(render);
-render();
+onDataChanged(load);
+await load();
+consumeFlash();

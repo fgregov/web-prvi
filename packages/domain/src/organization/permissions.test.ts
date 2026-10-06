@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { can, PERMISSIONS } from './permissions';
+import { can, PERMISSIONS } from './permissions.ts';
 
 describe('can', () => {
   it('gives owners every permission', () => {

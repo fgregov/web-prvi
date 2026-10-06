@@ -147,3 +147,48 @@ body {
     animation: none;
   }
 }
+
+.rv-screen__loading {
+  color: var(--rv-muted);
+}
+
+/* Time pickers side by side on the task screen. */
+.rv-screen .rv-form__grid:has(> [data-field='startTime']) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rv-screen .rv-form__grid:has(> [data-field='startTime']) > :not([data-field$='Time']) {
+  grid-column: 1 / -1;
+}
+
+/* Task detail */
+.rv-task-detail {
+  padding: 18px 18px 8px;
+}
+
+.rv-task-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rv-task-detail__title {
+  margin: 12px 0 8px;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.rv-task-detail .rv-dl a {
+  color: var(--rv-red-text);
+  font-weight: 600;
+}
+
+.rv-screen__actions--stack {
+  flex-direction: column;
+}
+
+.rv-screen__actions--stack .rv-btn {
+  width: 100%;
+}

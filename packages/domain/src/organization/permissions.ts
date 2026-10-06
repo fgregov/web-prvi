@@ -1,4 +1,4 @@
-import type { MemberRole } from '../shared/vocabulary';
+import type { MemberRole } from '../shared/vocabulary.ts';
 
 /**
  * Phase 1 permission model: coarse roles mapped to named permissions.

@@ -5,7 +5,7 @@ import {
   markWon,
   reopen,
   type OpportunityLifecycleState,
-} from './opportunity';
+} from './opportunity.ts';
 
 const active: OpportunityLifecycleState = {
   stage: 'proposal',

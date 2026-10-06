@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dueSortKey, dueState, taskDueFromColumns } from './due';
+import { dueSortKey, dueState, effectiveDueFromColumns, taskDueFromColumns } from './due.ts';
 
 const ZAGREB = 'Europe/Zagreb';
 
@@ -12,6 +12,21 @@ describe('taskDueFromColumns', () => {
       at: new Date('2026-10-09T12:00:00Z'),
     });
     expect(() => taskDueFromColumns('2026-10-09', '2026-10-09T12:00:00Z')).toThrow(RangeError);
+  });
+});
+
+describe('effectiveDueFromColumns', () => {
+  it('uses the deadline, else the calendar slot', () => {
+    const slot = '2026-10-09T09:00:00Z';
+    expect(effectiveDueFromColumns('2026-10-10', null, slot)).toEqual({
+      kind: 'date',
+      date: '2026-10-10',
+    });
+    expect(effectiveDueFromColumns(null, null, slot)).toEqual({
+      kind: 'instant',
+      at: new Date(slot),
+    });
+    expect(effectiveDueFromColumns(null, null, null)).toEqual({ kind: 'none' });
   });
 });
 

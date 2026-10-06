@@ -1,9 +1,9 @@
-import { err, ok, type Result } from '../shared/result';
+import { err, ok, type Result } from '../shared/result.ts';
 import {
   OPPORTUNITY_STAGES,
   type OpportunityStage,
   type OpportunityStatus,
-} from '../shared/vocabulary';
+} from '../shared/vocabulary.ts';
 
 /**
  * Opportunity lifecycle.

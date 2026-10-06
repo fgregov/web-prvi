@@ -1,4 +1,4 @@
-# Renvara BETA web: authentication backtest
+# Renvara BETA web
 
 A small Node.js server that puts real, server-side authentication in front of
 the approved Renvara screens:
@@ -28,27 +28,27 @@ Open http://localhost:3000. The server refuses to start, and names the
 missing variable, when configuration is incomplete. It never falls back to
 default credentials.
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `RENVARA_BETA_USERNAME` | yes | The one authorised username (case-sensitive) |
-| `RENVARA_BETA_PASSWORD` | yes | Its password (case-sensitive, never trimmed) |
-| `RENVARA_SESSION_SECRET` | yes | HMAC key for session cookies, 32+ characters |
-| `RENVARA_BETA_DISPLAY_NAME` | no | Name shown in the dashboard account menu |
-| `RENVARA_COOKIE_SECURE` | no | `true`/`false`. Defaults to `true` when `NODE_ENV=production` |
-| `HOST`, `PORT` | no | Listen address. Defaults to `127.0.0.1:3000` |
+| Variable                    | Required | Purpose                                                       |
+| --------------------------- | -------- | ------------------------------------------------------------- |
+| `RENVARA_BETA_USERNAME`     | yes      | The one authorised username (case-sensitive)                  |
+| `RENVARA_BETA_PASSWORD`     | yes      | Its password (case-sensitive, never trimmed)                  |
+| `RENVARA_SESSION_SECRET`    | yes      | HMAC key for session cookies, 32+ characters                  |
+| `RENVARA_BETA_DISPLAY_NAME` | no       | Name shown in the dashboard account menu                      |
+| `RENVARA_COOKIE_SECURE`     | no       | `true`/`false`. Defaults to `true` when `NODE_ENV=production` |
+| `HOST`, `PORT`              | no       | Listen address. Defaults to `127.0.0.1:3000`                  |
 
 `.env` files are git-ignored. Only `.env.example` (no values) is committed.
 
 ## Routes
 
-| Route | Access | Behaviour |
-|---|---|---|
-| `GET /` | public | Redirects to `/dashboard` with a valid session, otherwise to `/login` |
-| `GET /login` | public | The sign-in page. Redirects to `/dashboard` when already signed in |
-| `POST /api/auth/login` | public | JSON `{username, password}` → `200 {success, redirectTo}` · `400` · `401` · `415` · `429` |
-| `POST /api/auth/logout` | public | Revokes the session, clears the cookie → `200 {success, redirectTo: "/login"}` |
-| `GET /api/auth/session` | public | `{authenticated, user?}`. Identity only |
-| `GET /dashboard`, `/dashboard/*` | **session** | The approved dashboard (`prototypes/home`), served unchanged |
+| Route                            | Access      | Behaviour                                                                                 |
+| -------------------------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `GET /`                          | public      | Redirects to `/dashboard` with a valid session, otherwise to `/login`                     |
+| `GET /login`                     | public      | The sign-in page. Redirects to `/dashboard` when already signed in                        |
+| `POST /api/auth/login`           | public      | JSON `{username, password}` → `200 {success, redirectTo}` · `400` · `401` · `415` · `429` |
+| `POST /api/auth/logout`          | public      | Revokes the session, clears the cookie → `200 {success, redirectTo: "/login"}`            |
+| `GET /api/auth/session`          | public      | `{authenticated, user?}`. Identity only                                                   |
+| `GET /dashboard`, `/dashboard/*` | **session** | The approved dashboard (`prototypes/home`), served unchanged                              |
 
 ## How it works
 
@@ -77,30 +77,93 @@ default credentials.
 - **Logging.** Events only (`login_failed`, `login_succeeded`, `logout`) with
   IP and time. Never bodies, passwords, tokens or cookies.
 
-## Demo CRM (customers, meetings, opportunities)
+## CRM: customers, contacts, opportunities, tasks, Sales Calendar
 
-After login, the dashboard's **+** button opens Quick Add. *Novi kupac*
-navigates (same tab) to the dedicated **New Customer screen** at
-`/customers/new`: a mobile task screen with its own header and back button, no
-bottom navigation, one-column form, unsaved-change confirmation and
-`Spremi kupca` / `Otkaži`. While `DEMO_PREFILL` is `true` in
-`public/app/js/core/constants.js` the form starts with TVRTKA 1 d.o.o. Saving
-redirects to `/customers/{uuid}`, where meetings, opportunities, tasks, notes,
-contacts and e-mails can be added.
+All CRM data lives **on the server** (`src/crm`). The browser only calls the
+JSON API; nothing is kept in localStorage any more. Every request is scoped to
+the caller's organization, which the server takes from its own configuration
+(BETA: one organization), never from the request.
 
-| Route | Page |
-|---|---|
-| `/customers` | Customer list (+ "Obriši demo podatke") |
-| `/customers/new` | New Customer screen |
-| `/customers/{id}` | Customer Detail View |
-| `/opportunities` | Opportunity Pipeline (dashboard totals + created opportunities) |
-| `/calendar` | Sales kalendar (today's demo events + scheduled meetings) |
+### Quick Add
 
-All CRM pages and `/app/*` assets require a session. Data is stored **in the
-browser's localStorage** (`renvara.crm.v1`), per browser and per device. Code
-lives in `public/app/js`: `core/` (store, validation, formatting),
-`ui/` (drawer, form, toast, shell), `features/` (one module per form and per
-profile section) and `pages/` (one entry module per page).
+The dashboard's **+** opens a bottom sheet with exactly four actions. Each
+opens its own screen (same tab) and returns to the dashboard after saving:
+
+| Action       | Screen               |
+| ------------ | -------------------- |
+| Novi kupac   | `/customers/new`     |
+| Nova prilika | `/opportunities/new` |
+| Novi kontakt | `/contacts/new`      |
+| Novi zadatak | `/tasks/new`         |
+
+The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
+
+### Tasks and the Sales Calendar
+
+- A **task** stands on its own. Customer, contact and opportunity are optional
+  links. The server checks that each link exists in the organization and that
+  the contact and opportunity belong to the chosen customer.
+- **Zakazano** (`scheduledStartAt`/`scheduledEndAt`, or `allDay` + date) puts a
+  task in the **Sales Calendar**. **Rok** (`dueDate` xor `dueAt`) is the
+  deadline. The two are independent.
+- The Sales Calendar is a **view over tasks**: there is no separate calendar
+  record. Completed tasks stay in it (green check, "Dovršeno"). Cancelled tasks
+  drop out. Nothing is deleted.
+- **Overdue** = open and past its deadline. **Prioriteti** on Home: open HIGH
+  first, then overdue, then due today; tasks completed today stay ticked.
+- `FOLLOW_UP` is a task type. There is no follow-up engine yet.
+- Context comes from the query: `/tasks/new?companyId=…&contactId=…&opportunityId=…&type=…&calendar=1&date=YYYY-MM-DD&returnTo=/path`.
+
+### Pages
+
+| Route                                             | Page                                                   |
+| ------------------------------------------------- | ------------------------------------------------------ |
+| `/customers`, `/customers/new`, `/customers/{id}` | List with search, New Customer, Customer Detail        |
+| `/contacts/new`                                   | New contact (customer required)                        |
+| `/opportunities`, `/opportunities/new`            | Pipeline with next actions, New opportunity            |
+| `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO        |
+| `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
+| `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
+
+### API (session required; writes: JSON, same origin)
+
+| Endpoint                                                                                                  | Purpose                                         |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `GET/POST /api/customers` (`?q=` name or OIB), `GET/PATCH /api/customers/{id}`                            | Customers, profile                              |
+| `POST /api/customers/{id}/notes`, `POST /api/customers/{id}/emails`                                       | Timeline entries                                |
+| `GET/POST /api/contacts` (`?companyId=`)                                                                  | Contacts                                        |
+| `GET/POST /api/opportunities` (`?companyId=&status=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` | Opportunities, next action, pipeline totals     |
+| `GET/POST /api/tasks` (`?status=&type=&priority=&companyId=&contactId=&opportunityId=`)                   | Tasks                                           |
+| `GET/PATCH /api/tasks/{id}`, `POST /api/tasks/{id}/complete\|reopen\|cancel`                              | One task                                        |
+| `GET /api/tasks/sections`, `GET /api/tasks/priorities`                                                    | Tasks screen, Home "Prioriteti"                 |
+| `GET /api/calendar?from=ISO&to=ISO` or `?date=YYYY-MM-DD`                                                 | Sales Calendar (explicit range, up to 400 days) |
+| `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |
+
+Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan."}`,
+`422 {message, errors: {field: message}}` for invalid input or relations.
+
+### Code
+
+- Server: `src/crm/` (`customer-service.ts`, `contact-service.ts`,
+  `opportunity-service.ts`, `task-service.ts`, `calendar-service.ts`,
+  `routes.ts`, `repository.ts`, `seed.ts`). Rules shared with the browser come
+  from `public/app/js/core/validation.js`. Next action and timezone logic come
+  from `@renvara/domain`.
+- Client: `public/app/js/` with `core/` (API client, validation, formatting),
+  `ui/` (`screen.js`: MobilePageHeader, SaveActionBar, UnsavedChangesDialog;
+  `fields.js`; `sheet.js`; `form.js`), `features/` (pickers, quick-add, tasks,
+  customers) and `pages/`.
+- Storage (BETA): one JSON file, written atomically, `RENVARA_DATA_FILE`
+  (default `apps/beta-web/.data/crm.json`, git-ignored). It is seeded with demo
+  data dated relative to the first start. "Vrati demo podatke" on `/customers`
+  re-seeds it. The schema mirrors `supabase/migrations`, so the repository can be
+  swapped for Supabase without touching the services.
+
+| Variable               | Default          | Purpose                                       |
+| ---------------------- | ---------------- | --------------------------------------------- |
+| `RENVARA_BETA_ORG_ID`  | `org-beta`       | Organization of the BETA account              |
+| `RENVARA_ORG_TIMEZONE` | `Europe/Zagreb`  | Interprets dates ("today", date-only entries) |
+| `RENVARA_DATA_FILE`    | `.data/crm.json` | BETA data file                                |
 
 ## Tests
 
@@ -111,7 +174,10 @@ pnpm --filter @renvara/beta-web test
 `test/auth-core.test.ts` covers configuration, the credential check, input
 parsing, tokens and the rate limiter. `test/auth-http.test.ts` starts a real
 server and covers the 12 required cases plus CSRF, rate limiting, caching,
-path traversal and logging. The tests generate a random password each run, so
+path traversal and logging. `test/crm-services.test.ts` covers the task model,
+relation rules, tenant isolation, calendar ranges, priorities and next actions.
+`test/crm-api.test.ts` covers the same over HTTP: session, CSRF, `422`/`404`
+responses and cross-organization access. The tests generate a random password each run, so
 no real credential is stored in the repository.
 
 ## Manual acceptance test
@@ -142,6 +208,12 @@ no real credential is stored in the repository.
 - "Zaboravljena lozinka?", Apple, Google and "Izradite račun" are visible, as
   in the approved design, but only show "not available in BETA".
 - Public deployment must use HTTPS with `NODE_ENV=production`, so cookies are `Secure`.
+- CRM data is one JSON file written synchronously by one process: fine for a
+  single BETA user, not for concurrent writers or several instances.
+- No calendar sync (Google/Outlook/Apple), reminders, notifications, recurring
+  tasks or task dependencies. Times use the browser's timezone for input and
+  the organization's timezone for "today" and date-only entries; in the BETA
+  both are Europe/Zagreb.
 
 ## Migration to Supabase Auth
 

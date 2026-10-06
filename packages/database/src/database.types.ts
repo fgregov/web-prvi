@@ -579,9 +579,14 @@ export type Database = {
           due_at: string | null;
           due_date: string | null;
           id: string;
+          is_all_day: boolean;
+          location: string | null;
           opportunity_id: string | null;
           organization_id: string;
           priority: Database['public']['Enums']['task_priority'];
+          scheduled_end_at: string | null;
+          scheduled_start_at: string | null;
+          source: Database['public']['Enums']['activity_source'];
           status: Database['public']['Enums']['task_status'];
           title: string;
           type: Database['public']['Enums']['task_type'];
@@ -599,9 +604,14 @@ export type Database = {
           due_at?: string | null;
           due_date?: string | null;
           id?: string;
+          is_all_day?: boolean;
+          location?: string | null;
           opportunity_id?: string | null;
           organization_id: string;
           priority?: Database['public']['Enums']['task_priority'];
+          scheduled_end_at?: string | null;
+          scheduled_start_at?: string | null;
+          source?: Database['public']['Enums']['activity_source'];
           status?: Database['public']['Enums']['task_status'];
           title: string;
           type?: Database['public']['Enums']['task_type'];
@@ -619,9 +629,14 @@ export type Database = {
           due_at?: string | null;
           due_date?: string | null;
           id?: string;
+          is_all_day?: boolean;
+          location?: string | null;
           opportunity_id?: string | null;
           organization_id?: string;
           priority?: Database['public']['Enums']['task_priority'];
+          scheduled_end_at?: string | null;
+          scheduled_start_at?: string | null;
+          source?: Database['public']['Enums']['activity_source'];
           status?: Database['public']['Enums']['task_status'];
           title?: string;
           type?: Database['public']['Enums']['task_type'];
@@ -815,7 +830,15 @@ export type Database = {
       opportunity_status: 'active' | 'won' | 'lost';
       task_priority: 'low' | 'normal' | 'high';
       task_status: 'open' | 'completed' | 'cancelled';
-      task_type: 'call' | 'email' | 'meeting' | 'follow_up' | 'send_document' | 'other';
+      task_type:
+        | 'general'
+        | 'call'
+        | 'email'
+        | 'meeting'
+        | 'follow_up'
+        | 'send_offer'
+        | 'send_document'
+        | 'other';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -946,7 +969,16 @@ export const Constants = {
       opportunity_status: ['active', 'won', 'lost'],
       task_priority: ['low', 'normal', 'high'],
       task_status: ['open', 'completed', 'cancelled'],
-      task_type: ['call', 'email', 'meeting', 'follow_up', 'send_document', 'other'],
+      task_type: [
+        'general',
+        'call',
+        'email',
+        'meeting',
+        'follow_up',
+        'send_offer',
+        'send_document',
+        'other',
+      ],
     },
   },
 } as const;

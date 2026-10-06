@@ -1,25 +1,15 @@
 // Pošalji e-mail drawer. Demo: the e-mail is recorded in the timeline, not sent.
-import { crm } from '../../core/crm.js';
-import { getCurrentUser } from '../../core/session.js';
+import { api } from '../../core/api.js';
 import { validateEmail } from '../../core/validation.js';
 import { openDrawer } from '../../ui/drawer.js';
 import { createForm } from '../../ui/form.js';
 import { saveHandler } from '../shared.js';
 
-export async function openEmailForm({ customerId, onSaved }) {
-  const user = await getCurrentUser();
-  const profile = crm.getProfile(customerId);
+export function openEmailForm({ profile, onSaved }) {
   const form = createForm(
     [
       {
         fields: [
-          {
-            name: 'customerLabel',
-            label: 'Kupac',
-            type: 'readonly',
-            value: profile.companyName,
-            full: true,
-          },
           {
             name: 'to',
             label: 'Prima',
@@ -28,7 +18,7 @@ export async function openEmailForm({ customerId, onSaved }) {
             placeholder: 'ime@tvrtka.hr',
             full: true,
           },
-          { name: 'subject', label: 'Predmet', required: true, full: true },
+          { name: 'subject', label: 'Predmet', required: true, full: true, maxlength: 300 },
           { name: 'body', label: 'Poruka', type: 'textarea', rows: 6, full: true },
         ],
       },
@@ -37,12 +27,12 @@ export async function openEmailForm({ customerId, onSaved }) {
   );
   openDrawer({
     title: 'Pošalji e-mail',
+    subtitle: profile.companyName,
     content: form.element,
     submitLabel: 'Zabilježi e-mail',
     onSubmit: saveHandler(form, {
-      buildInput: (values) => ({ ...values, customerId }),
       validate: validateEmail,
-      save: (input) => onSaved?.(crm.logEmail(input, user)),
+      save: async (input) => onSaved?.(await api.logEmail(profile.id, input)),
     }),
   });
 }

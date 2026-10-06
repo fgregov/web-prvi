@@ -1,7 +1,7 @@
 // Customer profile header: identity + CRM actions (primary actions visually dominant).
 import { CUSTOMER_STATUSES, CUSTOMER_TYPES, labelOf } from '../../../core/constants.js';
 import { initials } from '../../../core/format.js';
-import { contactName } from '../../../core/store.js';
+import { contactName } from '../../../core/names.js';
 import { h } from '../../../ui/dom.js';
 import { icon } from '../../../ui/icons.js';
 

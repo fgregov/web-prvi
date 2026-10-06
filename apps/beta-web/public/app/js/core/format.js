@@ -26,6 +26,28 @@ export function todayKey(now = new Date()) {
   return dayKey(now);
 }
 
+/** [start, end) of a local calendar day as Date instants (for /api/calendar). */
+export function dayRange(key) {
+  const start = parseDayKey(key);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+/** Local date "YYYY-MM-DD" + time "HH:MM" → UTC ISO instant. */
+export function toInstant(key, time) {
+  const [h, m] = time.split(':').map(Number);
+  const date = parseDayKey(key);
+  date.setHours(h, m, 0, 0);
+  return date.toISOString();
+}
+
+/** UTC ISO instant → local "HH:MM". */
+export function timeKey(iso) {
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function addDaysKey(days, now = new Date()) {
   const d = new Date(now);
   d.setDate(d.getDate() + days);
@@ -38,7 +60,7 @@ export function parseDayKey(key) {
   return new Date(y, m - 1, d);
 }
 
-/** Default meeting slot: the next full hour today, or 09:00 tomorrow when it is late. */
+/** Default calendar slot: the next full hour today, or 09:00 tomorrow when it is late. */
 export function nextMeetingSlot(now = new Date()) {
   const slot = new Date(now);
   slot.setMinutes(0, 0, 0);
@@ -87,16 +109,37 @@ export function formatAgendaDay(key, now = new Date()) {
   return rel ? `${rel} · ${long}` : long.charAt(0).toUpperCase() + long.slice(1);
 }
 
-export function formatMoney(value) {
-  return value === null || value === undefined || value === ''
-    ? '—'
-    : moneyFmt.format(Number(value));
+export function formatMoney(value, currency = 'EUR') {
+  if (value === null || value === undefined || value === '') return '—';
+  return currency === 'EUR'
+    ? moneyFmt.format(Number(value))
+    : new Intl.NumberFormat(LOCALE, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+      }).format(Number(value));
 }
 
-export function formatDuration(minutes) {
-  const m = Number(minutes);
-  if (m < 60) return `${m} min`;
-  return m % 60 === 0 ? `${m / 60} h` : `${Math.floor(m / 60)} h ${m % 60} min`;
+/** Calendar slot of a task: "09:00–10:00", "11:00" or "Cijeli dan". */
+export function formatSlot(task) {
+  if (!task.scheduledStartAt) return '';
+  if (task.allDay) return 'Cijeli dan';
+  const start = formatTime(task.scheduledStartAt);
+  return task.scheduledEndAt ? `${start}–${formatTime(task.scheduledEndAt)}` : start;
+}
+
+/** "Danas, 09:00–10:00" · "Sutra · Cijeli dan" · "12. listopada 2026., 14:00" */
+export function formatSchedule(task, now = new Date()) {
+  if (!task.scheduledStartAt) return '';
+  const day = formatDay(task.scheduledDate ?? dayKey(new Date(task.scheduledStartAt)), now);
+  return `${day}, ${formatSlot(task)}`;
+}
+
+/** Deadline: "Rok: Danas" · "Rok: 12. listopada 2026., 14:00" */
+export function formatDue(task, now = new Date()) {
+  if (task.dueDate) return `Rok: ${formatDay(task.dueDate, now)}`;
+  if (task.dueAt) return `Rok: ${formatDateTime(task.dueAt, now)}`;
+  return '';
 }
 
 export function initials(name) {

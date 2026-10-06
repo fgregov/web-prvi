@@ -198,51 +198,8 @@
               >Pogledaj kalendar<svg class="icon"><use href="#i-chevron-right" /></svg
             ></a>
           </div>
-          <ul class="list" role="list">
-            <li>
-              <button class="event" type="button">
-                <time class="event__time">09:00</time>
-                <span class="dot dot--green" aria-label="Potvrđeno"></span>
-                <span class="event__text">
-                  <span class="event__title">Sastanak s Adria Tech</span>
-                  <span class="event__sub">Demo proizvoda</span>
-                </span>
-                <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-              </button>
-            </li>
-            <li>
-              <button class="event" type="button">
-                <time class="event__time">11:00</time>
-                <span class="dot dot--red" aria-label="Važno"></span>
-                <span class="event__text">
-                  <span class="event__title">Poziv – Marko Horvat (Initium)</span>
-                  <span class="event__sub">Praćenje ponude</span>
-                </span>
-                <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-              </button>
-            </li>
-            <li>
-              <button class="event" type="button">
-                <time class="event__time">14:00</time>
-                <span class="dot dot--green" aria-label="Potvrđeno"></span>
-                <span class="event__text">
-                  <span class="event__title">Sastanak s Nova d.o.o.</span>
-                  <span class="event__sub">Pregled potreba</span>
-                </span>
-                <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-              </button>
-            </li>
-            <li>
-              <button class="event" type="button">
-                <time class="event__time">16:00</time>
-                <span class="dot dot--gray" aria-label="Interno"></span>
-                <span class="event__text">
-                  <span class="event__title">Interni sync</span>
-                  <span class="event__sub">Tjedni pregled</span>
-                </span>
-                <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-              </button>
-            </li>
+          <ul class="list" role="list" aria-live="polite">
+            <li class="empty-row">Učitavanje…</li>
           </ul>
         </section>
 
@@ -253,32 +210,12 @@
               ><svg class="icon"><use href="#i-target" /></svg
             ></span>
             <h2 class="module__title" id="prioriteti-title">Prioriteti</h2>
-            <a class="module__link" href="#prioriteti"
+            <a class="module__link" href="/tasks"
               >Pogledaj sve<svg class="icon"><use href="#i-chevron-right" /></svg
             ></a>
           </div>
-          <ul class="list" role="list">
-            <li class="task">
-              <button class="task__check" type="button" aria-pressed="false" data-task>
-                <svg class="icon"><use href="#i-check" /></svg>
-              </button>
-              <span class="task__title">Poslati ponudu za Adria Tech</span>
-              <span class="pill pill--red" data-pill>Danas</span>
-            </li>
-            <li class="task">
-              <button class="task__check" type="button" aria-pressed="true" data-task>
-                <svg class="icon"><use href="#i-check" /></svg>
-              </button>
-              <span class="task__title">Pripremiti prezentaciju za Nova d.o.o.</span>
-              <span class="pill pill--green" data-pill>Završeno</span>
-            </li>
-            <li class="task">
-              <button class="task__check" type="button" aria-pressed="false" data-task>
-                <svg class="icon"><use href="#i-check" /></svg>
-              </button>
-              <span class="task__title">Kontaktirati Marka Horvata (Initium)</span>
-              <span class="pill pill--red" data-pill>Danas</span>
-            </li>
+          <ul class="list" role="list" aria-live="polite">
+            <li class="empty-row">Učitavanje…</li>
           </ul>
         </section>
 
@@ -392,41 +329,14 @@
         </div>
       </main>
 
-      <!-- Quick add -->
+      <!-- Quick add: "+" opens the Quick Add bottom sheet (/app/js/features/quick-add) -->
       <div class="quick-add">
-        <div
-          class="quick-add__menu"
-          id="quick-add-menu"
-          role="menu"
-          aria-label="Brzo dodavanje"
-          hidden
-        >
-          <button type="button" role="menuitem" data-label="Novi kupac" data-action="customer">
-            <svg class="icon"><use href="#i-building" /></svg>Novi kupac
-          </button>
-          <button type="button" role="menuitem" data-label="Nova prilika" data-action="opportunity">
-            <svg class="icon"><use href="#i-target" /></svg>Nova prilika
-          </button>
-          <button type="button" role="menuitem" data-label="Zakaži sastanak" data-action="meeting">
-            <svg class="icon"><use href="#i-calendar" /></svg>Zakaži sastanak
-          </button>
-          <button type="button" role="menuitem" data-label="Novi zadatak" data-action="task">
-            <svg class="icon"><use href="#i-square-check" /></svg>Novi zadatak
-          </button>
-          <button type="button" role="menuitem" data-label="Novi kontakt" data-action="contact">
-            <svg class="icon"><use href="#i-user-plus" /></svg>Novi kontakt
-          </button>
-          <button type="button" role="menuitem" data-label="Dodaj aktivnost" data-action="activity">
-            <svg class="icon"><use href="#i-activity" /></svg>Dodaj aktivnost
-          </button>
-        </div>
         <button
           class="fab"
           type="button"
           aria-label="Brzo dodavanje"
-          aria-haspopup="menu"
+          aria-haspopup="dialog"
           aria-expanded="false"
-          aria-controls="quick-add-menu"
         >
           <svg class="icon"><use href="#i-plus" /></svg>
         </button>

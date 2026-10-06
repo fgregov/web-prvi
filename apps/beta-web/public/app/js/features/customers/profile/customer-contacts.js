@@ -1,6 +1,6 @@
 // Kontakti: primary contact first.
 import { initials } from '../../../core/format.js';
-import { contactName } from '../../../core/store.js';
+import { contactName } from '../../../core/names.js';
 import { h } from '../../../ui/dom.js';
 import { icon } from '../../../ui/icons.js';
 import { profileSection } from './section.js';

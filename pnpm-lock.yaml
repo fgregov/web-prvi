@@ -19,6 +19,10 @@ importers:
         version: 7.0.2
 
   apps/beta-web:
+    dependencies:
+      '@renvara/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
     devDependencies:
       '@types/node':
         specifier: ^22.18.0

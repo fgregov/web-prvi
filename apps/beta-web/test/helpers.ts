@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createApp, type Logger } from '../src/app.ts';
+import { createApp, type CrmOptions, type Logger } from '../src/app.ts';
 import { createBetaAuthProvider } from '../src/auth/beta-provider.ts';
 import { loadAuthConfig } from '../src/auth/config.ts';
 import { createAuthService } from '../src/auth/service.ts';
@@ -28,7 +28,10 @@ export interface TestServer {
   close(): Promise<void>;
 }
 
-export async function startTestServer(env = testEnv()): Promise<TestServer> {
+export async function startTestServer(
+  env = testEnv(),
+  options: { crm?: CrmOptions } = {},
+): Promise<TestServer> {
   const config = loadAuthConfig(env);
   const clock = {
     now: Date.UTC(2026, 9, 5, 9, 0, 0),
@@ -43,7 +46,9 @@ export async function startTestServer(env = testEnv()): Promise<TestServer> {
     error: (event, fields) => logs.push(JSON.stringify({ event, ...fields })),
   };
   const auth = createAuthService(config, createBetaAuthProvider(config), clock);
-  const server: Server = createServer(createApp(auth, { logger }));
+  const server: Server = createServer(
+    createApp(auth, { logger, ...(options.crm ? { crm: options.crm } : {}) }),
+  );
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   return {

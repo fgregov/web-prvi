@@ -3,7 +3,7 @@ import {
   isCalendarDate,
   startOfDayInZone,
   type CalendarDate,
-} from '../time/zoned';
+} from '../time/zoned.ts';
 
 /**
  * When a task is due. Mirrors the two mutually exclusive DB columns:
@@ -25,6 +25,21 @@ export function taskDueFromColumns(dueDate: string | null, dueAt: string | Date 
   }
   if (dueAt !== null) return { kind: 'instant', at: new Date(dueAt) };
   return { kind: 'none' };
+}
+
+/**
+ * The moment that orders a task as a next action: its deadline, else its
+ * Sales Calendar slot (tasks.scheduled_start_at). Same rule as the ORDER BY
+ * of public.opportunity_overview.
+ */
+export function effectiveDueFromColumns(
+  dueDate: string | null,
+  dueAt: string | Date | null,
+  scheduledStartAt: string | Date | null,
+): TaskDue {
+  const due = taskDueFromColumns(dueDate, dueAt);
+  if (due.kind !== 'none' || scheduledStartAt === null) return due;
+  return { kind: 'instant', at: new Date(scheduledStartAt) };
 }
 
 export type DueState = 'no_due' | 'overdue' | 'due_today' | 'upcoming';
