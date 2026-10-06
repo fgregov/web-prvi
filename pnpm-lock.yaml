@@ -27,6 +27,9 @@ importers:
       '@types/node':
         specifier: ^22.18.0
         version: 22.20.5
+      rolldown:
+        specifier: 1.2.12
+        version: 1.2.12
       typescript:
         specifier: 7.0.2
         version: 7.0.2

@@ -50,7 +50,12 @@ const query = (params) => {
 const enc = encodeURIComponent;
 
 // Other open tabs refresh when this one changes data.
-const channel = 'BroadcastChannel' in window ? new BroadcastChannel('renvara-crm') : null;
+let channel = null;
+try {
+  channel = new BroadcastChannel('renvara-crm');
+} catch {
+  // Unsupported, or refused in a sandboxed frame: other tabs refresh on their next load.
+}
 function notifyChange(method) {
   if (method !== 'GET') channel?.postMessage('changed');
 }

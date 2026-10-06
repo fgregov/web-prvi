@@ -3,12 +3,16 @@
 //   - Router: an in-page history stack replaces server routes and page loads.
 //     Page modules export run(); the router renders a page's HTML and runs it.
 //   - Server: fetch('/api/…') is answered in the page by the same CRM services
-//     and API routes as apps/beta-web, on data kept in this browser.
+//     and API routes as apps/beta-web.
+//   - Test database: inside a claude.ai artifact the records live in the
+//     artifact's `db` store (one document per record). Elsewhere, or when the
+//     store is unavailable, they stay in this browser only.
 //   - Login accepts any username and password; nothing is sent anywhere.
 import { createCrmApi } from '../server/crm/dispatch.js';
 import { createCrmServices } from '../server/crm/index.js';
+import { emptyData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
-import { PAGES } from './pages.js';
+import { LOADERS, PAGES, STYLES } from './pages.js';
 
 const ORIGIN = 'https://demo.renvara.app';
 const ORG = 'org-demo';
@@ -20,11 +24,13 @@ const USER = {
 };
 const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Zagreb';
 const KEYS = { data: 'renvara.demo.crm.v1', auth: 'renvara.demo.auth', nav: 'renvara.demo.nav' };
+const COLLECTIONS = ['customers', 'contacts', 'opportunities', 'tasks', 'activities'];
 const LATENCY_MS = 140; // makes loading states visible, like a real request
+const SAVE_FAILED = 'Spremanje u testnu bazu nije uspjelo. Pokušajte ponovno.';
 
-// ------------------------------------------------------------- storage ---
+// ------------------------------------------------------ browser storage ---
 const memory = new Map();
-const storage = {
+const local = {
   get(key) {
     try {
       return window.localStorage.getItem(key);
@@ -37,42 +43,136 @@ const storage = {
     try {
       window.localStorage.setItem(key, value);
     } catch {
-      /* private mode: memory only */
+      /* blocked: memory only */
+    }
+  },
+};
+const session = {
+  get(key) {
+    try {
+      return window.sessionStorage.getItem(key);
+    } catch {
+      return memory.get(`s:${key}`) ?? null;
+    }
+  },
+  set(key, value) {
+    memory.set(`s:${key}`, value);
+    try {
+      window.sessionStorage.setItem(key, value);
+    } catch {
+      /* blocked: memory only */
     }
   },
 };
 
 const todayKey = () => new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date());
 const context = () => ({ organizationId: ORG, user: USER, timeZone: TIME_ZONE, now: new Date() });
+const isSignedIn = () => session.get(KEYS.auth) === 'yes';
 
-// ----------------------------------------------------- server, in page ---
-/** Demo data is dated relative to "today", so it is re-seeded once a day. */
-function loadData() {
-  try {
-    const saved = JSON.parse(storage.get(KEYS.data) ?? 'null');
-    if (saved?.seededOn === todayKey() && saved.data?.version === 2) return saved.data;
-  } catch {
-    /* fall through to a fresh seed */
-  }
-  return seedDemoData(context());
+// ---------------------------------------------------------- data stores ---
+/** Browser-only store: demo data re-seeded once a day (it is dated relative to today). */
+function browserStore() {
+  return {
+    kind: 'browser',
+    async load() {
+      try {
+        const saved = JSON.parse(local.get(KEYS.data) ?? 'null');
+        if (saved?.seededOn === todayKey() && saved.data?.version === 2) return saved.data;
+      } catch {
+        /* fall through to a fresh seed */
+      }
+      return seedDemoData(context());
+    },
+    async save(data) {
+      local.set(KEYS.data, JSON.stringify({ seededOn: todayKey(), data }));
+    },
+  };
 }
 
-let data = loadData();
-const save = () => storage.set(KEYS.data, JSON.stringify({ seededOn: todayKey(), data }));
-save();
+/** The artifact's test database: one document per record, e.g. customers/<id>. */
+function databaseStore(db) {
+  const saved = new Map(); // "collection/id" → JSON last written
+
+  const records = (data) => {
+    const out = new Map();
+    for (const name of COLLECTIONS) {
+      for (const row of data[name]) out.set(`${name}/${row.id}`, JSON.stringify(row));
+    }
+    return out;
+  };
+
+  async function withRetry(write) {
+    try {
+      return await write();
+    } catch (error) {
+      if (error?.code !== 'unavailable') throw error;
+      await new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 500));
+      return write();
+    }
+  }
+
+  return {
+    kind: 'database',
+    async load() {
+      const data = emptyData();
+      const snapshots = await Promise.all(
+        COLLECTIONS.map((name) => db.collection(name).limit(1000).get()),
+      );
+      snapshots.forEach((snap, i) => {
+        for (const doc of snap.docs) {
+          const row = structuredClone(doc.data());
+          data[COLLECTIONS[i]].push(row);
+          saved.set(`${COLLECTIONS[i]}/${doc.id}`, JSON.stringify(row));
+        }
+      });
+      data.seq = Math.max(0, ...data.activities.map((a) => a.seq ?? 0));
+      return data;
+    },
+    /** Writes only what changed since the last save; a few documents at a time. */
+    async save(data) {
+      const next = records(data);
+      const ops = [];
+      for (const [key, json] of next) if (saved.get(key) !== json) ops.push(['set', key, json]);
+      for (const key of saved.keys()) if (!next.has(key)) ops.push(['delete', key]);
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < ops.length) {
+          const [op, key, json] = ops[cursor++];
+          const ref = db.doc(key);
+          if (op === 'set') {
+            await withRetry(() => ref.set(JSON.parse(json)));
+            saved.set(key, json);
+          } else {
+            await withRetry(() => ref.delete());
+            saved.delete(key);
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, ops.length) }, worker));
+    },
+  };
+}
+
+async function openStore() {
+  const use = window.claude?.use;
+  if (typeof use !== 'function') return browserStore();
+  const db = await use.call(window.claude, 'db').catch(() => null);
+  return db ? databaseStore(db) : browserStore();
+}
+
+// ----------------------------------------------------- server, in page ---
+let store;
+let data;
 const repo = {
   data: () => data,
-  commit: save,
+  commit: () => {}, // saved after each request (see answer)
   replace(next) {
     data = next;
-    save();
   },
 };
 const api = createCrmApi(createCrmServices(repo));
 
-const isSignedIn = () => storage.get(KEYS.auth) === 'yes';
-
-function answer(method, path, query, body) {
+async function answer(method, path, query, body) {
   if (path === '/api/auth/session') {
     return isSignedIn()
       ? [200, { authenticated: true, user: USER }]
@@ -82,11 +182,11 @@ function answer(method, path, query, body) {
     if (!String(body.username ?? '').trim() || !body.password) {
       return [400, { success: false, message: 'Unesite korisničko ime i lozinku.' }];
     }
-    storage.set(KEYS.auth, 'yes');
+    session.set(KEYS.auth, 'yes');
     return [200, { success: true, redirectTo: '/dashboard' }];
   }
   if (path === '/api/auth/logout') {
-    storage.set(KEYS.auth, 'no');
+    session.set(KEYS.auth, 'no');
     return [200, { success: true, redirectTo: '/login' }];
   }
   const hit = api.match(method, path);
@@ -94,7 +194,23 @@ function answer(method, path, query, body) {
   if (hit.kind === 'method_not_allowed') return [405, api.badRequest];
   if (!isSignedIn())
     return [401, { success: false, message: 'Sesija je istekla. Prijavite se ponovno.' }];
+  if (method === 'GET') {
+    const result = api.run(hit, context(), query, body);
+    return [result.status, result.body];
+  }
+
+  // A write is only reported as saved once the store has it; otherwise it is undone.
+  const before = JSON.stringify(data);
   const result = api.run(hit, context(), query, body);
+  if (result.status < 400) {
+    try {
+      await store.save(data);
+    } catch (error) {
+      console.error('Test database write failed', error);
+      data = JSON.parse(before);
+      return [503, { success: false, message: SAVE_FAILED }];
+    }
+  }
   return [result.status, result.body];
 }
 
@@ -104,25 +220,28 @@ const jsonResponse = (status, payload) =>
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
 
+let writes = Promise.resolve(); // writes run one at a time, like a single server process
 const realFetch = window.fetch.bind(window);
-window.fetch = async (input, init = {}) => {
+window.fetch = (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
   if (!url.startsWith('/api/')) return realFetch(input, init);
-  await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
-  const parsed = new URL(url, ORIGIN);
-  let body = {};
-  try {
-    body = init.body ? JSON.parse(init.body) : {};
-  } catch {
-    return jsonResponse(400, api.badRequest);
-  }
-  const [status, payload] = answer(
-    (init.method ?? 'GET').toUpperCase(),
-    parsed.pathname,
-    parsed.searchParams,
-    body,
-  );
-  return jsonResponse(status, payload);
+  const method = (init.method ?? 'GET').toUpperCase();
+  const run = async () => {
+    await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
+    const parsed = new URL(url, ORIGIN);
+    let body = {};
+    try {
+      body = init.body ? JSON.parse(init.body) : {};
+    } catch {
+      return jsonResponse(400, api.badRequest);
+    }
+    const [status, payload] = await answer(method, parsed.pathname, parsed.searchParams, body);
+    return jsonResponse(status, payload);
+  };
+  if (method === 'GET') return run();
+  const response = writes.then(run, run);
+  writes = response.catch(() => {});
+  return response;
 };
 
 // -------------------------------------------------------------- router ---
@@ -146,19 +265,14 @@ const PATTERNS = [
 
 let nav = { stack: ['/login'], index: 0 };
 try {
-  const saved = JSON.parse(window.sessionStorage.getItem(KEYS.nav) ?? 'null');
-  if (Array.isArray(saved?.stack) && saved.stack.length) nav = saved;
+  const saved = JSON.parse(session.get(KEYS.nav) ?? 'null');
+  if (Array.isArray(saved?.stack) && saved.stack.length && Number.isInteger(saved.index))
+    nav = saved;
 } catch {
   /* start at the login */
 }
 const current = () => nav.stack[nav.index];
-const remember = () => {
-  try {
-    window.sessionStorage.setItem(KEYS.nav, JSON.stringify(nav));
-  } catch {
-    /* memory only */
-  }
-};
+const remember = () => session.set(KEYS.nav, JSON.stringify(nav));
 const parse = (url) => new URL(url, ORIGIN);
 const normalize = (url) => {
   const u = new URL(url, ORIGIN + current());
@@ -166,6 +280,11 @@ const normalize = (url) => {
 };
 
 let pending = null;
+const scheduleRender = () => {
+  clearTimeout(pending);
+  // Like a real navigation: code after location.replace() still runs first.
+  pending = setTimeout(render, 0);
+};
 function navigate(url, mode) {
   const next = normalize(url);
   if (mode === 'replace') nav.stack[nav.index] = next;
@@ -175,9 +294,7 @@ function navigate(url, mode) {
     nav.index += 1;
   }
   remember();
-  // Like a real navigation: code after location.replace() still runs first.
-  clearTimeout(pending);
-  pending = setTimeout(render, 0);
+  scheduleRender();
 }
 
 // What the app's code sees instead of window.location / window.history / document.referrer.
@@ -200,7 +317,7 @@ globalThis.__rv = {
     },
     assign: (url) => navigate(url, 'push'),
     replace: (url) => navigate(url, 'replace'),
-    reload: () => render(),
+    reload: () => scheduleRender(),
   },
   history: {
     get length() {
@@ -210,8 +327,7 @@ globalThis.__rv = {
       if (nav.index === 0) return;
       nav.index -= 1;
       remember();
-      clearTimeout(pending);
-      pending = setTimeout(render, 0);
+      scheduleRender();
     },
     replaceState(_state, _title, url) {
       if (url) {
@@ -256,29 +372,26 @@ addListener.call(
 );
 
 const root = document.getElementById('rv-root');
-const styleLinks = new Map();
-function useStyles(hrefs) {
-  for (const href of hrefs) {
-    if (styleLinks.has(href)) continue;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    document.head.append(link);
-    styleLinks.set(href, link);
-  }
-  // Fixed order keeps the cascade identical to the real pages.
-  const order = [
-    'https://fonts',
-    'login/',
-    'home/',
-    'app/css/components',
-    'app/css/pages',
-    'app/css/screen',
-  ];
-  const rank = (href) => order.findIndex((prefix) => href.startsWith(prefix));
-  for (const [href, link] of [...styleLinks].sort((a, b) => rank(a[0]) - rank(b[0]))) {
-    link.disabled = !hrefs.includes(href);
-    document.head.append(link);
+
+// Stylesheets in the cascade order of the real pages; each page enables its own.
+const styleNodes = new Map();
+for (const [name, css] of Object.entries(STYLES)) {
+  const node = document.createElement('style');
+  node.dataset.rvStyle = name;
+  node.textContent = css;
+  node.disabled = true;
+  document.head.append(node);
+  styleNodes.set(name, node);
+}
+let fontLink = null;
+function useStyles(names) {
+  for (const [name, node] of styleNodes) node.disabled = !names.includes(name);
+  const font = names.find((name) => name.startsWith('https://'));
+  if (font && !fontLink) {
+    fontLink = document.createElement('link');
+    fontLink.rel = 'stylesheet';
+    fontLink.href = font;
+    document.head.append(fontLink);
   }
 }
 
@@ -287,11 +400,18 @@ function pageFor(pathname) {
   return ROUTES[pathname] ?? PATTERNS.find(([pattern]) => pattern.test(pathname))?.[1] ?? null;
 }
 
+const STORE_NOTE = {
+  database:
+    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Kupci, kontakti, prilike i zadaci spremaju se u testnu bazu ovog demoa.',
+  browser:
+    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Testna baza ovdje nije dostupna, pa se podaci spremaju samo u ovom pregledniku.',
+};
+
 let generation = 0;
 async function render() {
   const run = ++generation;
   const { pathname } = parse(current());
-  let page = pageFor(pathname);
+  const page = pageFor(pathname);
   // What the server does: unknown → dashboard, protected → login, login while signed in → dashboard.
   if (!page) return navigate('/dashboard', 'replace');
   if (page !== 'login' && !isSignedIn()) return navigate('/login', 'replace');
@@ -304,7 +424,7 @@ async function render() {
   }
   pageListeners = [];
   for (const node of [...document.body.children]) {
-    if (node !== root && node.tagName !== 'SCRIPT' && !node.hasAttribute('data-rv-keep'))
+    if (node !== root && !['SCRIPT', 'STYLE', 'TITLE', 'META'].includes(node.tagName))
       node.remove();
   }
   document.documentElement.classList.remove('rv-scroll-lock');
@@ -313,10 +433,12 @@ async function render() {
   useStyles(def.styles);
   document.title = def.title;
   root.innerHTML = def.html;
+  const note = root.querySelector('.demo-note');
+  if (note) note.textContent = STORE_NOTE[store.kind];
   window.scrollTo(0, 0);
 
   for (const script of def.scripts) {
-    const module = await import(`../${script.src}`);
+    const module = await LOADERS[script.src]();
     if (run !== generation) return; // navigated away while loading
     try {
       await Promise.resolve(module.default()).catch((error) => console.error(error));
@@ -326,4 +448,17 @@ async function render() {
   }
 }
 
-render();
+async function start() {
+  store = await openStore();
+  try {
+    data = await store.load();
+  } catch (error) {
+    console.error('Test database read failed; using browser storage', error);
+    store = browserStore();
+    data = await store.load();
+  }
+  if (store.kind === 'browser') await store.save(data); // keep the seeded ids stable across reloads
+  render();
+}
+
+start();

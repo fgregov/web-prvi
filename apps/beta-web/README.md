@@ -168,13 +168,23 @@ Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan.
 ## Static demo
 
 ```bash
-pnpm --filter @renvara/beta-web demo:build   # → apps/beta-web/dist/demo
+pnpm --filter @renvara/beta-web demo:build   # → apps/beta-web/dist/demo/index.html
 ```
 
-Builds a clickable demo that needs no server: the same pages and the same CRM
-services, with the API answered in the browser (`demo/runtime.js`) and data kept
-in the browser's localStorage. Any username and password sign in. Demo data is
-re-seeded once a day. Nothing in the app's sources changes: the build redirects
+Builds a clickable demo as **one self-contained page** (scripts, styles and
+images inlined; sources staged in `dist/demo-src`): the same pages and the same
+CRM services, with the API answered in the browser (`demo/runtime.js`). Any
+username and password sign in.
+
+- Published as a claude.ai artifact with the `db` capability, records are kept
+  in the artifact's test database, one document per record
+  (`customers/<id>`, `contacts/<id>`, `opportunities/<id>`, `tasks/<id>`,
+  `activities/<id>`). A write is reported as saved only after the database has
+  it; otherwise it is undone and the form shows an error.
+- Anywhere else (or when the database is unavailable) the data stays in the
+  browser's localStorage and is re-seeded once a day.
+
+Nothing in the app's sources changes for the demo: the build redirects
 `window.location`/`history` to an in-page router and fails if it finds any it
 does not handle.
 

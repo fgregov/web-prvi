@@ -1,15 +1,16 @@
-// Builds a static, clickable demo of the BETA app (dist/demo) that runs
-// entirely in the browser, e.g. as a claude.ai artifact:
+// Builds a static, clickable demo of the BETA app that runs entirely in the
+// browser, e.g. as a claude.ai artifact, as ONE self-contained page:
 //
 //   - the real pages, styles and page modules (public/app, prototypes/home, login)
 //   - the real CRM services and API routes (src/crm + @renvara/domain), with
 //     types stripped, answering fetch('/api/…') in the page (demo/runtime.js)
 //   - an in-page router instead of server routes and real page loads
+//   - inside an artifact, records are kept in the artifact's `db` store
 //
 // The app's sources stay untouched: location/history access is redirected to
 // the demo router at build time, and the build fails if any is left over.
 //
-//   node demo/build.ts            → dist/demo/index.html + files
+//   node demo/build.ts   → dist/demo/index.html (single file; sources staged in dist/demo-src)
 import {
   cpSync,
   existsSync,
@@ -21,13 +22,21 @@ import {
 } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
+import { rolldown } from 'rolldown';
 
 const APP = resolve(import.meta.dirname, '..');
 const ROOT = resolve(APP, '../..');
-const OUT = resolve(APP, 'dist/demo');
+const OUT = resolve(APP, 'dist/demo-src'); // staged modules, bundled below
+const FINAL = resolve(APP, 'dist/demo');
 const HOME = resolve(ROOT, 'prototypes/home');
 
 rmSync(OUT, { recursive: true, force: true });
+rmSync(FINAL, { recursive: true, force: true });
+
+const dataUri = (file: string, type: string) =>
+  `data:${type};base64,${readFileSync(file).toString('base64')}`;
+const LOGO = dataUri(join(HOME, 'assets/renvara-logo.png'), 'image/png');
+const AVATAR = dataUri(join(HOME, 'assets/avatar-placeholder.svg'), 'image/svg+xml');
 
 const write = (path: string, text: string) => {
   mkdirSync(dirname(join(OUT, path)), { recursive: true });
@@ -39,9 +48,7 @@ const walk = (dir: string): string[] =>
   );
 
 // ------------------------------------------------------------- browser code
-const ASSETS: Array<[RegExp, string]> = [
-  [/\/brand\/renvara-logo\.png/g, 'home/assets/renvara-logo.png'],
-];
+const ASSETS: Array<[RegExp, string]> = [[/\/brand\/renvara-logo\.png/g, LOGO]];
 
 /** Sends location/history/referrer to the demo router (globalThis.__rv). */
 function redirectNavigation(code: string, file: string): string {
@@ -91,7 +98,6 @@ for (const file of walk(APP_SRC)) {
 }
 
 cpSync(join(HOME, 'styles.css'), join(OUT, 'home/styles.css'));
-cpSync(join(HOME, 'assets'), join(OUT, 'home/assets'), { recursive: true });
 write(
   'home/app.js',
   toRunnableScript(
@@ -132,7 +138,14 @@ for (const name of readdirSync(CRM_SRC)) {
       ["from '../../public/app/js/core/", "from '../../app/js/core/"],
       [
         "import { randomUUID } from 'node:crypto';",
-        'const randomUUID = () => globalThis.crypto.randomUUID();',
+        'const randomUUID = () => globalThis.crypto.randomUUID?.() ?? fallbackUuid();\n' +
+          'function fallbackUuid() {\n' +
+          '  const b = globalThis.crypto.getRandomValues(new Uint8Array(16));\n' +
+          '  b[6] = (b[6] & 0x0f) | 0x40;\n' +
+          '  b[8] = (b[8] & 0x3f) | 0x80;\n' +
+          "  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');\n" +
+          '  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;\n' +
+          '}',
       ],
     ]),
   );
@@ -153,7 +166,8 @@ const pages: Record<string, { title: string; styles: string[]; html: string; scr
 function mapUrl(url: string, base: 'home' | 'app' | 'login'): string {
   if (url.startsWith('/app/')) return url.slice(1);
   if (url.startsWith('/login/')) return url.slice(1);
-  if (url === '/brand/renvara-logo.png') return 'home/assets/renvara-logo.png';
+  if (url === '/brand/renvara-logo.png' || url === 'assets/renvara-logo.png') return LOGO;
+  if (url === 'assets/avatar-placeholder.svg') return AVATAR;
   if (url.startsWith('https://')) return url;
   if (base === 'home' && !url.startsWith('/')) return `home/${url}`;
   throw new Error(`Unmapped URL ${url}`);
@@ -215,13 +229,36 @@ addPage('dashboard', join(HOME, 'index.html'), 'home');
 for (const file of readdirSync(resolve(APP, 'public/app/pages'))) {
   addPage(file.replace('.html', ''), resolve(APP, 'public/app/pages', file), 'app');
 }
+// Stylesheets in the cascade order of the real pages; inlined into the bundle.
+const STYLE_FILES = [
+  'login/login.css',
+  'home/styles.css',
+  'app/css/components.css',
+  'app/css/pages.css',
+  'app/css/screen.css',
+];
+const styles = Object.fromEntries(
+  STYLE_FILES.map((file) => [file, readFileSync(join(OUT, file), 'utf8')]),
+);
+const scriptFiles = [...new Set(Object.values(pages).flatMap((p) => p.scripts.map((s) => s.src)))];
+for (const page of Object.values(pages)) {
+  for (const url of page.styles) {
+    if (!url.startsWith('https://') && !(url in styles)) throw new Error(`Missing style ${url}`);
+  }
+}
 write(
   'demo/pages.js',
-  `// Generated by demo/build.ts.\nexport const PAGES = ${JSON.stringify(pages, null, 2)};\n`,
+  [
+    '// Generated by demo/build.ts.',
+    `export const PAGES = ${JSON.stringify(pages, null, 2)};`,
+    `export const STYLES = ${JSON.stringify(styles)};`,
+    'export const LOADERS = {',
+    ...scriptFiles.map((src) => `  ${JSON.stringify(src)}: () => import('../${src}'),`),
+    '};',
+    '',
+  ].join('\n'),
 );
-
 cpSync(resolve(APP, 'demo/runtime.js'), join(OUT, 'demo/runtime.js'));
-cpSync(resolve(APP, 'demo/index.html'), join(OUT, 'index.html'));
 
 // ------------------------------------------------------------------ verify
 for (const file of walk(OUT).filter((f) => f.endsWith('.js'))) {
@@ -231,10 +268,22 @@ for (const file of walk(OUT).filter((f) => f.endsWith('.js'))) {
     if (!existsSync(target)) throw new Error(`${relative(OUT, file)}: missing import ${spec}`);
   }
 }
-for (const page of Object.values(pages)) {
-  for (const url of [...page.styles, ...page.scripts.map((s) => s.src)]) {
-    if (!url.startsWith('https://') && !existsSync(join(OUT, url)))
-      throw new Error(`Missing ${url}`);
-  }
-}
-console.log(`Demo built: ${relative(process.cwd(), OUT)} (${walk(OUT).length} files)`);
+
+// ------------------------------------------------------- one page, inlined
+const bundle = await rolldown({ input: join(OUT, 'demo/runtime.js'), logLevel: 'warn' });
+const { output } = await bundle.generate({ format: 'iife', codeSplitting: false, minify: true });
+await bundle.close();
+if (output.length !== 1 || output[0].type !== 'chunk') throw new Error('Expected one bundle');
+const script = output[0].code.replaceAll('</script', '<\\/script');
+const shell = readFileSync(resolve(APP, 'demo/index.html'), 'utf8');
+const tag = '<script type="module" src="demo/runtime.js"></script>';
+if (!shell.includes(tag)) throw new Error('demo/index.html: runtime script tag not found');
+mkdirSync(FINAL, { recursive: true });
+writeFileSync(
+  join(FINAL, 'index.html'),
+  shell.replace(tag, () => `<script>\n${script}</script>`),
+);
+const kb = Math.round(readFileSync(join(FINAL, 'index.html')).length / 1024);
+console.log(
+  `Demo built: ${relative(process.cwd(), join(FINAL, 'index.html'))} (${kb} KB, one file)`,
+);
