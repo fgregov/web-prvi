@@ -1,0 +1,255 @@
+// DashboardService: what happened in a period (Home KPI cards and the
+// historical dashboard). A period is only a filter over existing records —
+// nothing is reset or archived when a quarter ends.
+//
+// Definitions (records of the caller's organization, period in the org timezone):
+//   novi leadovi   customers created in the period
+//   kvalificirani  opportunities created in the period
+//   sastanci       meetings scheduled in the period (not cancelled)
+//   dobivene/izgubljene  opportunities closed won/lost in the period
+//   prihod         value of opportunities won in the period
+//   zadaci         tasks dated in the period (calendar slot or deadline)
+import { STAGES } from '../../public/app/js/core/constants.js';
+import {
+  addDays,
+  daysInclusive,
+  isDateKey,
+  previousPeriod,
+  quarterOf,
+  quarterPeriod,
+  samePeriod,
+  shiftQuarter,
+  validateRange,
+} from '../../public/app/js/core/period.js';
+import {
+  DEMO_CURRENT_TO_DATE_PREVIOUS,
+  DEMO_QUARTERS,
+  ZERO_METRICS,
+  type PeriodMetrics,
+} from './demo-metrics.ts';
+import { CrmValidationError } from './errors.ts';
+import type { CrmRepository } from './repository.ts';
+import { inOrg } from './scope.ts';
+import { effectiveTime, type TaskService, type TaskView } from './task-service.ts';
+import { calendarDateInZone, startOfDayInZone } from './time.ts';
+import type { CrmContext, Task } from './types.ts';
+
+const TASK_ITEMS = 5;
+const CALENDAR_ITEMS = 4;
+const STAGE_ORDER = STAGES.map((s: { value: string }) => s.value);
+
+type Range = { startDate: string; endDate: string };
+type Metric = { value: number; previous: number };
+
+const add = (a: PeriodMetrics, b: PeriodMetrics): PeriodMetrics =>
+  Object.fromEntries(
+    Object.keys(a).map((k) => [k, a[k as keyof PeriodMetrics] + b[k as keyof PeriodMetrics]]),
+  ) as unknown as PeriodMetrics;
+
+const scale = (m: PeriodMetrics, f: number): PeriodMetrics =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v * f])) as unknown as PeriodMetrics;
+
+const round = (m: PeriodMetrics): PeriodMetrics =>
+  Object.fromEntries(
+    Object.entries(m).map(([k, v]) => [k, Math.round(v)]),
+  ) as unknown as PeriodMetrics;
+
+/** Overlap of two inclusive date ranges, in days. */
+function overlapDays(a: Range, b: Range): number {
+  const start = a.startDate > b.startDate ? a.startDate : b.startDate;
+  const end = a.endDate < b.endDate ? a.endDate : b.endDate;
+  return end < start ? 0 : daysInclusive(start, end);
+}
+
+/**
+ * DEMO baseline for a range: each overlapping quarter contributes its share by
+ * days. The current quarter's numbers cover only the days up to today.
+ */
+function demoBaseline(today: string, range: Range): PeriodMetrics {
+  const current = quarterOf(today);
+  let total = ZERO_METRICS;
+  let q = quarterOf(range.startDate);
+  const last = quarterOf(range.endDate);
+  const index = (x: { year: number; quarter: number }) => x.year * 4 + x.quarter;
+  for (; index(q) <= index(last); q = shiftQuarter(q, 1)) {
+    const offset = index(q) - index(current);
+    const metrics = DEMO_QUARTERS[offset];
+    if (!metrics || offset > 0) continue;
+    const qp = quarterPeriod(q.year, q.quarter);
+    const covered = { startDate: qp.startDate, endDate: offset === 0 ? today : qp.endDate };
+    const share = overlapDays(range, covered) / daysInclusive(covered.startDate, covered.endDate);
+    if (share > 0) total = add(total, scale(metrics, share));
+  }
+  return round(total);
+}
+
+export function createDashboardService(repo: CrmRepository, tasks: TaskService) {
+  function bounds(ctx: CrmContext, range: Range) {
+    return {
+      from: startOfDayInZone(range.startDate, ctx.timeZone).getTime(),
+      to: startOfDayInZone(addDays(range.endDate, 1), ctx.timeZone).getTime(),
+    };
+  }
+
+  /** Real records of the organization that fall in the range. */
+  function realRecords(ctx: CrmContext, range: Range) {
+    const { from, to } = bounds(ctx, range);
+    const inside = (iso: string | null | undefined) => {
+      if (!iso) return false;
+      const t = Date.parse(iso);
+      return t >= from && t < to;
+    };
+    const data = repo.data();
+    const opportunities = inOrg(data.opportunities, ctx);
+    const created = opportunities.filter((o) => inside(o.createdAt));
+    const reached = (stage: number) =>
+      created.filter((o) => o.status !== 'active' || STAGE_ORDER.indexOf(o.stage) >= stage).length;
+    const won = opportunities.filter((o) => o.status === 'won' && inside(o.closedAt));
+    const lost = opportunities.filter((o) => o.status === 'lost' && inside(o.closedAt));
+
+    const allTasks = inOrg(data.tasks, ctx);
+    const dated = (t: Task) => {
+      const at = effectiveTime(t, ctx.timeZone);
+      return at === null ? inside(t.completedAt) : at >= from && at < to;
+    };
+    const periodTasks = allTasks.filter(dated);
+    const followUps = periodTasks.filter((t) => t.type === 'follow_up');
+    const scheduled = allTasks.filter(
+      (t) => t.status !== 'cancelled' && inside(t.scheduledStartAt),
+    );
+
+    const metrics: PeriodMetrics = {
+      newLeads: inOrg(data.customers, ctx).filter((c) => inside(c.createdAt)).length,
+      qualified: created.length,
+      meetings: scheduled.filter((t) => t.type === 'meeting').length,
+      won: won.length,
+      lost: lost.length,
+      revenue: won.reduce((sum, o) => sum + (o.value ?? 0), 0),
+      tasksDone: periodTasks.filter((t) => t.status === 'completed').length,
+      tasksNotDone: periodTasks.filter((t) => t.status !== 'completed').length,
+      followUpsDone: followUps.filter((t) => t.status === 'completed').length,
+      followUpsNoAnswer: followUps.filter((t) => t.status === 'cancelled').length,
+      followUpsOpen: followUps.filter((t) => t.status === 'open').length,
+      stageNew: created.length,
+      stageInProgress: reached(1),
+      stageOfferSent: reached(2),
+      stageNegotiation: reached(3),
+    };
+    return { metrics, periodTasks, scheduled };
+  }
+
+  return {
+    /**
+     * Summary of [startDate, endDate] (calendar dates, inclusive, org timezone)
+     * with the comparison period: the previous quarter, the same days of the
+     * previous quarter while the current one is running, or the equally long
+     * range before a custom period.
+     */
+    getPeriodSummary(ctx: CrmContext, startDate: unknown, endDate: unknown) {
+      const problem = validateRange(String(startDate ?? ''), String(endDate ?? ''));
+      if (problem || !isDateKey(startDate) || !isDateKey(endDate)) {
+        throw new CrmValidationError({ range: problem ?? 'Neispravan period.' });
+      }
+      const today = calendarDateInZone(ctx.now, ctx.timeZone);
+      const range: Range = { startDate: startDate as string, endDate: endDate as string };
+      const q = quarterOf(range.startDate);
+      const asQuarter = quarterPeriod(q.year, q.quarter);
+      const period = samePeriod(asQuarter, { ...range, type: 'QUARTER' })
+        ? asQuarter
+        : { type: 'CUSTOM' as const, ...range };
+      const current = quarterOf(today);
+      const isCurrent =
+        period.type === 'QUARTER' &&
+        period.year === current.year &&
+        period.quarter === current.quarter;
+
+      const real = realRecords(ctx, range);
+      const metrics = add(demoBaseline(today, range), real.metrics);
+
+      let previousRange: Range;
+      let previousMetrics: PeriodMetrics;
+      if (isCurrent) {
+        const prevQ = previousPeriod(period);
+        const elapsed = daysInclusive(period.startDate, today);
+        previousRange = {
+          startDate: prevQ.startDate,
+          endDate: addDays(prevQ.startDate, elapsed - 1),
+        };
+        previousMetrics = add(
+          DEMO_CURRENT_TO_DATE_PREVIOUS,
+          realRecords(ctx, previousRange).metrics,
+        );
+      } else {
+        const prev = previousPeriod(period);
+        previousRange = { startDate: prev.startDate, endDate: prev.endDate };
+        previousMetrics = add(
+          demoBaseline(today, previousRange),
+          realRecords(ctx, previousRange).metrics,
+        );
+      }
+      const metric = (key: keyof PeriodMetrics): Metric => ({
+        value: metrics[key],
+        previous: previousMetrics[key],
+      });
+
+      const view = (t: Task): TaskView => tasks.view(ctx, t);
+      const byTime = (a: Task, b: Task) =>
+        (effectiveTime(a, ctx.timeZone) ?? 0) - (effectiveTime(b, ctx.timeZone) ?? 0);
+      const taskItems = [
+        ...real.periodTasks
+          .filter((t) => t.status === 'completed')
+          .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')),
+        ...real.periodTasks.filter((t) => t.status !== 'completed').sort(byTime),
+      ]
+        .slice(0, TASK_ITEMS)
+        .map(view);
+      const calendarItems = [...real.scheduled]
+        .sort(
+          (a, b) =>
+            Number(b.status === 'completed') - Number(a.status === 'completed') || byTime(a, b),
+        )
+        .slice(0, CALENDAR_ITEMS)
+        .sort(byTime)
+        .map(view);
+      const realCalendarDone = real.scheduled.filter((t) => t.status === 'completed').length;
+
+      const hasData = Object.values(metrics).some((v) => v > 0);
+      return {
+        period: { ...period, isCurrent },
+        previous: previousRange,
+        kpis: {
+          newLeads: metric('newLeads'),
+          qualified: metric('qualified'),
+          meetings: metric('meetings'),
+          won: metric('won'),
+          lost: metric('lost'),
+          revenue: metric('revenue'),
+          avgWonValue: metrics.won ? Math.round(metrics.revenue / metrics.won) : null,
+        },
+        tasks: { done: metrics.tasksDone, notDone: metrics.tasksNotDone, items: taskItems },
+        calendar: {
+          // Demo meetings of past days count as held.
+          total: real.scheduled.length + (metrics.meetings - real.metrics.meetings),
+          done: realCalendarDone + (metrics.meetings - real.metrics.meetings),
+          items: calendarItems,
+        },
+        pipeline: [
+          { key: 'new', label: 'Novi', count: metrics.stageNew },
+          { key: 'in_progress', label: 'U obradi', count: metrics.stageInProgress },
+          { key: 'offer_sent', label: 'Ponuda poslana', count: metrics.stageOfferSent },
+          { key: 'negotiation', label: 'Pregovori', count: metrics.stageNegotiation },
+          { key: 'won', label: 'Dobiveno', count: metrics.won },
+        ],
+        followUps: {
+          done: metrics.followUpsDone,
+          noAnswer: metrics.followUpsNoAnswer,
+          open: metrics.followUpsOpen,
+          total: metrics.followUpsDone + metrics.followUpsNoAnswer + metrics.followUpsOpen,
+        },
+        hasData,
+      };
+    },
+  };
+}
+
+export type DashboardService = ReturnType<typeof createDashboardService>;

@@ -184,6 +184,13 @@ export function createCrmApi(crm: CrmServices) {
         return ok({ tasks: crm.calendar.getCalendarTasks(ctx, from, to) });
       },
     },
+    // ---- Home dashboard: one period (calendar dates, inclusive) and its comparison period
+    {
+      method: 'GET',
+      pattern: /^\/api\/dashboard\/summary$/,
+      handler: ({ ctx, query }) =>
+        ok({ summary: crm.dashboard.getPeriodSummary(ctx, q(query, 'from'), q(query, 'to')) }),
+    },
     // ---- BETA: restore this organization's demo data
     {
       method: 'POST',

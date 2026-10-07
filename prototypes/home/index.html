@@ -40,6 +40,12 @@
       <symbol id="i-arrow-up" viewBox="0 0 24 24">
         <path d="m5 12 7-7 7 7M12 19V5" />
       </symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24">
+        <path d="M12 5v14M19 12l-7 7-7-7" />
+      </symbol>
+      <symbol id="i-repeat" viewBox="0 0 24 24">
+        <path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3" />
+      </symbol>
       <symbol id="i-chevron-right" viewBox="0 0 24 24">
         <path d="m9 18 6-6-6-6" />
       </symbol>
@@ -135,198 +141,166 @@
       </header>
 
       <main class="content">
-        <!-- 3 · KPI cards -->
-        <section class="metrics" aria-label="Pregled prodaje">
-          <a class="metric" href="#leadovi">
-            <span class="metric__label">Leadovi</span>
-            <span class="metric__row">
-              <span class="metric__value">128</span>
-              <span class="metric__icon metric__icon--red"
-                ><svg class="icon"><use href="#i-users" /></svg
-              ></span>
-            </span>
-            <span class="trend"
-              ><svg class="icon"><use href="#i-arrow-up" /></svg>12%</span
-            >
-          </a>
-          <a class="metric" href="#kvalificirani">
-            <span class="metric__label">Kvalificirani</span>
-            <span class="metric__row">
-              <span class="metric__value">54</span>
-              <span class="metric__icon metric__icon--green"
-                ><svg class="icon"><use href="#i-funnel" /></svg
-              ></span>
-            </span>
-            <span class="trend"
-              ><svg class="icon"><use href="#i-arrow-up" /></svg>28%</span
-            >
-          </a>
-          <a class="metric" href="#sastanci">
-            <span class="metric__label">Sastanci</span>
-            <span class="metric__row">
-              <span class="metric__value">18</span>
-              <span class="metric__icon metric__icon--red"
-                ><svg class="icon"><use href="#i-calendar-check" /></svg
-              ></span>
-            </span>
-            <span class="trend"
-              ><svg class="icon"><use href="#i-arrow-up" /></svg>20%</span
-            >
-          </a>
-          <a class="metric" href="#prihod">
-            <span class="metric__label">Prihod</span>
-            <span class="metric__row">
-              <span class="metric__value">€24.6K</span>
-              <span class="metric__icon metric__icon--plain"
-                ><svg class="icon"><use href="#i-bars" /></svg
-              ></span>
-            </span>
-            <span class="trend"
-              ><svg class="icon"><use href="#i-arrow-up" /></svg>32%</span
-            >
-          </a>
-        </section>
+        <!-- Period selector (rendered by /app/js/features/dashboard/period-selector.js) -->
+        <section class="period" id="period-bar" aria-label="Period pregleda"></section>
 
-        <!-- 4 · DANAS -->
-        <section class="card module" aria-labelledby="danas-title">
-          <div class="module__head">
-            <span class="module__icon"
-              ><svg class="icon"><use href="#i-calendar" /></svg
-            ></span>
-            <h2 class="module__title" id="danas-title">Danas</h2>
-            <a class="module__link" href="/calendar"
-              >Pogledaj kalendar<svg class="icon"><use href="#i-chevron-right" /></svg
-            ></a>
-          </div>
-          <ul class="list" role="list" aria-live="polite">
-            <li class="empty-row">Učitavanje…</li>
-          </ul>
-        </section>
+        <!-- 3 · KPI cards of the selected period -->
+        <section class="metrics" aria-label="Pregled prodaje" aria-busy="true"></section>
 
-        <!-- 5 · PRIORITETI -->
-        <section class="card module" aria-labelledby="prioriteti-title">
-          <div class="module__head">
-            <span class="module__icon"
-              ><svg class="icon"><use href="#i-target" /></svg
-            ></span>
-            <h2 class="module__title" id="prioriteti-title">Prioriteti</h2>
-            <a class="module__link" href="/tasks"
-              >Pogledaj sve<svg class="icon"><use href="#i-chevron-right" /></svg
-            ></a>
-          </div>
-          <ul class="list" role="list" aria-live="polite">
-            <li class="empty-row">Učitavanje…</li>
-          </ul>
-        </section>
-
-        <!-- 6 · OPPORTUNITY PIPELINE + ČEKAŠ ODGOVOR -->
-        <div class="split">
-          <section class="card module module--compact" aria-labelledby="pipeline-title">
+        <!-- Current quarter: the operational dashboard -->
+        <div class="dashboard-view" id="dashboard-current">
+          <!-- 4 · DANAS -->
+          <section class="card module" aria-labelledby="danas-title">
             <div class="module__head">
               <span class="module__icon"
-                ><svg class="icon"><use href="#i-bars" /></svg
+                ><svg class="icon"><use href="#i-calendar" /></svg
               ></span>
-              <h2 class="module__title" id="pipeline-title">Opportunity Pipeline</h2>
-              <a class="module__link" href="/opportunities"
-                >Svi leadovi<svg class="icon"><use href="#i-chevron-right" /></svg
+              <h2 class="module__title" id="danas-title">Danas</h2>
+              <a class="module__link" href="/calendar"
+                >Pogledaj kalendar<svg class="icon"><use href="#i-chevron-right" /></svg
               ></a>
             </div>
-            <ul class="pipeline" role="list">
-              <li>
-                <button class="stage" type="button" style="--fill: 100%; --bar: var(--bar-new)">
-                  <span class="stage__label">Novi</span>
-                  <span class="stage__track"><span class="stage__fill"></span></span>
-                  <span class="stage__count">42</span>
-                </button>
-              </li>
-              <li>
-                <button class="stage" type="button" style="--fill: 67%; --bar: var(--bar-progress)">
-                  <span class="stage__label">U obradi</span>
-                  <span class="stage__track"><span class="stage__fill"></span></span>
-                  <span class="stage__count">28</span>
-                </button>
-              </li>
-              <li>
-                <button class="stage" type="button" style="--fill: 43%; --bar: var(--bar-offer)">
-                  <span class="stage__label">Ponuda poslana</span>
-                  <span class="stage__track"><span class="stage__fill"></span></span>
-                  <span class="stage__count">18</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  class="stage"
-                  type="button"
-                  style="--fill: 30%; --bar: var(--bar-negotiation)"
-                >
-                  <span class="stage__label">Pregovori</span>
-                  <span class="stage__track"><span class="stage__fill"></span></span>
-                  <span class="stage__count">11</span>
-                </button>
-              </li>
-              <li>
-                <button class="stage" type="button" style="--fill: 18%; --bar: var(--bar-closing)">
-                  <span class="stage__label">Zatvaranje</span>
-                  <span class="stage__track"><span class="stage__fill"></span></span>
-                  <span class="stage__count">6</span>
-                </button>
-              </li>
+            <ul class="list" role="list" aria-live="polite">
+              <li class="empty-row">Učitavanje…</li>
             </ul>
           </section>
 
-          <section class="card module module--compact" aria-labelledby="odgovor-title">
+          <!-- 5 · PRIORITETI -->
+          <section class="card module" aria-labelledby="prioriteti-title">
             <div class="module__head">
               <span class="module__icon"
-                ><svg class="icon"><use href="#i-clock" /></svg
+                ><svg class="icon"><use href="#i-target" /></svg
               ></span>
-              <h2 class="module__title" id="odgovor-title">Čekaš odgovor</h2>
-              <a class="module__link" href="/customers"
-                >Svi<svg class="icon"><use href="#i-chevron-right" /></svg
+              <h2 class="module__title" id="prioriteti-title">Prioriteti</h2>
+              <a class="module__link" href="/tasks"
+                >Pogledaj sve<svg class="icon"><use href="#i-chevron-right" /></svg
               ></a>
             </div>
-            <ul class="list" role="list">
-              <li>
-                <button class="waiting" type="button">
-                  <span class="waiting__icon"
-                    ><svg class="icon"><use href="#i-building" /></svg
-                  ></span>
-                  <span class="waiting__text">
-                    <span class="waiting__name">Adria Tech</span>
-                    <span class="waiting__sub">Poslana ponuda</span>
-                  </span>
-                  <span class="waiting__days">2 dana</span>
-                  <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-                </button>
-              </li>
-              <li>
-                <button class="waiting" type="button">
-                  <span class="waiting__icon"
-                    ><svg class="icon"><use href="#i-building" /></svg
-                  ></span>
-                  <span class="waiting__text">
-                    <span class="waiting__name">Nova d.o.o.</span>
-                    <span class="waiting__sub">Praćenje nakon sastanka</span>
-                  </span>
-                  <span class="waiting__days">3 dana</span>
-                  <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-                </button>
-              </li>
-              <li>
-                <button class="waiting" type="button">
-                  <span class="waiting__icon"
-                    ><svg class="icon"><use href="#i-building" /></svg
-                  ></span>
-                  <span class="waiting__text">
-                    <span class="waiting__name">Initium</span>
-                    <span class="waiting__sub">Čeka povratnu informaciju</span>
-                  </span>
-                  <span class="waiting__days">5 dana</span>
-                  <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-                </button>
-              </li>
+            <ul class="list" role="list" aria-live="polite">
+              <li class="empty-row">Učitavanje…</li>
             </ul>
           </section>
+
+          <!-- 6 · OPPORTUNITY PIPELINE + ČEKAŠ ODGOVOR -->
+          <div class="split">
+            <section class="card module module--compact" aria-labelledby="pipeline-title">
+              <div class="module__head">
+                <span class="module__icon"
+                  ><svg class="icon"><use href="#i-bars" /></svg
+                ></span>
+                <h2 class="module__title" id="pipeline-title">Opportunity Pipeline</h2>
+                <a class="module__link" href="/opportunities"
+                  >Svi leadovi<svg class="icon"><use href="#i-chevron-right" /></svg
+                ></a>
+              </div>
+              <ul class="pipeline" role="list">
+                <li>
+                  <button class="stage" type="button" style="--fill: 100%; --bar: var(--bar-new)">
+                    <span class="stage__label">Novi</span>
+                    <span class="stage__track"><span class="stage__fill"></span></span>
+                    <span class="stage__count">42</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    class="stage"
+                    type="button"
+                    style="--fill: 67%; --bar: var(--bar-progress)"
+                  >
+                    <span class="stage__label">U obradi</span>
+                    <span class="stage__track"><span class="stage__fill"></span></span>
+                    <span class="stage__count">28</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="stage" type="button" style="--fill: 43%; --bar: var(--bar-offer)">
+                    <span class="stage__label">Ponuda poslana</span>
+                    <span class="stage__track"><span class="stage__fill"></span></span>
+                    <span class="stage__count">18</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    class="stage"
+                    type="button"
+                    style="--fill: 30%; --bar: var(--bar-negotiation)"
+                  >
+                    <span class="stage__label">Pregovori</span>
+                    <span class="stage__track"><span class="stage__fill"></span></span>
+                    <span class="stage__count">11</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    class="stage"
+                    type="button"
+                    style="--fill: 18%; --bar: var(--bar-closing)"
+                  >
+                    <span class="stage__label">Zatvaranje</span>
+                    <span class="stage__track"><span class="stage__fill"></span></span>
+                    <span class="stage__count">6</span>
+                  </button>
+                </li>
+              </ul>
+            </section>
+
+            <section class="card module module--compact" aria-labelledby="odgovor-title">
+              <div class="module__head">
+                <span class="module__icon"
+                  ><svg class="icon"><use href="#i-clock" /></svg
+                ></span>
+                <h2 class="module__title" id="odgovor-title">Čekaš odgovor</h2>
+                <a class="module__link" href="/customers"
+                  >Svi<svg class="icon"><use href="#i-chevron-right" /></svg
+                ></a>
+              </div>
+              <ul class="list" role="list">
+                <li>
+                  <button class="waiting" type="button">
+                    <span class="waiting__icon"
+                      ><svg class="icon"><use href="#i-building" /></svg
+                    ></span>
+                    <span class="waiting__text">
+                      <span class="waiting__name">Adria Tech</span>
+                      <span class="waiting__sub">Poslana ponuda</span>
+                    </span>
+                    <span class="waiting__days">2 dana</span>
+                    <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
+                  </button>
+                </li>
+                <li>
+                  <button class="waiting" type="button">
+                    <span class="waiting__icon"
+                      ><svg class="icon"><use href="#i-building" /></svg
+                    ></span>
+                    <span class="waiting__text">
+                      <span class="waiting__name">Nova d.o.o.</span>
+                      <span class="waiting__sub">Praćenje nakon sastanka</span>
+                    </span>
+                    <span class="waiting__days">3 dana</span>
+                    <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
+                  </button>
+                </li>
+                <li>
+                  <button class="waiting" type="button">
+                    <span class="waiting__icon"
+                      ><svg class="icon"><use href="#i-building" /></svg
+                    ></span>
+                    <span class="waiting__text">
+                      <span class="waiting__name">Initium</span>
+                      <span class="waiting__sub">Čeka povratnu informaciju</span>
+                    </span>
+                    <span class="waiting__days">5 dana</span>
+                    <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
+                  </button>
+                </li>
+              </ul>
+            </section>
+          </div>
         </div>
+
+        <!-- Past quarter or custom period: the historical dashboard -->
+        <div class="dashboard-view" id="dashboard-history" hidden></div>
       </main>
 
       <!-- Quick add: "+" opens the Quick Add bottom sheet (/app/js/features/quick-add) -->
@@ -342,29 +316,8 @@
         </button>
       </div>
 
-      <!-- 7 · Bottom navigation -->
-      <nav class="tabbar" aria-label="Glavna navigacija">
-        <a class="tab is-active" href="#pocetna" aria-current="page">
-          <svg class="icon icon--filled"><use href="#i-home" /></svg>
-          <span>Početna</span>
-        </a>
-        <a class="tab" href="#leads">
-          <svg class="icon"><use href="#i-users" /></svg>
-          <span>Leads</span>
-        </a>
-        <a class="tab" href="#asistent">
-          <svg class="icon"><use href="#i-sparkles" /></svg>
-          <span>Asistent</span>
-        </a>
-        <a class="tab" href="#izvjestaji">
-          <svg class="icon"><use href="#i-bars" /></svg>
-          <span>Izvještaji</span>
-        </a>
-        <a class="tab" href="#vise">
-          <svg class="icon"><use href="#i-ellipsis" /></svg>
-          <span>Više</span>
-        </a>
-      </nav>
+      <!-- 7 · Bottom navigation (rendered by /app/js/ui/tabbar.js) -->
+      <nav class="tabbar" aria-label="Glavna navigacija"></nav>
 
       <div class="toast" role="status" aria-live="polite" hidden></div>
     </div>

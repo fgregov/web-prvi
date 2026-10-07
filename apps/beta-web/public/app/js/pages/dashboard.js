@@ -1,10 +1,24 @@
-// Dashboard integration (prototypes/home): Quick Add sheet, today's Sales
-// Calendar in "Danas", "Prioriteti" with completion, live pipeline totals.
-// Everything comes from the server; the approved layout and styles are unchanged.
+// Dashboard integration (prototypes/home): bottom navigation, period selector,
+// KPI cards of the selected period, and one of two views:
+//   current quarter → the operational dashboard (Danas / Prioriteti / pipeline)
+//   past or custom period → the historical dashboard (what happened then)
+// Quick Add always creates current records, whatever period is on screen.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { labelOf, TASK_TYPES } from '../core/constants.js';
+import {
+  describePeriod,
+  getDashboardPeriod,
+  onDashboardPeriodChange,
+  resetDashboardPeriod,
+  setDashboardPeriod,
+} from '../core/dashboard-period.js';
 import { dayRange, formatSlot, todayKey } from '../core/format.js';
+import { currentQuarterPeriod } from '../core/period.js';
+import { renderHistory, renderHistorySkeleton } from '../features/dashboard/history-view.js';
+import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-cards.js';
+import { PeriodSelector } from '../features/dashboard/period-selector.js';
 import { QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
+import { renderTabbar } from '../ui/tabbar.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -29,6 +43,10 @@ const taskHref = (task) =>
   `/tasks/${encodeURIComponent(task.id)}?returnTo=${encodeURIComponent(HOME)}`;
 
 QuickAddSheet({ trigger: document.querySelector('.fab'), returnTo: HOME });
+renderTabbar(document.querySelector('.tabbar'), 'home');
+
+// A new session starts at the current quarter.
+document.querySelector('[data-logout]')?.addEventListener('click', resetDashboardPeriod, true);
 
 // Header date: today, in Croatian.
 const dateEl = document.querySelector('.brand__date');
@@ -170,12 +188,69 @@ document
   .querySelectorAll('.pipeline .stage')
   .forEach((row) => row.addEventListener('click', () => window.location.assign('/opportunities')));
 
-async function refresh() {
-  await Promise.all([updateToday(), updatePriorities(), updatePipeline()]).catch((error) => {
+// ------------------------------------------------------------ period ---
+const metricsEl = document.querySelector('.metrics');
+const currentView = document.getElementById('dashboard-current');
+const historyView = document.getElementById('dashboard-history');
+const selector = PeriodSelector({
+  container: document.getElementById('period-bar'),
+  getPeriod: getDashboardPeriod,
+  onSelect: setDashboardPeriod,
+});
+const backToCurrent = () => setDashboardPeriod(currentQuarterPeriod(todayKey()));
+
+let ticket = 0;
+/**
+ * Loads the selected period: skeleton first (no stale numbers from another
+ * period), then a short fade-in. `quiet` refreshes the same period in place.
+ */
+async function showPeriod({ quiet = false } = {}) {
+  const mine = ++ticket;
+  const info = describePeriod(getDashboardPeriod());
+  selector.render();
+  metricsEl.setAttribute('aria-busy', 'true');
+  if (!quiet) {
+    renderKpiSkeleton(metricsEl);
+    currentView.hidden = !info.isCurrent;
+    historyView.hidden = info.isCurrent;
+    if (!info.isCurrent) renderHistorySkeleton(historyView);
+  }
+
+  try {
+    const [summary] = await Promise.all([
+      api.dashboardSummary(info.period.startDate, info.period.endDate),
+      info.isCurrent ? refreshOperational() : null,
+    ]);
+    if (mine !== ticket) return; // a newer selection is loading
+    renderKpiCards(metricsEl, summary);
+    if (!info.isCurrent)
+      renderHistory(historyView, summary, info, { onBackToCurrent: backToCurrent });
+    if (quiet) return;
+    for (const el of [metricsEl, info.isCurrent ? currentView : historyView]) {
+      el.classList.remove('is-entering');
+      void el.offsetWidth; // restart the fade
+      el.classList.add('is-entering');
+    }
+  } catch (error) {
     if (!(error instanceof ApiError && error.status === 401)) showToast(error.message);
-  });
+  } finally {
+    if (mine === ticket) metricsEl.removeAttribute('aria-busy');
+  }
 }
 
+async function refreshOperational() {
+  await Promise.all([updateToday(), updatePriorities(), updatePipeline()]);
+}
+
+/** After a change (completing a task, another tab): reload what is on screen. */
+async function refresh() {
+  await showPeriod({ quiet: true });
+}
+
+onDashboardPeriodChange(() => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showPeriod();
+});
 onDataChanged(refresh);
-await refresh();
+await showPeriod();
 consumeFlash();

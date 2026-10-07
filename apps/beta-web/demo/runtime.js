@@ -256,6 +256,10 @@ const ROUTES = {
   '/tasks': 'tasks',
   '/tasks/new': 'task-form',
   '/calendar': 'calendar',
+  '/follow-up': 'module',
+  '/leads': 'module',
+  '/reports': 'module',
+  '/more': 'module',
 };
 const PATTERNS = [
   [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer'],

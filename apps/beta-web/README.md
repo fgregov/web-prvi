@@ -114,6 +114,18 @@ The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
 - `FOLLOW_UP` is a task type. There is no follow-up engine yet.
 - Context comes from the query: `/tasks/new?companyId=…&contactId=…&opportunityId=…&type=…&calendar=1&date=YYYY-MM-DD&returnTo=/path`.
 
+### Home periods
+
+Under the header, Home shows the selected period (default: the current
+quarter). The current quarter shows the operational dashboard; a past quarter
+or a custom range ("Ručni odabir perioda") shows the historical dashboard:
+results, completed work (green checks) and unfinished work (neutral). The
+period is one shared state (`core/dashboard-period.js`, kept for the browser
+session, cleared on logout); quarter math lives in `core/period.js`, shared
+with the server. Choosing a period only changes the query: no record is
+changed, archived or reset. `src/crm/demo-metrics.ts` adds demo numbers per
+quarter on top of the real records (BETA only; delete it with real data).
+
 ### Pages
 
 | Route                                             | Page                                                   |

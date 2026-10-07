@@ -249,6 +249,22 @@ describe('calendar', () => {
   });
 });
 
+describe('dashboard summary', () => {
+  it('summarises a period and rejects an inverted range', async () => {
+    const q3 = await json(await api('/api/dashboard/summary?from=2026-07-01&to=2026-09-30'));
+    expect(q3.status).toBe(200);
+    expect(q3.body.summary.period).toMatchObject({ type: 'QUARTER', quarter: 3, isCurrent: false });
+    const bad = await json(await api('/api/dashboard/summary?from=2026-05-15&to=2026-03-15'));
+    expect(bad).toMatchObject({
+      status: 422,
+      body: { errors: { range: 'Završni datum ne može biti prije početnog datuma.' } },
+    });
+    expect(
+      (await fetch(`${server.url}/api/dashboard/summary?from=2026-07-01&to=2026-09-30`)).status,
+    ).toBe(401);
+  });
+});
+
 describe('contacts, opportunities, demo reset', () => {
   it('creates a contact and an opportunity that reports its missing next action', async () => {
     const fero = customerId(ORG, 'FERO');

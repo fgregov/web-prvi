@@ -2,6 +2,7 @@
 import { createCalendarService } from './calendar-service.ts';
 import { createContactService } from './contact-service.ts';
 import { createCustomerService } from './customer-service.ts';
+import { createDashboardService } from './dashboard-service.ts';
 import { createOpportunityService } from './opportunity-service.ts';
 import type { CrmRepository } from './repository.ts';
 import { createTaskService } from './task-service.ts';
@@ -12,7 +13,8 @@ export function createCrmServices(repo: CrmRepository) {
   const opportunities = createOpportunityService(repo, tasks);
   const customers = createCustomerService(repo, { contacts, opportunities, tasks });
   const calendar = createCalendarService(repo, tasks);
-  return { repo, customers, contacts, opportunities, tasks, calendar };
+  const dashboard = createDashboardService(repo, tasks);
+  return { repo, customers, contacts, opportunities, tasks, calendar, dashboard };
 }
 
 export type CrmServices = ReturnType<typeof createCrmServices>;

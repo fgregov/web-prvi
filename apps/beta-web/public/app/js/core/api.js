@@ -104,5 +104,8 @@ export const api = {
       'GET',
       `/api/calendar${query({ from: from.toISOString(), to: to.toISOString() })}`,
     ).then((r) => r.tasks),
+  // Home dashboard: one period, calendar dates inclusive
+  dashboardSummary: (from, to) =>
+    request('GET', `/api/dashboard/summary${query({ from, to })}`).then((r) => r.summary),
   resetDemo: () => request('POST', '/api/demo/reset', {}),
 };

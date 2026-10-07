@@ -18,26 +18,8 @@
   // Quick Add, "Danas" and "Prioriteti" are rendered from live data by
   // /app/js/pages/dashboard.js (served by apps/beta-web).
 
-  // -------------------------------------------------- bottom navigation ---
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', (event) => {
-      event.preventDefault();
-      tabs.forEach((t) => {
-        t.classList.toggle('is-active', t === tab);
-        if (t === tab) t.setAttribute('aria-current', 'page');
-        else t.removeAttribute('aria-current');
-      });
-      const home = tab.querySelector('use')?.getAttribute('href') === '#i-home';
-      document
-        .querySelector('.tab .icon use[href="#i-home"]')
-        .parentElement.classList.toggle('icon--filled', home);
-    });
-  });
-
   // ------------------------------------------- placeholder destinations ---
   const placeholders = [
-    ['.metric', (el) => el.querySelector('.metric__label').textContent],
     ['.module__link[href^="#"]', (el) => el.textContent.trim()],
     ['.waiting', (el) => el.querySelector('.waiting__name').textContent],
     ['.bell', () => 'Obavijesti'],

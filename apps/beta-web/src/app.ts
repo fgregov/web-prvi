@@ -55,6 +55,11 @@ const CRM_PAGES: Record<string, string> = {
   '/tasks': 'tasks.html',
   '/tasks/new': 'task-form.html',
   '/calendar': 'calendar.html',
+  // Primary modules not built yet: navigation shells.
+  '/follow-up': 'module.html',
+  '/leads': 'module.html',
+  '/reports': 'module.html',
+  '/more': 'module.html',
 };
 const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
   [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer.html'],

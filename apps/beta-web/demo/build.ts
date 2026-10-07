@@ -165,6 +165,7 @@ const pages: Record<string, { title: string; styles: string[]; html: string; scr
 
 function mapUrl(url: string, base: 'home' | 'app' | 'login'): string {
   if (url.startsWith('/app/')) return url.slice(1);
+  if (url === '/dashboard/styles.css') return 'home/styles.css';
   if (url.startsWith('/login/')) return url.slice(1);
   if (url === '/brand/renvara-logo.png' || url === 'assets/renvara-logo.png') return LOGO;
   if (url === 'assets/avatar-placeholder.svg') return AVATAR;

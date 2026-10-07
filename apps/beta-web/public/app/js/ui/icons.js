@@ -7,6 +7,38 @@ const ICONS = {
   'arrow-left': [['path', 'm12 19-7-7 7-7M19 12H5']],
   'chevron-right': [['path', 'm9 18 6-6-6-6']],
   'chevron-left': [['path', 'm15 18-6-6 6-6']],
+  'chevron-down': [['path', 'm6 9 6 6 6-6']],
+  'arrow-up': [['path', 'M12 19V5M5 12l7-7 7 7']],
+  'arrow-down': [['path', 'M12 5v14M19 12l-7 7-7-7']],
+  home: [
+    [
+      'path',
+      'M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2h-4v-7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v7H5a2 2 0 0 1-2-2z',
+    ],
+  ],
+  users: [
+    ['path', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'],
+    ['circle', { cx: 9, cy: 7, r: 4 }],
+    ['path', 'M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'],
+  ],
+  repeat: [
+    ['path', 'm17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3'],
+  ],
+  bars: [['path', 'M3 3v18h18M18 17V9M13 17V5M8 17v-3']],
+  ellipsis: [
+    ['circle', { cx: 12, cy: 12, r: 1 }],
+    ['circle', { cx: 19, cy: 12, r: 1 }],
+    ['circle', { cx: 5, cy: 12, r: 1 }],
+  ],
+  history: [
+    ['path', 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'],
+    ['path', 'M3 3v5h5M12 7v5l4 2'],
+  ],
+  file: [
+    ['path', 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z'],
+    ['path', 'M14 2v4a2 2 0 0 0 2 2h4M10 13h4M10 17h4'],
+  ],
+  circle: [['circle', { cx: 12, cy: 12, r: 9 }]],
   calendar: [
     ['rect', { x: 3, y: 4, width: 18, height: 18, rx: 2 }],
     ['path', 'M16 2v4M8 2v4M3 10h18'],
