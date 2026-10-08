@@ -2,7 +2,7 @@
 // server (routes.ts) adds session, CSRF and body parsing around it; the static
 // demo build calls it from the browser.
 import { MESSAGES } from '../messages.ts';
-import { CrmNotFoundError, CrmValidationError } from './errors.ts';
+import { CrmConflictError, CrmNotFoundError, CrmValidationError } from './errors.ts';
 import type { CrmServices } from './index.ts';
 import { inOrg, type Body } from './scope.ts';
 import { seedDemoData } from './seed.ts';
@@ -128,6 +128,7 @@ export function createCrmApi(crm: CrmServices) {
             companyId: q(query, 'companyId'),
             contactId: q(query, 'contactId'),
             opportunityId: q(query, 'opportunityId'),
+            leadId: q(query, 'leadId'),
             type: q(query, 'type'),
             priority: q(query, 'priority'),
           }),
@@ -184,6 +185,44 @@ export function createCrmApi(crm: CrmServices) {
         return ok({ tasks: crm.calendar.getCalendarTasks(ctx, from, to) });
       },
     },
+    // ---- leads (separate from customers; never deleted)
+    {
+      method: 'GET',
+      pattern: /^\/api\/leads$/,
+      handler: ({ ctx, query }) =>
+        ok({ leads: crm.leads.listLeads(ctx, { status: q(query, 'status'), q: q(query, 'q') }) }),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/api\/leads$/,
+      handler: ({ ctx, body }) => ok({ lead: crm.leads.createLead(ctx, body) }, 201),
+    },
+    {
+      method: 'GET',
+      pattern: new RegExp(`^/api/leads/${ID}$`),
+      handler: ({ ctx, params }) => ok({ lead: crm.leads.getLead(ctx, id(params)) }),
+    },
+    {
+      method: 'PATCH',
+      pattern: new RegExp(`^/api/leads/${ID}$`),
+      handler: ({ ctx, params, body }) => ok({ lead: crm.leads.updateLead(ctx, id(params), body) }),
+    },
+    {
+      method: 'GET',
+      pattern: new RegExp(`^/api/leads/${ID}/matches$`),
+      handler: ({ ctx, params }) => ok({ matches: crm.leads.customerMatches(ctx, id(params)) }),
+    },
+    {
+      method: 'POST',
+      pattern: new RegExp(`^/api/leads/${ID}/convert$`),
+      handler: ({ ctx, params, body }) => ok(crm.leads.convertLead(ctx, id(params), body)),
+    },
+    {
+      method: 'POST',
+      pattern: new RegExp(`^/api/leads/${ID}/lost$`),
+      handler: ({ ctx, params, body }) =>
+        ok({ lead: crm.leads.markLeadLost(ctx, id(params), body) }),
+    },
     // ---- Home dashboard: one period (calendar dates, inclusive) and its comparison period
     {
       method: 'GET',
@@ -208,6 +247,7 @@ export function createCrmApi(crm: CrmServices) {
           opportunities: [...keep(data.opportunities), ...seed.opportunities],
           tasks: [...keep(data.tasks), ...seed.tasks],
           activities: [...keep(data.activities), ...seed.activities],
+          leads: [...keep(data.leads), ...seed.leads],
         });
         return ok({ customers: inOrg(crm.repo.data().customers, ctx).length });
       },
@@ -246,6 +286,9 @@ export function createCrmApi(crm: CrmServices) {
           status: 422,
           body: { success: false, message: error.message, errors: error.errors },
         };
+      }
+      if (error instanceof CrmConflictError) {
+        return { status: 409, body: { success: false, message: error.message, ...error.details } };
       }
       if (error instanceof CrmNotFoundError) {
         return { status: 404, body: { success: false, message: error.message } };

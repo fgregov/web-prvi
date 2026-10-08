@@ -92,10 +92,32 @@ Probability (`manual_probability` 0–100) and `interest_level` are explicit
 manual inputs. Computed scores such as engagement or AI intent will be separate
 derived values, never overwriting manual ones.
 
+### Lead
+A potential business relationship that is not a customer yet (`leads`,
+migration `20261008120000_leads.sql`). It is its own entity, not a company
+with a flag, so prospecting never pollutes the customer list. Only `name` is
+required. Two orthogonal dimensions, like an opportunity:
+
+| field | values | meaning |
+|---|---|---|
+| `stage` | new → contacted → qualified | how far it got, retained after closing |
+| `status` | active · won · lost | outcome, independent of opportunity won/lost |
+
+**Won** means converted into a company (new or existing), optionally with a
+contact and an opportunity, in one transaction; the lead keeps
+`converted_at` and the `converted_*_id` references (same organization, composite
+FKs). **Lost** is an explicit close with `lost_at` and an optional
+`lost_reason`. Leads are never deleted or merged. Each lifecycle moment has its
+own timestamp (`created_at`, `qualified_at`, `converted_at`, `lost_at`), set by
+a trigger and enforced by CHECKs, so "created in Q3" and "won in Q4" are
+different, correct queries and nothing resets at a period boundary. Win rate =
+won ÷ (won + lost), W/L = won ÷ lost, conversion = won ÷ created
+(`leadOutcomeMetrics` in `@renvara/domain`).
+
 ### Activity: "what happened"
 A historical fact: call, email, meeting, note, offer sent, follow-up, status
-change or other. It must reference at least one of company, contact or
-opportunity. The company is derived automatically from the opportunity, or else
+change or other. It must reference at least one of company, contact,
+opportunity or lead. The company is derived automatically from the opportunity, or else
 from the contact, so a company timeline is a single indexed query. `occurred_at`
 (when it happened, may be back-dated) is distinct from `created_at` (when it
 was recorded). `source` records who created it: manual, system, ai_assistant,
@@ -119,7 +141,8 @@ A future obligation with an assignee, type, priority and status
 * neither: undated.
 
 The two are mutually exclusive (CHECK). Tasks may have no subject at all,
-which allows personal reminders.
+which allows personal reminders. A task may concern a lead (`lead_id`, same
+organization) before that lead is a customer.
 
 ## The next-action rule (ADR-0004)
 

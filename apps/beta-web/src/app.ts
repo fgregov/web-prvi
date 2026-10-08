@@ -55,9 +55,10 @@ const CRM_PAGES: Record<string, string> = {
   '/tasks': 'tasks.html',
   '/tasks/new': 'task-form.html',
   '/calendar': 'calendar.html',
+  '/leads': 'leads.html',
+  '/leads/new': 'lead-new.html',
   // Primary modules not built yet: navigation shells.
   '/follow-up': 'module.html',
-  '/leads': 'module.html',
   '/reports': 'module.html',
   '/more': 'module.html',
 };
@@ -65,6 +66,8 @@ const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
   [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer.html'],
   [/^\/tasks\/[A-Za-z0-9_-]{1,64}$/, 'task.html'],
   [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form.html'],
+  [/^\/leads\/[A-Za-z0-9_-]{1,64}$/, 'lead.html'],
+  [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert.html'],
 ];
 
 export interface CrmOptions {

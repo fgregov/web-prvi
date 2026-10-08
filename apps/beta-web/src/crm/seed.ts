@@ -287,5 +287,66 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     lq(70),
   );
 
+  // ---- Leads: open ones in every stage, and closed ones in the previous quarter.
+  const lead = (on: string, input: Record<string, unknown>) =>
+    crm.leads.createLead(then(on, '10:00'), input);
+  lead(addDays(today, -2), {
+    name: 'Ana Perić',
+    companyName: 'Bistro Mareta',
+    email: 'ana@bistromareta.hr',
+    jobTitle: 'Vlasnica',
+    source: 'web',
+    estimatedValue: '2400',
+    notes: 'Upit preko web obrasca za aparat za kavu.',
+  });
+  const babic = lead(addDays(today, -5), {
+    name: 'Tomislav Babić',
+    companyName: 'Babić Logistika d.o.o.',
+    phone: '+385 98 456 1122',
+    source: 'referral',
+    stage: 'contacted',
+    estimatedValue: '15000',
+  });
+  crm.tasks.createTask(ctx, {
+    title: 'Poslati demo Babić Logistici',
+    type: 'follow_up',
+    leadId: babic.id,
+    scheduledStartAt: at(addDays(today, 1), '10:00'),
+  });
+  lead(addDays(today, -1), {
+    name: 'Hotel Lavanda',
+    source: 'event',
+    stage: 'qualified',
+    estimatedValue: '9000',
+    notes: 'Upoznali na sajmu, traže rješenje za 3 lokacije.',
+  });
+  // Created and converted in the previous quarter: became the customer Nova d.o.o.
+  const novaLead = lead(lq(2), {
+    name: 'Petra Novak',
+    companyName: 'Nova d.o.o.',
+    jobTitle: 'Voditeljica prodaje',
+    source: 'web',
+  });
+  crm.leads.convertLead(then(lq(10), '10:00'), novaLead.id, {
+    conversionMode: 'EXISTING_CUSTOMER',
+    customerId: nova.id,
+  });
+  // Lost in the previous quarter.
+  const centar = lead(lq(20), { name: 'Kafić Centar', source: 'phone', estimatedValue: '1800' });
+  crm.leads.markLeadLost(then(lq(50)), centar.id, { reason: 'price' });
+  // Created in the previous quarter, converted in this one: a Q3 "new" lead and a Q4 "won" lead.
+  const feroLead = lead(lq(85), {
+    name: 'Marko Lukač',
+    companyName: 'FERO-TERM d.o.o.',
+    email: 'marko.lukac@fero-term.hr',
+    jobTitle: 'Voditelj nabave',
+    source: 'partner',
+    stage: 'qualified',
+  });
+  crm.leads.convertLead(ctx, feroLead.id, {
+    conversionMode: 'EXISTING_CUSTOMER',
+    customerId: feroTerm.id,
+  });
+
   return repo.data();
 }

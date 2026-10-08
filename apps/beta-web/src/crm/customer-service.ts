@@ -56,10 +56,16 @@ export function createCustomerService(
     );
   };
 
-  function validate(ctx: CrmContext, input: Body, currentId: string | null = null) {
+  function validate(
+    ctx: CrmContext,
+    input: Body,
+    currentId: string | null = null,
+    requireContact = true,
+  ) {
     const errors = validateCustomer(input, {
       existing: inOrg(repo.data().customers, ctx),
       currentId,
+      requireContact,
     });
     if (hasErrors(errors)) throw new CrmValidationError(errors);
   }
@@ -98,12 +104,20 @@ export function createCustomerService(
       };
     },
 
-    createCustomer(ctx: CrmContext, input: Body): Customer {
-      validate(ctx, input);
+    /**
+     * New customer with its primary contact. `withContact: false` is only for
+     * converting a company-only lead: the customer then starts without a contact.
+     */
+    createCustomer(
+      ctx: CrmContext,
+      input: Body,
+      { withContact = true }: { withContact?: boolean } = {},
+    ): Customer {
+      validate(ctx, input, null, withContact);
       const data = repo.data();
       const now = ctx.now.toISOString();
       const id = newId();
-      const contactId = newId();
+      const contactId = withContact ? newId() : null;
       const customer: Customer = {
         id,
         organizationId: ctx.organizationId,
@@ -115,19 +129,21 @@ export function createCustomerService(
         updatedAt: now,
       };
       data.customers.push(customer);
-      data.contacts.push({
-        id: contactId,
-        organizationId: ctx.organizationId,
-        companyId: id,
-        ...splitName(str(input.contactName)),
-        role: str(input.contactRole) || 'Odgovorna osoba',
-        email: str(input.contactEmail),
-        phone: str(input.contactPhone),
-        notes: '',
-        isPrimary: true,
-        createdAt: now,
-        updatedAt: now,
-      });
+      if (contactId) {
+        data.contacts.push({
+          id: contactId,
+          organizationId: ctx.organizationId,
+          companyId: id,
+          ...splitName(str(input.contactName)),
+          role: str(input.contactRole) || 'Odgovorna osoba',
+          email: str(input.contactEmail),
+          phone: str(input.contactPhone),
+          notes: '',
+          isPrimary: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       addActivity(data, ctx, id, 'customer_created', `${customer.companyName} dodana u CRM.`, id);
       repo.commit();
       return customer;
@@ -136,10 +152,28 @@ export function createCustomerService(
     updateCustomer(ctx: CrmContext, id: string, input: Body): Customer {
       const data = repo.data();
       const customer = requireInOrg(data.customers, ctx, id);
-      validate(ctx, input, id);
+      const primary = findInOrg(data.contacts, ctx, customer.primaryContactId);
+      validate(ctx, input, id, Boolean(primary));
       const now = ctx.now.toISOString();
       Object.assign(customer, customerFields(input), { updatedAt: now });
-      const primary = findInOrg(data.contacts, ctx, customer.primaryContactId);
+      if (!primary && str(input.contactName)) {
+        // A customer converted from a company-only lead gets its first contact here.
+        const contactId = newId();
+        data.contacts.push({
+          id: contactId,
+          organizationId: ctx.organizationId,
+          companyId: id,
+          ...splitName(str(input.contactName)),
+          role: str(input.contactRole) || 'Odgovorna osoba',
+          email: str(input.contactEmail),
+          phone: str(input.contactPhone),
+          notes: '',
+          isPrimary: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+        customer.primaryContactId = contactId;
+      }
       if (primary) {
         Object.assign(primary, splitName(str(input.contactName)), {
           role: str(input.contactRole) || 'Odgovorna osoba',

@@ -28,7 +28,7 @@ export function taskMeta(task, { withCustomer = true } = {}) {
   return [
     labelOf(TASK_TYPES, task.type),
     formatSchedule(task) || formatDue(task),
-    withCustomer ? task.customerName : null,
+    withCustomer ? (task.customerName ?? (task.leadName ? `Lead: ${task.leadName}` : null)) : null,
     task.contactName,
   ]
     .filter(Boolean)

@@ -69,7 +69,15 @@ function render(task) {
                 { href: `/customers/${encodeURIComponent(task.companyId)}` },
                 task.customerName,
               )
-            : 'Bez kupca',
+            : task.leadName
+              ? null
+              : 'Bez kupca',
+        ),
+        row(
+          'Lead',
+          task.leadName
+            ? h('a', { href: `/leads/${encodeURIComponent(task.leadId)}` }, task.leadName)
+            : null,
         ),
         row('Kontakt', task.contactName),
         row('Prilika', task.opportunityTitle),

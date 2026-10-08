@@ -31,6 +31,7 @@ import type { CrmContext, CrmData, RecordSource, Task } from './types.ts';
 
 export interface TaskView extends Task {
   customerName: string | null;
+  leadName: string | null;
   contactName: string | null;
   opportunityTitle: string | null;
   /** Calendar day of scheduledStartAt in the organization timezone. */
@@ -45,6 +46,7 @@ export interface TaskFilter {
   companyId?: string | null;
   contactId?: string | null;
   opportunityId?: string | null;
+  leadId?: string | null;
   type?: string | null;
   priority?: string | null;
 }
@@ -81,10 +83,13 @@ export function createTaskService(repo: CrmRepository) {
     const customer = findInOrg(data.customers, ctx, task.companyId);
     const contact = findInOrg(data.contacts, ctx, task.contactId);
     const opportunity = findInOrg(data.opportunities, ctx, task.opportunityId);
+    const lead = findInOrg(data.leads, ctx, task.leadId);
     const state = dueState(due(task), ctx.now, ctx.timeZone);
     return {
       ...task,
+      leadId: task.leadId ?? null,
       customerName: customer?.companyName ?? null,
+      leadName: lead ? [lead.name, lead.companyName].filter(Boolean).join(' · ') : null,
       contactName: contact ? contactName(contact) : null,
       opportunityTitle: opportunity?.title ?? null,
       scheduledDate: task.scheduledStartAt
@@ -100,14 +105,17 @@ export function createTaskService(repo: CrmRepository) {
    *   unknown id or another organization's id → "Odabrani podatak nije dostupan."
    *   contact / opportunity of a different customer → rejected
    * A missing customer is derived from the opportunity, then from the contact
-   * (same rule as private.derive_subject_links in the database).
+   * (same rule as private.derive_subject_links in the database). A lead link
+   * only has to exist in the organization; a lead task needs no customer.
    */
   function resolveLinks(data: CrmData, ctx: CrmContext, input: Body) {
     const errors: FieldErrors = {};
     let companyId = opt(input.companyId);
     const contactId = opt(input.contactId);
     const opportunityId = opt(input.opportunityId);
+    const leadId = opt(input.leadId);
 
+    if (leadId && !findInOrg(data.leads, ctx, leadId)) errors.leadId = MESSAGES.unavailable;
     if (companyId && !findInOrg(data.customers, ctx, companyId)) {
       errors.companyId = MESSAGES.unavailable;
     }
@@ -129,7 +137,7 @@ export function createTaskService(repo: CrmRepository) {
       const unavailable = Object.values(errors).includes(MESSAGES.unavailable);
       throw new CrmValidationError(errors, unavailable ? MESSAGES.unavailable : undefined);
     }
-    return { companyId, contactId, opportunityId };
+    return { companyId, contactId, opportunityId, leadId };
   }
 
   /** Editable fields from a request body (wire format), validated and normalised to UTC. */
@@ -273,6 +281,7 @@ export function createTaskService(repo: CrmRepository) {
             (!filter.companyId || t.companyId === filter.companyId) &&
             (!filter.contactId || t.contactId === filter.contactId) &&
             (!filter.opportunityId || t.opportunityId === filter.opportunityId) &&
+            (!filter.leadId || t.leadId === filter.leadId) &&
             (!filter.type || t.type === filter.type) &&
             (!filter.priority || t.priority === filter.priority),
         )

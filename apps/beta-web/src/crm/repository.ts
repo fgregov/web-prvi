@@ -8,6 +8,12 @@ export interface CrmRepository {
   data(): CrmData;
   commit(): void;
   replace(next: CrmData): void;
+  /**
+   * Runs `work` as one unit: every change inside it is saved together, or —
+   * when it throws — none is and the document is restored (e.g. converting a
+   * lead: customer + contact + opportunity + lead update).
+   */
+  transaction<T>(work: () => T): T;
 }
 
 export const emptyData = (): CrmData => ({
@@ -18,15 +24,25 @@ export const emptyData = (): CrmData => ({
   opportunities: [],
   tasks: [],
   activities: [],
+  leads: [],
 });
 
 export function createMemoryRepository(initial: CrmData = emptyData()): CrmRepository {
-  let current = initial;
+  let current = { ...emptyData(), ...initial };
   return {
     data: () => current,
     commit: () => {},
     replace: (next) => {
       current = next;
+    },
+    transaction(work) {
+      const snapshot = structuredClone(current);
+      try {
+        return work();
+      } catch (error) {
+        current = snapshot;
+        throw error;
+      }
     },
   };
 }

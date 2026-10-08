@@ -125,15 +125,11 @@ describe('DashboardService · period summary', () => {
   it('a new record counts in the period it was created in', () => {
     const services = crm();
     const before = services.dashboard.getPeriodSummary(ctx, '2026-10-01', '2026-12-31');
-    services.customers.createCustomer(ctx, {
-      companyName: 'Nova tvrtka',
-      oib: '12345678901',
-      city: 'Pula',
-      contactName: 'Ana',
-    });
+    services.leads.createLead(ctx, { name: 'Nova tvrtka' });
     const after = services.dashboard.getPeriodSummary(ctx, '2026-10-01', '2026-12-31');
     expect(after.period.isCurrent).toBe(true);
     expect(after.kpis.newLeads.value).toBe(before.kpis.newLeads.value + 1);
+    expect(after.leads.created).toBe(before.leads.created + 1);
     expect(
       services.dashboard.getPeriodSummary(ctx, '2026-07-01', '2026-09-30').kpis.newLeads.value,
     ).toBe(

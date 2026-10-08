@@ -70,3 +70,39 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export const TASK_PRIORITIES = ['low', 'normal', 'high'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+/** Lead pipeline position before it becomes a customer. */
+export const LEAD_STAGES = ['new', 'contacted', 'qualified'] as const;
+export type LeadStage = (typeof LEAD_STAGES)[number];
+
+/**
+ * Lead outcome, independent of opportunity status: `won` = converted into a
+ * customer (and optionally contact / opportunity), `lost` = closed as lost.
+ */
+export const LEAD_STATUSES = ['active', 'won', 'lost'] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+export const LEAD_SOURCES = [
+  'manual',
+  'referral',
+  'web',
+  'email',
+  'phone',
+  'event',
+  'social',
+  'partner',
+  'other',
+] as const;
+export type LeadSource = (typeof LEAD_SOURCES)[number];
+
+export const LEAD_LOST_REASONS = [
+  'not_interested',
+  'no_response',
+  'competitor',
+  'price',
+  'postponed',
+  'not_a_fit',
+  'duplicate',
+  'other',
+] as const;
+export type LeadLostReason = (typeof LEAD_LOST_REASONS)[number];

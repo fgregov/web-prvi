@@ -1281,6 +1281,11 @@ a {
   color: var(--text-muted);
 }
 
+.hist-leads__ratios {
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .stage--static {
   cursor: default;
 }

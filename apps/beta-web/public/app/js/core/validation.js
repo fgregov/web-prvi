@@ -3,6 +3,9 @@
 // so a rule enforced in the form is the same rule enforced by the API.
 import {
   CURRENCIES,
+  LEAD_LOST_REASONS,
+  LEAD_SOURCES,
+  LEAD_STAGES,
   OPPORTUNITY_STATUSES,
   STAGES,
   TASK_PRIORITIES,
@@ -25,6 +28,10 @@ export const MESSAGES = Object.freeze({
   contactNotOfCustomer: 'Odabrani kontakt ne pripada odabranom kupcu.',
   opportunityNotOfCustomer: 'Odabrana prilika ne pripada odabranom kupcu.',
   missingNextAction: 'Prilika nema definiranu sljedeću akciju.',
+  leadNameRequired: 'Unesite ime ili naziv leada.',
+  leadSaveFailed: 'Nije moguće spremiti lead. Pokušajte ponovno.',
+  leadClosed: 'Lead je već zatvoren (won ili lost).',
+  possibleExistingCustomer: 'Mogući postojeći kupac',
 });
 
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -50,11 +57,16 @@ function maxLength(errors, input, name, limit) {
 
 /**
  * Returns { field: message } for every invalid field; empty object when valid.
+ * `requireContact: false` only when a customer is created without a contact
+ * person (a company-only lead being converted).
  * @param {Record<string, unknown>} input
- * @param {{ existing?: Array<{ id: string, oib: string }>, currentId?: string | null }} [options]
+ * @param {{ existing?: Array<{ id: string, oib: string }>, currentId?: string | null, requireContact?: boolean }} [options]
  * @returns {Record<string, string>}
  */
-export function validateCustomer(input, { existing = [], currentId = null } = {}) {
+export function validateCustomer(
+  input,
+  { existing = [], currentId = null, requireContact = true } = {},
+) {
   const errors = {};
   if (!text(input.companyName)) errors.companyName = REQUIRED;
   else if (text(input.companyName).length > 200) errors.companyName = 'Najviše 200 znakova.';
@@ -68,7 +80,7 @@ export function validateCustomer(input, { existing = [], currentId = null } = {}
   }
 
   if (!text(input.city)) errors.city = REQUIRED;
-  if (!text(input.contactName)) errors.contactName = REQUIRED;
+  if (requireContact && !text(input.contactName)) errors.contactName = REQUIRED;
 
   const postal = text(input.postalCode);
   if (postal && !/^\d{5}$/.test(postal)) errors.postalCode = 'Poštanski broj ima 5 znamenki.';
@@ -162,7 +174,7 @@ export function validateTask(input) {
   if (!blank(input.priority) && !allowed(TASK_PRIORITIES, input.priority))
     errors.priority = 'Odaberite prioritet.';
 
-  for (const name of ['companyId', 'contactId', 'opportunityId']) {
+  for (const name of ['companyId', 'contactId', 'opportunityId', 'leadId']) {
     if (badId(input[name])) errors[name] = MESSAGES.unavailable;
   }
 
@@ -190,6 +202,105 @@ export function validateTask(input) {
     errors.dueDate = 'Neispravan datum.';
   } else if (!blank(input.dueAt) && !isInstant(input.dueAt)) {
     errors.dueDate = 'Neispravan datum ili vrijeme.';
+  }
+  return errors;
+}
+
+const AMOUNT = /^\d+([.,]\d{1,2})?$/;
+const amountError = (value) => {
+  const raw = text(String(value ?? ''));
+  return raw && !(AMOUNT.test(raw) && Number(raw.replace(',', '.')) >= 0)
+    ? 'Unesite iznos (npr. 5000 ili 5000,50).'
+    : null;
+};
+
+/**
+ * Lead (create or edit). Only a name is required, so a lead can be captured in
+ * seconds; status is never taken from the client.
+ */
+export function validateLead(input) {
+  const errors = {};
+  if (!text(input.name)) errors.name = MESSAGES.leadNameRequired;
+  if (text(input.email) && !EMAIL.test(text(input.email)))
+    errors.email = 'Neispravna e-mail adresa.';
+  const value = amountError(input.estimatedValue);
+  if (value) errors.estimatedValue = value;
+  if (!blank(input.currency) && !allowed(CURRENCIES, input.currency))
+    errors.currency = 'Odaberite valutu.';
+  if (!blank(input.source) && !allowed(LEAD_SOURCES, input.source))
+    errors.source = 'Odaberite izvor leada.';
+  if (!blank(input.stage) && !allowed(LEAD_STAGES, input.stage)) errors.stage = 'Odaberite fazu.';
+  for (const [name, limit] of [
+    ['name', 240],
+    ['companyName', 300],
+    ['email', 254],
+    ['phone', 50],
+    ['jobTitle', 200],
+    ['notes', 5000],
+  ]) {
+    maxLength(errors, input, name, limit);
+  }
+  return errors;
+}
+
+export function validateLeadLost(input) {
+  const errors = {};
+  if (!blank(input.reason) && !allowed(LEAD_LOST_REASONS, input.reason))
+    errors.reason = 'Odaberite razlog.';
+  maxLength(errors, input, 'note', 1000);
+  return errors;
+}
+
+/**
+ * Lead → customer conversion. Errors are keyed by form field:
+ * customer.*, customerId, contact.*, opportunity.*.
+ *   conversionMode CREATE_CUSTOMER   → customer: { companyName, oib, city, … }
+ *   conversionMode EXISTING_CUSTOMER → customerId
+ *   createContact     → contact: { fullName, role, email, phone }
+ *   createOpportunity → opportunity: { title, value, currency, stage }
+ */
+/**
+ * @param {Record<string, any>} input
+ * @param {{ existing?: Array<{ id: string, oib: string }> }} [options]
+ * @returns {Record<string, string>}
+ */
+export function validateLeadConversion(input, { existing = [] } = {}) {
+  const errors = {};
+  const mode = input.conversionMode;
+  const contact = input.createContact === true ? (input.contact ?? {}) : null;
+  if (mode === 'CREATE_CUSTOMER') {
+    const customer = input.customer ?? {};
+    const found = validateCustomer(customer, { existing, requireContact: false });
+    for (const [name, message] of Object.entries(found)) errors[`customer.${name}`] = message;
+  } else if (mode === 'EXISTING_CUSTOMER') {
+    if (blank(input.customerId)) errors.customerId = MESSAGES.customerRequired;
+    else if (badId(input.customerId)) errors.customerId = MESSAGES.unavailable;
+  } else {
+    errors.conversionMode = 'Odaberite novog ili postojećeg kupca.';
+  }
+  if (contact) {
+    if (!text(contact.fullName)) errors['contact.fullName'] = REQUIRED;
+    if (text(contact.email) && !EMAIL.test(text(contact.email)))
+      errors['contact.email'] = 'Neispravna e-mail adresa.';
+    for (const [name, limit] of [
+      ['fullName', 240],
+      ['role', 200],
+      ['phone', 50],
+    ]) {
+      if (text(contact[name]).length > limit)
+        errors[`contact.${name}`] = `Najviše ${limit} znakova.`;
+    }
+  }
+  if (input.createOpportunity === true) {
+    const o = input.opportunity ?? {};
+    if (!text(o.title)) errors['opportunity.title'] = REQUIRED;
+    else if (text(o.title).length > 300) errors['opportunity.title'] = 'Najviše 300 znakova.';
+    const value = amountError(o.value);
+    if (value) errors['opportunity.value'] = value;
+    if (!blank(o.stage) && !allowed(STAGES, o.stage))
+      errors['opportunity.stage'] = 'Odaberite fazu.';
+    if (!blank(o.currency) && !allowed(CURRENCIES, o.currency))
+      errors['opportunity.currency'] = 'Odaberite valutu.';
   }
   return errors;
 }

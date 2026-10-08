@@ -66,6 +66,21 @@ const ICONS = {
     ['path', 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'],
     ['circle', { cx: 12, cy: 7, r: 4 }],
   ],
+  'user-search': [
+    ['circle', { cx: 10, cy: 7, r: 4 }],
+    ['path', 'M10.3 15H7a4 4 0 0 0-4 4v2'],
+    ['circle', { cx: 17, cy: 17, r: 3 }],
+    ['path', 'm21 21-1.9-1.9'],
+  ],
+  'user-check': [
+    ['path', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'],
+    ['circle', { cx: 9, cy: 7, r: 4 }],
+    ['path', 'm16 11 2 2 4-4'],
+  ],
+  'circle-x': [
+    ['circle', { cx: 12, cy: 12, r: 10 }],
+    ['path', 'm15 9-6 6M9 9l6 6'],
+  ],
   mail: [
     ['rect', { x: 2, y: 4, width: 20, height: 16, rx: 2 }],
     ['path', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'],

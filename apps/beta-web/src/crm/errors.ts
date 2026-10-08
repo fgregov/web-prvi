@@ -22,3 +22,16 @@ export class CrmNotFoundError extends Error {
     super(MESSAGES.unavailable);
   }
 }
+
+/**
+ * The request is valid but would likely duplicate an existing record → HTTP 409
+ * with the candidates, so the user can pick one or confirm a new record.
+ */
+export class CrmConflictError extends Error {
+  override name = 'CrmConflictError';
+  readonly details: Record<string, unknown>;
+  constructor(message: string, details: Record<string, unknown>) {
+    super(message);
+    this.details = details;
+  }
+}

@@ -86,8 +86,10 @@ the caller's organization, which the server takes from its own configuration
 
 ### Quick Add
 
-The dashboard's **+** opens a bottom sheet with exactly four actions. Each
-opens its own screen (same tab) and returns to the dashboard after saving:
+The dashboard's **+** opens a bottom sheet with exactly five actions. Each
+opens its own screen (same tab). After saving, Novi kupac opens the customer
+profile and Novi lead opens the new lead; the others return to where they were
+opened:
 
 | Action       | Screen               |
 | ------------ | -------------------- |
@@ -95,6 +97,7 @@ opens its own screen (same tab) and returns to the dashboard after saving:
 | Nova prilika | `/opportunities/new` |
 | Novi kontakt | `/contacts/new`      |
 | Novi zadatak | `/tasks/new`         |
+| Novi lead    | `/leads/new`         |
 
 The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
 
@@ -113,6 +116,33 @@ The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
   first, then overdue, then due today; tasks completed today stay ticked.
 - `FOLLOW_UP` is a task type. There is no follow-up engine yet.
 - Context comes from the query: `/tasks/new?companyId=…&contactId=…&opportunityId=…&type=…&calendar=1&date=YYYY-MM-DD&returnTo=/path`.
+
+### Leads
+
+A **lead** is a potential customer before it becomes one: its own record
+(`public.leads`), not a customer with a flag. Only the name is required; the
+server sets organization, owner (the current user), stage `new` and status
+`active`.
+
+- **Stage** (how far it got): Novi lead → Kontaktiran → Kvalificiran.
+  **Status** (how it ended): Aktivan, **Won** or **Lost**. Lead won/lost is
+  independent of opportunity won/lost.
+- **Won** = converted into a customer (new or existing), optionally with a
+  contact person and an opportunity (`/leads/{id}/convert`). One transaction
+  that reuses the customer, contact and opportunity services. A new customer
+  that looks like an existing one (OIB, similar name, company e-mail domain)
+  returns `409` with the matches until the user links the existing one or
+  confirms ("Ipak kreiraj novog").
+- **Lost** = closed explicitly, with an optional reason and note.
+- Leads are never deleted or merged: a won lead keeps `convertedAt` and points
+  at what it became; a lost lead keeps `lostAt` and its reason.
+- Tasks may carry `leadId` (no customer needed; "Dodaj zadatak" on a lead). On
+  conversion, the lead's tasks without a customer get the new customer too.
+- **Reporting by each outcome's own date:** new leads by `createdAt`,
+  qualified by `qualifiedAt`, won by `convertedAt`, lost by `lostAt`. A lead
+  created in Q3 and won in Q4 is a new lead of Q3 and a won lead of Q4.
+  `leadOutcomeMetrics` (`@renvara/domain`): win rate = won ÷ (won + lost),
+  W/L = won ÷ lost, conversion = won ÷ created; active leads count as neither.
 
 ### Home periods
 
@@ -136,6 +166,8 @@ quarter on top of the real records (BETA only; delete it with real data).
 | `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO        |
 | `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
+| `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |
+| `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` | New lead, Lead Detail, Pretvori u kupca                |
 
 ### API (session required; writes: JSON, same origin)
 
@@ -145,19 +177,23 @@ quarter on top of the real records (BETA only; delete it with real data).
 | `POST /api/customers/{id}/notes`, `POST /api/customers/{id}/emails`                                       | Timeline entries                                |
 | `GET/POST /api/contacts` (`?companyId=`)                                                                  | Contacts                                        |
 | `GET/POST /api/opportunities` (`?companyId=&status=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` | Opportunities, next action, pipeline totals     |
-| `GET/POST /api/tasks` (`?status=&type=&priority=&companyId=&contactId=&opportunityId=`)                   | Tasks                                           |
+| `GET/POST /api/leads` (`?status=&q=`), `GET/PATCH /api/leads/{id}`                                        | Leads, Lead Detail (with tasks and history)     |
+| `GET /api/leads/{id}/matches`, `POST /api/leads/{id}/convert`, `POST /api/leads/{id}/lost`                | Possible customers, conversion (WON), LOST      |
+| `GET/POST /api/tasks` (`?status=&type=&priority=&companyId=&contactId=&opportunityId=&leadId=`)           | Tasks                                           |
 | `GET/PATCH /api/tasks/{id}`, `POST /api/tasks/{id}/complete\|reopen\|cancel`                              | One task                                        |
 | `GET /api/tasks/sections`, `GET /api/tasks/priorities`                                                    | Tasks screen, Home "Prioriteti"                 |
 | `GET /api/calendar?from=ISO&to=ISO` or `?date=YYYY-MM-DD`                                                 | Sales Calendar (explicit range, up to 400 days) |
 | `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |
 
 Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan."}`,
-`422 {message, errors: {field: message}}` for invalid input or relations.
+`422 {message, errors: {field: message}}` for invalid input or relations,
+`409 {message, matches}` for a conversion into a customer that may already exist.
 
 ### Code
 
 - Server: `src/crm/` (`customer-service.ts`, `contact-service.ts`,
   `opportunity-service.ts`, `task-service.ts`, `calendar-service.ts`,
+  `lead-service.ts`, `dashboard-service.ts`,
   `routes.ts`, `repository.ts`, `seed.ts`). Rules shared with the browser come
   from `public/app/js/core/validation.js`. Next action and timezone logic come
   from `@renvara/domain`.

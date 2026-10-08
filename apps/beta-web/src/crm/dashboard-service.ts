@@ -3,8 +3,9 @@
 // nothing is reset or archived when a quarter ends.
 //
 // Definitions (records of the caller's organization, period in the org timezone):
-//   novi leadovi   customers created in the period
-//   kvalificirani  opportunities created in the period
+//   novi leadovi   leads created in the period (created_at)
+//   kvalificirani  leads that reached stage qualified in the period (qualified_at)
+//   lead won/lost  leads converted (converted_at) / closed as lost (lost_at) in the period
 //   sastanci       meetings scheduled in the period (not cancelled)
 //   dobivene/izgubljene  opportunities closed won/lost in the period
 //   prihod         value of opportunities won in the period
@@ -21,6 +22,7 @@ import {
   shiftQuarter,
   validateRange,
 } from '../../public/app/js/core/period.js';
+import { leadOutcomeMetrics } from '@renvara/domain';
 import {
   DEMO_CURRENT_TO_DATE_PREVIOUS,
   DEMO_QUARTERS,
@@ -100,6 +102,7 @@ export function createDashboardService(repo: CrmRepository, tasks: TaskService) 
       return t >= from && t < to;
     };
     const data = repo.data();
+    const leads = inOrg(data.leads, ctx);
     const opportunities = inOrg(data.opportunities, ctx);
     const created = opportunities.filter((o) => inside(o.createdAt));
     const reached = (stage: number) =>
@@ -119,8 +122,11 @@ export function createDashboardService(repo: CrmRepository, tasks: TaskService) 
     );
 
     const metrics: PeriodMetrics = {
-      newLeads: inOrg(data.customers, ctx).filter((c) => inside(c.createdAt)).length,
-      qualified: created.length,
+      // Lead lifecycle, each by its own date: created, qualified, converted (won), lost.
+      newLeads: leads.filter((l) => inside(l.createdAt)).length,
+      qualified: leads.filter((l) => inside(l.qualifiedAt)).length,
+      leadsWon: leads.filter((l) => l.status === 'won' && inside(l.convertedAt)).length,
+      leadsLost: leads.filter((l) => l.status === 'lost' && inside(l.lostAt)).length,
       meetings: scheduled.filter((t) => t.type === 'meeting').length,
       won: won.length,
       lost: lost.length,
@@ -240,6 +246,12 @@ export function createDashboardService(repo: CrmRepository, tasks: TaskService) 
           { key: 'negotiation', label: 'Pregovori', count: metrics.stageNegotiation },
           { key: 'won', label: 'Dobiveno', count: metrics.won },
         ],
+        // Lead outcomes (not opportunity W/L): win rate and W/L count closed leads only.
+        leads: leadOutcomeMetrics({
+          created: metrics.newLeads,
+          won: metrics.leadsWon,
+          lost: metrics.leadsLost,
+        }),
         followUps: {
           done: metrics.followUpsDone,
           noAnswer: metrics.followUpsNoAnswer,

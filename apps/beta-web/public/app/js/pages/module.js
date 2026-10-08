@@ -1,4 +1,4 @@
-// /follow-up, /leads, /reports, /more · navigation shells for the primary
+// /follow-up, /reports, /more · navigation shells for the primary
 // modules that are not built yet. They keep the bottom navigation working and
 // show the Home period they will be filtered by.
 import { describePeriod, getDashboardPeriod } from '../core/dashboard-period.js';
@@ -12,12 +12,6 @@ const MODULES = {
     title: 'Follow-up Engine',
     icon: 'repeat',
     text: 'Praćenje follow-upova po kupcima i prilikama. Modul je u pripremi.',
-  },
-  '/leads': {
-    key: 'leads',
-    title: 'Leads',
-    icon: 'users',
-    text: 'Pregled leadova i kvalifikacije. Modul je u pripremi.',
   },
   '/reports': {
     key: 'reports',

@@ -3,7 +3,8 @@
 // A task stands on its own; customer, contact and opportunity are optional
 // links. "Dodaj u Sales Kalendar" gives it a calendar slot (date only, a start
 // time, or a time range); "Rok" is the separate deadline. Context comes from
-// the query: ?companyId= ?contactId= ?opportunityId= ?type= ?calendar=1 ?date= ?returnTo=
+// the query: ?companyId= ?contactId= ?opportunityId= ?leadId= ?type= ?calendar=1 ?date= ?returnTo=
+// A task opened from a lead ("Dodaj zadatak") keeps that lead as its context.
 import { api, ApiError } from '../core/api.js';
 import { TASK_PRIORITIES, TASK_TYPES } from '../core/constants.js';
 import { nextMeetingSlot } from '../core/format.js';
@@ -16,6 +17,7 @@ import {
   taskInputFromForm,
 } from '../features/tasks/task-input.js';
 import { h } from '../ui/dom.js';
+import { icon } from '../ui/icons.js';
 import {
   CustomField,
   DatePickerField,
@@ -50,6 +52,27 @@ const contact = ContactPicker();
 const opportunity = OpportunityPicker();
 const slot = nextMeetingSlot();
 
+/** Read-only lead context ("Lead: Marko Horvat · ABC d.o.o."); value = lead id. */
+function LeadContext() {
+  let lead = null;
+  const label = h('span', { class: 'rv-picker__label' });
+  const element = h(
+    'div',
+    { class: 'rv-input rv-picker__trigger', tabindex: '-1', style: 'cursor: default' },
+    icon('user-search', 'rv-icon rv-picker__icon'),
+    h('span', { class: 'rv-picker__text' }, label),
+  );
+  return {
+    element,
+    read: () => lead?.id ?? '',
+    write(next) {
+      lead = next;
+      label.textContent = next ? next.name : '';
+    },
+  };
+}
+const leadContext = LeadContext();
+
 const form = createForm(
   [
     {
@@ -60,6 +83,7 @@ const form = createForm(
           placeholder: 'npr. Poslati ponudu',
         }),
         SelectField('type', 'Vrsta', { options: TASK_TYPES, value: 'general' }),
+        CustomField('leadId', 'Lead', leadContext, { hidden: true }),
         CustomField('companyId', 'Poveži s kupcem', customer, {
           hint: 'Neobavezno. Zadatak može postojati i bez kupca.',
           onChange: (id) => linkCustomer(id),
@@ -127,6 +151,11 @@ async function linkCustomer(companyId, { contactId = '', opportunityId = '' } = 
   ]);
 }
 
+function showLead(id, name) {
+  leadContext.write(id ? { id, name } : null);
+  form.setVisible('leadId', Boolean(id));
+}
+
 async function customerById(id) {
   const profile = await api.getCustomer(id);
   return { id: profile.id, companyName: profile.companyName, oib: profile.oib, city: profile.city };
@@ -139,6 +168,7 @@ async function prefill() {
     const values = formValuesFromTask(task);
     for (const [name, value] of Object.entries(values)) form.setValue(name, value);
     showCalendar(values.inCalendar);
+    if (task.leadId) showLead(task.leadId, task.leadName ?? 'Lead');
     if (task.companyId) {
       customer.write(await customerById(task.companyId).catch(() => null));
       await linkCustomer(task.companyId, {
@@ -161,7 +191,12 @@ async function prefill() {
   let companyId = params.get('companyId');
   const opportunityId = params.get('opportunityId');
   const contactId = params.get('contactId');
+  const leadId = params.get('leadId');
   try {
+    if (leadId) {
+      const lead = await api.getLead(leadId);
+      showLead(lead.id, [lead.name, lead.companyName].filter(Boolean).join(' · '));
+    }
     if (opportunityId) {
       const opp = await api.getOpportunity(opportunityId);
       if (companyId && companyId !== opp.companyId) throw new ApiError(422, MESSAGES.unavailable);

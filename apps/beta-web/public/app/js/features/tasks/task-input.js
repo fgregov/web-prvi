@@ -22,6 +22,7 @@ export function taskInputFromForm(v) {
     companyId: v.companyId || null,
     contactId: (v.companyId && v.contactId) || null,
     opportunityId: (v.companyId && v.opportunityId) || null,
+    leadId: v.leadId || null,
     allDay: false,
     scheduledDate: null,
     scheduledStartAt: null,

@@ -2,12 +2,14 @@
 // (apps/beta-web/src/crm); pages call these functions and never store records.
 
 export class ApiError extends Error {
-  constructor(status, message, errors = {}) {
+  constructor(status, message, errors = {}, details = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     /** { field: message } from the server's validation (422). */
     this.errors = errors;
+    /** Anything else the server explained, e.g. { matches } with a 409. */
+    this.details = details;
   }
 }
 
@@ -35,7 +37,8 @@ async function request(method, path, body) {
   }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.success === false) {
-    throw new ApiError(response.status, payload.message ?? NETWORK_ERROR, payload.errors ?? {});
+    const { success, message, errors, ...details } = payload;
+    throw new ApiError(response.status, message ?? NETWORK_ERROR, errors ?? {}, details);
   }
   notifyChange(method);
   return payload;
@@ -98,6 +101,15 @@ export const api = {
   completeTask: (id) => request('POST', `/api/tasks/${enc(id)}/complete`, {}).then((r) => r.task),
   reopenTask: (id) => request('POST', `/api/tasks/${enc(id)}/reopen`, {}).then((r) => r.task),
   cancelTask: (id) => request('POST', `/api/tasks/${enc(id)}/cancel`, {}).then((r) => r.task),
+  // leads (separate from customers; converted or lost, never deleted)
+  listLeads: (filter = {}) => request('GET', `/api/leads${query(filter)}`).then((r) => r.leads),
+  getLead: (id) => request('GET', `/api/leads/${enc(id)}`).then((r) => r.lead),
+  createLead: (input) => request('POST', '/api/leads', input).then((r) => r.lead),
+  updateLead: (id, input) => request('PATCH', `/api/leads/${enc(id)}`, input).then((r) => r.lead),
+  leadMatches: (id) => request('GET', `/api/leads/${enc(id)}/matches`).then((r) => r.matches),
+  convertLead: (id, input) => request('POST', `/api/leads/${enc(id)}/convert`, input),
+  markLeadLost: (id, input) =>
+    request('POST', `/api/leads/${enc(id)}/lost`, input).then((r) => r.lead),
   // Sales Calendar: tasks scheduled in [from, to)
   calendar: (from, to) =>
     request(

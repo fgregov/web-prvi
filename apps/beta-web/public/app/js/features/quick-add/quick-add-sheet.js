@@ -1,4 +1,4 @@
-// QuickAddSheet: the "+" button opens a bottom sheet with exactly four actions.
+// QuickAddSheet: the "+" button opens a bottom sheet with exactly five actions.
 // Each one navigates to its dedicated screen; nothing is created inside the dashboard.
 import { h } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
@@ -10,6 +10,7 @@ export const QUICK_ADD_ACTIONS = [
   { key: 'opportunity', label: 'Nova prilika', href: '/opportunities/new', icon: 'target' },
   { key: 'contact', label: 'Novi kontakt', href: '/contacts/new', icon: 'user-plus' },
   { key: 'task', label: 'Novi zadatak', href: '/tasks/new', icon: 'check-square' },
+  { key: 'lead', label: 'Novi lead', href: '/leads/new', icon: 'user-search' },
 ];
 
 /** Wires `trigger` (the dashboard's "+" button) to the sheet. */

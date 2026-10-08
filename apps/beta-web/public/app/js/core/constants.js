@@ -92,6 +92,42 @@ export const TASK_STATUSES = [
   { value: 'cancelled', label: 'Otkazano' },
 ];
 
+/** Lead vocabulary (DB enums public.lead_*). Stage = how far it got; status = how it ended. */
+export const LEAD_STAGES = [
+  { value: 'new', label: 'Novi lead' },
+  { value: 'contacted', label: 'Kontaktiran' },
+  { value: 'qualified', label: 'Kvalificiran' },
+];
+
+export const LEAD_STATUSES = [
+  { value: 'active', label: 'Aktivan' },
+  { value: 'won', label: 'Won' },
+  { value: 'lost', label: 'Lost' },
+];
+
+export const LEAD_SOURCES = [
+  { value: 'manual', label: 'Ručno' },
+  { value: 'referral', label: 'Preporuka' },
+  { value: 'web', label: 'Web' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'phone', label: 'Telefon' },
+  { value: 'event', label: 'Događaj' },
+  { value: 'social', label: 'Društvene mreže' },
+  { value: 'partner', label: 'Partner' },
+  { value: 'other', label: 'Ostalo' },
+];
+
+export const LEAD_LOST_REASONS = [
+  { value: 'not_interested', label: 'Nije zainteresiran' },
+  { value: 'no_response', label: 'Nema odgovora' },
+  { value: 'competitor', label: 'Konkurencija' },
+  { value: 'price', label: 'Cijena' },
+  { value: 'postponed', label: 'Odgođeno' },
+  { value: 'not_a_fit', label: 'Nije odgovarajući kupac' },
+  { value: 'duplicate', label: 'Duplikat' },
+  { value: 'other', label: 'Ostalo' },
+];
+
 /** Activity timeline types → label, icon and colour tone. */
 export const ACTIVITY_META = {
   customer_created: { label: 'Kupac kreiran', icon: 'building', tone: 'red' },
@@ -106,6 +142,10 @@ export const ACTIVITY_META = {
   note_added: { label: 'Dodana bilješka', icon: 'note', tone: 'neutral' },
   contact_added: { label: 'Dodan kontakt', icon: 'user-plus', tone: 'neutral' },
   email_sent: { label: 'Poslan e-mail', icon: 'mail', tone: 'neutral' },
+  lead_created: { label: 'Lead kreiran', icon: 'user-search', tone: 'red' },
+  lead_stage_changed: { label: 'Faza leada promijenjena', icon: 'pencil', tone: 'neutral' },
+  lead_converted: { label: 'Lead pretvoren u kupca', icon: 'check', tone: 'green' },
+  lead_lost: { label: 'Lead izgubljen', icon: 'x', tone: 'neutral' },
   phone_call: { label: 'Telefonski poziv', icon: 'phone', tone: 'neutral' },
 };
 

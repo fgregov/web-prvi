@@ -24,6 +24,9 @@ export interface PeriodMetrics {
   stageInProgress: number;
   stageOfferSent: number;
   stageNegotiation: number;
+  /** Leads converted (won) / closed as lost in the period — lead outcomes, not opportunities. */
+  leadsWon: number;
+  leadsLost: number;
 }
 
 export const ZERO_METRICS: PeriodMetrics = {
@@ -42,6 +45,8 @@ export const ZERO_METRICS: PeriodMetrics = {
   stageInProgress: 0,
   stageOfferSent: 0,
   stageNegotiation: 0,
+  leadsWon: 0,
+  leadsLost: 0,
 };
 
 const quarter = (
@@ -49,6 +54,7 @@ const quarter = (
   tasks: [number, number],
   followUps: [number, number, number],
   stages: [number, number, number, number],
+  leadOutcomes: [number, number],
 ): PeriodMetrics => {
   const [newLeads, qualified, meetings, won, lost, revenue] = values;
   return {
@@ -67,15 +73,17 @@ const quarter = (
     stageInProgress: stages[1],
     stageOfferSent: stages[2],
     stageNegotiation: stages[3],
+    leadsWon: leadOutcomes[0],
+    leadsLost: leadOutcomes[1],
   };
 };
 
 export const DEMO_QUARTERS: Record<number, PeriodMetrics> = {
-  0: quarter([18, 7, 12, 3, 1, 18400], [21, 2], [9, 1, 4], [18, 11, 6, 3]),
-  [-1]: quarter([42, 21, 26, 9, 7, 31800], [34, 3], [28, 4, 2], [42, 28, 18, 11]),
-  [-2]: quarter([38, 18, 22, 7, 6, 24100], [29, 4], [23, 5, 0], [38, 24, 15, 9]),
-  [-3]: quarter([31, 14, 19, 5, 5, 18200], [25, 3], [19, 3, 0], [31, 20, 12, 7]),
-  [-4]: quarter([27, 12, 16, 4, 6, 15400], [22, 5], [16, 4, 0], [27, 17, 10, 6]),
+  0: quarter([18, 7, 12, 3, 1, 18400], [21, 2], [9, 1, 4], [18, 11, 6, 3], [5, 2]),
+  [-1]: quarter([42, 21, 26, 9, 7, 31800], [34, 3], [28, 4, 2], [42, 28, 18, 11], [14, 8]),
+  [-2]: quarter([38, 18, 22, 7, 6, 24100], [29, 4], [23, 5, 0], [38, 24, 15, 9], [12, 7]),
+  [-3]: quarter([31, 14, 19, 5, 5, 18200], [25, 3], [19, 3, 0], [31, 20, 12, 7], [10, 6]),
+  [-4]: quarter([27, 12, 16, 4, 6, 15400], [22, 5], [16, 4, 0], [27, 17, 10, 6], [8, 6]),
 };
 
 /** The current quarter is still running: what the previous quarter had after as many days. */
@@ -84,4 +92,5 @@ export const DEMO_CURRENT_TO_DATE_PREVIOUS: PeriodMetrics = quarter(
   [19, 2],
   [8, 1, 3],
   [16, 10, 5, 3],
+  [4, 2],
 );

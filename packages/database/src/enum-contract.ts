@@ -24,4 +24,8 @@ export type EnumContract = [
   Assert<Equal<D.TaskType, DbEnums['task_type']>>,
   Assert<Equal<D.TaskStatus, DbEnums['task_status']>>,
   Assert<Equal<D.TaskPriority, DbEnums['task_priority']>>,
+  Assert<Equal<D.LeadStage, DbEnums['lead_stage']>>,
+  Assert<Equal<D.LeadStatus, DbEnums['lead_status']>>,
+  Assert<Equal<D.LeadSource, DbEnums['lead_source']>>,
+  Assert<Equal<D.LeadLostReason, DbEnums['lead_lost_reason']>>,
 ];

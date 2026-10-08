@@ -24,7 +24,7 @@ const USER = {
 };
 const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Zagreb';
 const KEYS = { data: 'renvara.demo.crm.v1', auth: 'renvara.demo.auth', nav: 'renvara.demo.nav' };
-const COLLECTIONS = ['customers', 'contacts', 'opportunities', 'tasks', 'activities'];
+const COLLECTIONS = ['customers', 'contacts', 'opportunities', 'tasks', 'activities', 'leads'];
 const LATENCY_MS = 140; // makes loading states visible, like a real request
 const SAVE_FAILED = 'Spremanje u testnu bazu nije uspjelo. Pokušajte ponovno.';
 
@@ -77,7 +77,9 @@ function browserStore() {
     async load() {
       try {
         const saved = JSON.parse(local.get(KEYS.data) ?? 'null');
-        if (saved?.seededOn === todayKey() && saved.data?.version === 2) return saved.data;
+        // Data saved before a collection existed (e.g. leads) gets it empty.
+        if (saved?.seededOn === todayKey() && saved.data?.version === 2)
+          return { ...emptyData(), ...saved.data };
       } catch {
         /* fall through to a fresh seed */
       }
@@ -169,6 +171,16 @@ const repo = {
   replace(next) {
     data = next;
   },
+  /** All or nothing, as on the server: a failure restores the data from before. */
+  transaction(work) {
+    const snapshot = structuredClone(data);
+    try {
+      return work();
+    } catch (error) {
+      data = snapshot;
+      throw error;
+    }
+  },
 };
 const api = createCrmApi(createCrmServices(repo));
 
@@ -256,8 +268,9 @@ const ROUTES = {
   '/tasks': 'tasks',
   '/tasks/new': 'task-form',
   '/calendar': 'calendar',
+  '/leads': 'leads',
+  '/leads/new': 'lead-new',
   '/follow-up': 'module',
-  '/leads': 'module',
   '/reports': 'module',
   '/more': 'module',
 };
@@ -265,6 +278,8 @@ const PATTERNS = [
   [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer'],
   [/^\/tasks\/[A-Za-z0-9_-]{1,64}$/, 'task'],
   [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form'],
+  [/^\/leads\/[A-Za-z0-9_-]{1,64}$/, 'lead'],
+  [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert'],
 ];
 
 let nav = { stack: ['/login'], index: 0 };
@@ -406,7 +421,7 @@ function pageFor(pathname) {
 
 const STORE_NOTE = {
   database:
-    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Kupci, kontakti, prilike i zadaci spremaju se u testnu bazu ovog demoa.',
+    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Kupci, kontakti, prilike, zadaci i leadovi spremaju se u testnu bazu ovog demoa.',
   browser:
     'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Testna baza ovdje nije dostupna, pa se podaci spremaju samo u ovom pregledniku.',
 };

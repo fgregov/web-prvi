@@ -66,6 +66,21 @@ export function addActivity(
   return activity;
 }
 
+/** Timeline entry of a lead (optionally also on the customer it became). */
+export function addLeadActivity(
+  data: CrmData,
+  ctx: CrmContext,
+  leadId: string,
+  type: string,
+  description: string,
+  companyId: string | null = null,
+): Activity {
+  const activity = addActivity(data, ctx, companyId ?? '', type, description, leadId);
+  activity.companyId = companyId;
+  activity.leadId = leadId;
+  return activity;
+}
+
 export const contactName = (c: { firstName: string; lastName: string }) =>
   [c.firstName, c.lastName].filter(Boolean).join(' ');
 

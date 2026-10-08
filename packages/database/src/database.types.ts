@@ -11,6 +11,7 @@ export type Database = {
           created_by: string | null;
           description: string | null;
           id: string;
+          lead_id: string | null;
           metadata: NonNullable<Json>;
           occurred_at: string;
           opportunity_id: string | null;
@@ -29,6 +30,7 @@ export type Database = {
           created_by?: string | null;
           description?: string | null;
           id?: string;
+          lead_id?: string | null;
           metadata?: NonNullable<Json>;
           occurred_at?: string;
           opportunity_id?: string | null;
@@ -47,6 +49,7 @@ export type Database = {
           created_by?: string | null;
           description?: string | null;
           id?: string;
+          lead_id?: string | null;
           metadata?: NonNullable<Json>;
           occurred_at?: string;
           opportunity_id?: string | null;
@@ -79,6 +82,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'activities_lead_fk';
+            columns: ['organization_id', 'lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['organization_id', 'id'];
           },
           {
             foreignKeyName: 'activities_opportunity_fk';
@@ -304,6 +314,150 @@ export type Database = {
           },
           {
             foreignKeyName: 'contacts_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      leads: {
+        Row: {
+          company_name: string | null;
+          converted_at: string | null;
+          converted_contact_id: string | null;
+          converted_customer_id: string | null;
+          converted_opportunity_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          currency: string | null;
+          email: string | null;
+          estimated_value: number | null;
+          id: string;
+          job_title: string | null;
+          lost_at: string | null;
+          lost_note: string | null;
+          lost_reason: Database['public']['Enums']['lead_lost_reason'] | null;
+          name: string;
+          notes: string | null;
+          organization_id: string;
+          owner_user_id: string | null;
+          phone: string | null;
+          qualified_at: string | null;
+          source: Database['public']['Enums']['lead_source'] | null;
+          stage: Database['public']['Enums']['lead_stage'];
+          status: Database['public']['Enums']['lead_status'];
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          company_name?: string | null;
+          converted_at?: string | null;
+          converted_contact_id?: string | null;
+          converted_customer_id?: string | null;
+          converted_opportunity_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string | null;
+          email?: string | null;
+          estimated_value?: number | null;
+          id?: string;
+          job_title?: string | null;
+          lost_at?: string | null;
+          lost_note?: string | null;
+          lost_reason?: Database['public']['Enums']['lead_lost_reason'] | null;
+          name: string;
+          notes?: string | null;
+          organization_id: string;
+          owner_user_id?: string | null;
+          phone?: string | null;
+          qualified_at?: string | null;
+          source?: Database['public']['Enums']['lead_source'] | null;
+          stage?: Database['public']['Enums']['lead_stage'];
+          status?: Database['public']['Enums']['lead_status'];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          company_name?: string | null;
+          converted_at?: string | null;
+          converted_contact_id?: string | null;
+          converted_customer_id?: string | null;
+          converted_opportunity_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string | null;
+          email?: string | null;
+          estimated_value?: number | null;
+          id?: string;
+          job_title?: string | null;
+          lost_at?: string | null;
+          lost_note?: string | null;
+          lost_reason?: Database['public']['Enums']['lead_lost_reason'] | null;
+          name?: string;
+          notes?: string | null;
+          organization_id?: string;
+          owner_user_id?: string | null;
+          phone?: string | null;
+          qualified_at?: string | null;
+          source?: Database['public']['Enums']['lead_source'] | null;
+          stage?: Database['public']['Enums']['lead_stage'];
+          status?: Database['public']['Enums']['lead_status'];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'leads_contact_fk';
+            columns: ['organization_id', 'converted_contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'leads_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'leads_customer_fk';
+            columns: ['organization_id', 'converted_customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'companies';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'leads_opportunity_fk';
+            columns: ['organization_id', 'converted_opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunities';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'leads_opportunity_fk';
+            columns: ['organization_id', 'converted_opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunity_overview';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'leads_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'leads_owner_fk';
+            columns: ['organization_id', 'owner_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'leads_updated_by_fkey';
             columns: ['updated_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
@@ -580,6 +734,7 @@ export type Database = {
           due_date: string | null;
           id: string;
           is_all_day: boolean;
+          lead_id: string | null;
           location: string | null;
           opportunity_id: string | null;
           organization_id: string;
@@ -605,6 +760,7 @@ export type Database = {
           due_date?: string | null;
           id?: string;
           is_all_day?: boolean;
+          lead_id?: string | null;
           location?: string | null;
           opportunity_id?: string | null;
           organization_id: string;
@@ -630,6 +786,7 @@ export type Database = {
           due_date?: string | null;
           id?: string;
           is_all_day?: boolean;
+          lead_id?: string | null;
           location?: string | null;
           opportunity_id?: string | null;
           organization_id?: string;
@@ -671,6 +828,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'tasks_lead_fk';
+            columns: ['organization_id', 'lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['organization_id', 'id'];
           },
           {
             foreignKeyName: 'tasks_opportunity_fk';
@@ -824,6 +988,27 @@ export type Database = {
         | 'other';
       customer_status: 'prospect' | 'active_customer' | 'inactive_customer';
       interest_level: 'low' | 'medium' | 'high';
+      lead_lost_reason:
+        | 'not_interested'
+        | 'no_response'
+        | 'competitor'
+        | 'price'
+        | 'postponed'
+        | 'not_a_fit'
+        | 'duplicate'
+        | 'other';
+      lead_source:
+        | 'manual'
+        | 'referral'
+        | 'web'
+        | 'email'
+        | 'phone'
+        | 'event'
+        | 'social'
+        | 'partner'
+        | 'other';
+      lead_stage: 'new' | 'contacted' | 'qualified';
+      lead_status: 'active' | 'won' | 'lost';
       member_role: 'owner' | 'admin' | 'manager' | 'sales';
       member_status: 'active' | 'suspended' | 'removed';
       opportunity_stage: 'new_lead' | 'contacted' | 'qualified' | 'proposal' | 'negotiation';
@@ -963,6 +1148,29 @@ export const Constants = {
       ],
       customer_status: ['prospect', 'active_customer', 'inactive_customer'],
       interest_level: ['low', 'medium', 'high'],
+      lead_lost_reason: [
+        'not_interested',
+        'no_response',
+        'competitor',
+        'price',
+        'postponed',
+        'not_a_fit',
+        'duplicate',
+        'other',
+      ],
+      lead_source: [
+        'manual',
+        'referral',
+        'web',
+        'email',
+        'phone',
+        'event',
+        'social',
+        'partner',
+        'other',
+      ],
+      lead_stage: ['new', 'contacted', 'qualified'],
+      lead_status: ['active', 'won', 'lost'],
       member_role: ['owner', 'admin', 'manager', 'sales'],
       member_status: ['active', 'suspended', 'removed'],
       opportunity_stage: ['new_lead', 'contacted', 'qualified', 'proposal', 'negotiation'],

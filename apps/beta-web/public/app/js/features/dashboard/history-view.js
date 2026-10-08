@@ -176,8 +176,25 @@ function tasksCard(summary) {
   });
 }
 
+const ratioFmt = new Intl.NumberFormat('hr-HR', { maximumFractionDigits: 2 });
+
+/** "Win rate 64 % · W/L 1,75": closed leads only (won ÷ won + lost, won ÷ lost). */
+function leadRatios(leads) {
+  if (!leads.closed) return null;
+  return h(
+    'p',
+    { class: 'hist-caption hist-leads__ratios' },
+    [
+      `Win rate ${Math.round(leads.winRate * 100)} %`,
+      leads.wlRatio === null ? null : `W/L ${ratioFmt.format(leads.wlRatio)}`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  );
+}
+
 function leadsCard(summary, period) {
-  const { kpis } = summary;
+  const { kpis, leads } = summary;
   const total = Math.max(kpis.newLeads.value, 1);
   const bar = (label, value, tone) =>
     h(
@@ -217,9 +234,10 @@ function leadsCard(summary, period) {
           'ul',
           { class: 'hist-bars', role: 'list' },
           bar('Kvalificirano', kpis.qualified.value, 'red'),
-          bar('Dobiveno', kpis.won.value, 'green'),
-          bar('Izgubljeno', kpis.lost.value, 'gray'),
+          bar('Pretvoreno', leads.won, 'green'),
+          bar('Izgubljeno', leads.lost, 'gray'),
         ),
+        leadRatios(leads),
       ),
       h(
         'a',

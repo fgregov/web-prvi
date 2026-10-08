@@ -18,20 +18,38 @@ export function createFileRepository(file: string, seed: () => CrmData): CrmRepo
     current = seed();
   }
 
-  function commit() {
+  let depth = 0; // > 0 inside a transaction: writes wait for its end
+
+  function write() {
     mkdirSync(dirname(file), { recursive: true });
     const temp = `${file}.${process.pid}.tmp`;
     writeFileSync(temp, JSON.stringify(current), { mode: 0o600 });
     renameSync(temp, file); // atomic: readers never see a half-written file
   }
 
-  commit();
+  write();
   return {
     data: () => current,
-    commit,
+    commit() {
+      if (depth === 0) write();
+    },
     replace(next) {
       current = next;
-      commit();
+      if (depth === 0) write();
+    },
+    transaction(work) {
+      const snapshot = structuredClone(current);
+      depth += 1;
+      try {
+        const result = work();
+        depth -= 1;
+        if (depth === 0) write();
+        return result;
+      } catch (error) {
+        depth -= 1;
+        current = snapshot; // nothing was written while the transaction ran
+        throw error;
+      }
     },
   };
 }

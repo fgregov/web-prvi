@@ -5,3 +5,4 @@ export * from './organization/permissions.ts';
 export * from './opportunity/opportunity.ts';
 export * from './task/due.ts';
 export * from './next-action/next-action.ts';
+export * from './lead/lead-metrics.ts';

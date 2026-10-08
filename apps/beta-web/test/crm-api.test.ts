@@ -33,7 +33,14 @@ beforeEach(async () => {
   // Two organizations in one store: the BETA account belongs to org-beta only.
   const data = seedDemoData(ctx(ORG));
   const other = seedDemoData(ctx('org-other'));
-  for (const key of ['customers', 'contacts', 'opportunities', 'tasks', 'activities'] as const) {
+  for (const key of [
+    'customers',
+    'contacts',
+    'opportunities',
+    'tasks',
+    'activities',
+    'leads',
+  ] as const) {
     (data[key] as unknown[]).push(...other[key]);
   }
   crm = createCrmServices(createMemoryRepository(data));
@@ -78,6 +85,8 @@ describe('access', () => {
       ['GET', '/api/calendar?date=2026-10-05'],
       ['POST', '/api/tasks'],
       ['GET', '/api/customers'],
+      ['GET', '/api/leads'],
+      ['POST', '/api/leads'],
       ['POST', '/api/demo/reset'],
     ] as const) {
       const response = await fetch(`${server.url}${path}`, {
@@ -265,6 +274,137 @@ describe('dashboard summary', () => {
   });
 });
 
+describe('leads', () => {
+  it('creates a lead with server defaults and reads it back', async () => {
+    const created = await json(
+      await api('/api/leads', {
+        method: 'POST',
+        body: {
+          name: 'Marko Horvat',
+          companyName: 'ABC d.o.o.',
+          phone: '091 234 5678',
+          source: 'referral',
+          organizationId: 'org-other',
+          status: 'won',
+        },
+      }),
+    );
+    expect(created.status).toBe(201);
+    expect(created.body.lead).toMatchObject({
+      organizationId: ORG,
+      stage: 'new',
+      status: 'active',
+      source: 'referral',
+      convertedAt: null,
+    });
+    const id = created.body.lead.id as string;
+    const read = await json(await api(`/api/leads/${id}`));
+    expect(read.status).toBe(200);
+    expect(read.body.lead).toMatchObject({ id, tasks: [], activities: [{ type: 'lead_created' }] });
+    const list = (await json(await api('/api/leads?status=active'))).body.leads as Body[];
+    expect(list.some((l) => l.id === id)).toBe(true);
+    expect(list.every((l) => l.organizationId === ORG && l.status === 'active')).toBe(true);
+    const patched = await json(
+      await api(`/api/leads/${id}`, { method: 'PATCH', body: { stage: 'contacted' } }),
+    );
+    expect(patched).toMatchObject({ status: 200, body: { lead: { stage: 'contacted' } } });
+  });
+
+  it('rejects a lead without a name with 422', async () => {
+    expect(await json(await api('/api/leads', { method: 'POST', body: { name: ' ' } }))).toEqual({
+      status: 422,
+      body: {
+        success: false,
+        message: MESSAGES.leadNameRequired,
+        errors: { name: MESSAGES.leadNameRequired },
+      },
+    });
+  });
+
+  it('never exposes or changes another organization’s lead', async () => {
+    const foreign = crm.repo.data().leads.find((l) => l.organizationId === 'org-other')!;
+    for (const [method, path, body] of [
+      ['GET', `/api/leads/${foreign.id}`, undefined],
+      ['PATCH', `/api/leads/${foreign.id}`, { name: 'X' }],
+      ['POST', `/api/leads/${foreign.id}/lost`, {}],
+      ['POST', `/api/leads/${foreign.id}/convert`, { conversionMode: 'EXISTING_CUSTOMER' }],
+      ['GET', `/api/leads/${foreign.id}/matches`, undefined],
+    ] as const) {
+      expect((await api(path, { method, body })).status, `${method} ${path}`).toBe(404);
+    }
+    const all = (await json(await api('/api/leads'))).body.leads as Body[];
+    expect(all.every((l) => l.organizationId === ORG)).toBe(true);
+    const task = await json(
+      await api('/api/tasks', { method: 'POST', body: { title: 'X', leadId: foreign.id } }),
+    );
+    expect(task).toMatchObject({ status: 422, body: { errors: { leadId: MESSAGES.unavailable } } });
+  });
+
+  it('links a task, converts with a duplicate check (409) and closes as lost', async () => {
+    const lead = (
+      await json(
+        await api('/api/leads', {
+          method: 'POST',
+          body: { name: 'Marko Horvat', companyName: 'FERO-TERM' },
+        }),
+      )
+    ).body.lead as Body;
+    const task = await json(
+      await api('/api/tasks', {
+        method: 'POST',
+        body: { title: 'Follow-up Marko', type: 'follow_up', leadId: lead.id },
+      }),
+    );
+    expect(task).toMatchObject({
+      status: 201,
+      body: { task: { leadId: lead.id, companyId: null } },
+    });
+    const filtered = (await json(await api(`/api/tasks?leadId=${lead.id}`))).body.tasks as Body[];
+    expect(filtered.map((t) => t.id)).toEqual([task.body.task.id]);
+
+    const matches = (await json(await api(`/api/leads/${lead.id}/matches`))).body.matches;
+    expect(matches).toEqual([expect.objectContaining({ id: customerId(ORG, 'FERO') })]);
+    const conversion = {
+      conversionMode: 'CREATE_CUSTOMER',
+      customer: { companyName: 'FERO-TERM Rijeka', oib: '12345678903', city: 'Rijeka' },
+    };
+    const conflict = await json(
+      await api(`/api/leads/${lead.id}/convert`, { method: 'POST', body: conversion }),
+    );
+    expect(conflict).toMatchObject({
+      status: 409,
+      body: { success: false, message: MESSAGES.possibleExistingCustomer },
+    });
+    expect(conflict.body.matches[0].id).toBe(customerId(ORG, 'FERO'));
+
+    const linked = await json(
+      await api(`/api/leads/${lead.id}/convert`, {
+        method: 'POST',
+        body: { conversionMode: 'EXISTING_CUSTOMER', customerId: customerId(ORG, 'FERO') },
+      }),
+    );
+    expect(linked).toMatchObject({
+      status: 200,
+      body: { lead: { status: 'won' }, customerId: customerId(ORG, 'FERO') },
+    });
+    const again = await json(await api(`/api/leads/${lead.id}/lost`, { method: 'POST', body: {} }));
+    expect(again).toMatchObject({ status: 422, body: { errors: { status: MESSAGES.leadClosed } } });
+
+    const other = (await json(await api('/api/leads', { method: 'POST', body: { name: 'Kafić' } })))
+      .body.lead as Body;
+    const lost = await json(
+      await api(`/api/leads/${other.id}/lost`, {
+        method: 'POST',
+        body: { reason: 'not_interested' },
+      }),
+    );
+    expect(lost).toMatchObject({
+      status: 200,
+      body: { lead: { status: 'lost', lostReason: 'not_interested' } },
+    });
+  });
+});
+
 describe('contacts, opportunities, demo reset', () => {
   it('creates a contact and an opportunity that reports its missing next action', async () => {
     const fero = customerId(ORG, 'FERO');
@@ -296,11 +436,16 @@ describe('contacts, opportunities, demo reset', () => {
 
   it('resets only the caller’s organization', async () => {
     await api('/api/tasks', { method: 'POST', body: { title: 'Privremeno' } });
+    await api('/api/leads', { method: 'POST', body: { name: 'Privremeni lead' } });
     const otherBefore = crm.repo
       .data()
       .tasks.filter((t) => t.organizationId === 'org-other').length;
     expect((await api('/api/demo/reset', { method: 'POST', body: {} })).status).toBe(200);
     expect(crm.repo.data().tasks.some((t) => t.title === 'Privremeno')).toBe(false);
+    expect(crm.repo.data().leads.some((l) => l.name === 'Privremeni lead')).toBe(false);
+    // Seeded lead tasks point at seeded leads of the same organization.
+    const leadIds = new Set(crm.repo.data().leads.map((l) => l.id));
+    expect(crm.repo.data().tasks.every((t) => !t.leadId || leadIds.has(t.leadId))).toBe(true);
     expect(crm.repo.data().tasks.filter((t) => t.organizationId === 'org-other')).toHaveLength(
       otherBefore,
     );

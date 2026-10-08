@@ -237,6 +237,7 @@ const STYLE_FILES = [
   'app/css/components.css',
   'app/css/pages.css',
   'app/css/screen.css',
+  'app/css/leads.css',
 ];
 const styles = Object.fromEntries(
   STYLE_FILES.map((file) => [file, readFileSync(join(OUT, file), 'utf8')]),
