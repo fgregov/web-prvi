@@ -16,7 +16,8 @@ import {
 } from '../public/app/js/core/period.js';
 import { CrmValidationError } from '../src/crm/errors.ts';
 import { createCrmServices } from '../src/crm/index.ts';
-import { createMemoryRepository } from '../src/crm/repository.ts';
+import { createCrmApi } from '../src/crm/dispatch.ts';
+import { createMemoryRepository, emptyData } from '../src/crm/repository.ts';
 import { seedDemoData } from '../src/crm/seed.ts';
 import type { CrmContext } from '../src/crm/types.ts';
 
@@ -166,3 +167,61 @@ describe('DashboardService · period summary', () => {
     expect(q3.kpis.won.value).toBe(9); // demo baseline only
   });
 });
+
+describe('Clean start (no demo content)', () => {
+  const ctx: CrmContext = {
+    organizationId: 'org-a',
+    user: { id: 'u', displayName: 'U' },
+    timeZone: 'Europe/Zagreb',
+    now: new Date('2026-10-07T09:00:00Z'),
+  };
+  const clean = () =>
+    createCrmServices(createMemoryRepository(emptyData()), { demoContent: false });
+
+  it('shows zeros everywhere until the user enters something', () => {
+    const services = clean();
+    for (const [from, to] of [
+      ['2026-10-01', '2026-12-31'],
+      ['2026-07-01', '2026-09-30'],
+    ]) {
+      const summary = services.dashboard.getPeriodSummary(ctx, from, to);
+      expect(summary.hasData).toBe(false);
+      for (const metric of Object.values(summary.kpis)) {
+        if (metric && typeof metric === 'object') expect(metric).toEqual({ value: 0, previous: 0 });
+      }
+      expect(summary.pipeline.every((stage) => stage.count === 0)).toBe(true);
+      expect(summary.leads).toMatchObject({ created: 0, won: 0, lost: 0, winRate: null });
+      expect(summary.calendar).toMatchObject({ total: 0, done: 0 });
+    }
+    expect(services.opportunities.pipeline(ctx).every((stage) => stage.total === 0)).toBe(true);
+  });
+
+  it('counts exactly what was entered', () => {
+    const services = clean();
+    services.leads.createLead(ctx, { name: 'Marko Horvat' });
+    const customer = services.customers.createCustomer(ctx, {
+      companyName: 'ABC d.o.o.',
+      oib: '12345678903',
+      city: 'Zagreb',
+      contactName: 'Marko',
+    });
+    services.opportunities.createOpportunity(ctx, {
+      companyId: customer.id,
+      title: 'Prva prilika',
+    });
+    const q4 = services.dashboard.getPeriodSummary(ctx, '2026-10-01', '2026-12-31');
+    expect(q4.kpis.newLeads.value).toBe(1);
+    expect(q4.pipeline[0]).toMatchObject({ key: 'new', count: 1 });
+    expect(services.opportunities.pipeline(ctx)[0]).toMatchObject({ created: 1, total: 1 });
+  });
+
+  it('has no demo reset to restore demo data', () => {
+    const api = createCrmApi(clean());
+    expect(api.match('POST', '/api/demo/reset').kind).toBe('none');
+    expect(createCrmApi(crmWithDemo()).match('POST', '/api/demo/reset').kind).toBe('ok');
+  });
+});
+
+function crmWithDemo() {
+  return createCrmServices(createMemoryRepository(emptyData()));
+}

@@ -36,7 +36,11 @@ const money = (value: number | null, currency: string) =>
         maximumFractionDigits: 0,
       }).format(value);
 
-export function createOpportunityService(repo: CrmRepository, tasks: TaskService) {
+export function createOpportunityService(
+  repo: CrmRepository,
+  tasks: TaskService,
+  { demoContent = true } = {},
+) {
   function view(data: CrmData, ctx: CrmContext, o: Opportunity): OpportunityView {
     const contact = findInOrg(data.contacts, ctx, o.contactId);
     const nextAction = tasks.nextActionFor(ctx, o.id);
@@ -148,14 +152,16 @@ export function createOpportunityService(repo: CrmRepository, tasks: TaskService
       return { opportunity: result, nextActionMissing: result.needsNextAction };
     },
 
-    /** Dashboard pipeline: the approved static totals plus active opportunities created in the CRM. */
+    /** Dashboard pipeline: active opportunities created in the CRM, plus the demo's static totals. */
     pipeline(ctx: CrmContext) {
       const created = inOrg(repo.data().opportunities, ctx).filter(
         (o) => o.status === 'active' && !o.seeded,
       );
       return STAGES.map((stage) => {
         const count = created.filter((o) => o.stage === stage.value).length;
-        const baseline = (PIPELINE_BASELINE as Record<string, number>)[stage.value] ?? 0;
+        const baseline = demoContent
+          ? ((PIPELINE_BASELINE as Record<string, number>)[stage.value] ?? 0)
+          : 0;
         return { value: stage.value, label: stage.label, created: count, total: baseline + count };
       });
     },

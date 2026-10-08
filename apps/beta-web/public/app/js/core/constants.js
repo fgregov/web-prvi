@@ -1,10 +1,11 @@
 // Renvara demo CRM · shared vocabulary and demo configuration.
+import { DEMO_CONTENT } from './edition.js';
 
 /**
  * DEVELOPMENT ONLY: prefill the "Novi kupac" form with the test company so
- * the flow can be clicked through quickly. Set to false to remove the prefill.
+ * the flow can be clicked through quickly. Off in the clean-start edition.
  */
-export const DEMO_PREFILL = true;
+export const DEMO_PREFILL = DEMO_CONTENT;
 
 export const DEMO_CUSTOMER = Object.freeze({
   companyName: 'TVRTKA 1 d.o.o',

@@ -1,6 +1,7 @@
 // /customers · customer list with search (name or OIB)
 import { api, onDataChanged } from '../core/api.js';
 import { CUSTOMER_STATUSES, labelOf } from '../core/constants.js';
+import { DEMO_CONTENT } from '../core/edition.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { renderShell } from '../ui/shell.js';
@@ -60,7 +61,13 @@ root.replaceChildren(
     'div',
     { class: 'rv-page-head' },
     h('div', {}, h('h1', { class: 'rv-page-title' }, 'Kupci'), count),
-    h('div', { class: 'rv-page-head__actions' }, resetButton, newCustomerLink()),
+    // Clean start: there is no demo data to restore.
+    h(
+      'div',
+      { class: 'rv-page-head__actions' },
+      DEMO_CONTENT ? resetButton : null,
+      newCustomerLink(),
+    ),
   ),
   search,
   list,

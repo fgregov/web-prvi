@@ -202,9 +202,9 @@ Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan.
   `fields.js`; `sheet.js`; `form.js`), `features/` (pickers, quick-add, tasks,
   customers) and `pages/`.
 - Storage (BETA): one JSON file, written atomically, `RENVARA_DATA_FILE`
-  (default `apps/beta-web/.data/crm.json`, git-ignored). It is seeded with demo
-  data dated relative to the first start. "Vrati demo podatke" on `/customers`
-  re-seeds it. The schema mirrors `supabase/migrations`, so the repository can be
+  (default `apps/beta-web/.data/crm.json`, git-ignored). In the presentation
+  edition it is seeded with demo data dated relative to the first start, and
+  "Vrati demo podatke" on `/customers` re-seeds it (see **Editions** below). The schema mirrors `supabase/migrations`, so the repository can be
   swapped for Supabase without touching the services.
 
 | Variable               | Default          | Purpose                                       |
@@ -213,10 +213,21 @@ Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan.
 | `RENVARA_ORG_TIMEZONE` | `Europe/Zagreb`  | Interprets dates ("today", date-only entries) |
 | `RENVARA_DATA_FILE`    | `.data/crm.json` | BETA data file                                |
 
+### Editions: presentation demo or clean start
+
+One switch, `public/app/js/core/edition.js` (`DEMO_CONTENT`), read by the
+browser code and the server alike:
+
+| `DEMO_CONTENT`             | What you get                                                                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `true` (default)           | Presentation demo: demo records on first start, fixed demo numbers on Home (KPIs per quarter, pipeline totals), example "Čekaš odgovor" rows and notification dot, prefilled "Novi kupac", "Vrati demo podatke" (`POST /api/demo/reset`).                  |
+| `false` (`demo:build:empty`) | Clean start for real use: no records, every number counts only what was entered, no examples, a blank "Novi kupac", no demo reset (the route does not exist). All functions are the same. |
+
 ## Static demo
 
 ```bash
-pnpm --filter @renvara/beta-web demo:build   # → apps/beta-web/dist/demo/index.html
+pnpm --filter @renvara/beta-web demo:build         # → apps/beta-web/dist/demo/index.html (presentation demo)
+pnpm --filter @renvara/beta-web demo:build:empty   # → the same file as a clean start (no demo data)
 ```
 
 Builds a clickable demo as **one self-contained page** (scripts, styles and
@@ -227,10 +238,11 @@ username and password sign in.
 - Published as a claude.ai artifact with the `db` capability, records are kept
   in the artifact's test database, one document per record
   (`customers/<id>`, `contacts/<id>`, `opportunities/<id>`, `tasks/<id>`,
-  `activities/<id>`). A write is reported as saved only after the database has
+  `activities/<id>`, `leads/<id>`). A write is reported as saved only after the database has
   it; otherwise it is undone and the form shows an error.
 - Anywhere else (or when the database is unavailable) the data stays in the
-  browser's localStorage and is re-seeded once a day.
+  browser's localStorage. The presentation demo re-seeds it once a day; the
+  clean start keeps what was entered.
 
 Nothing in the app's sources changes for the demo: the build redirects
 `window.location`/`history` to an in-page router and fails if it finds any it

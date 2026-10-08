@@ -12,6 +12,7 @@ import { createCrmApi } from '../server/crm/dispatch.js';
 import { createCrmServices } from '../server/crm/index.js';
 import { emptyData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
+import { DEMO_CONTENT } from '../app/js/core/edition.js';
 import { LOADERS, PAGES, STYLES } from './pages.js';
 
 const ORIGIN = 'https://demo.renvara.app';
@@ -70,23 +71,28 @@ const context = () => ({ organizationId: ORG, user: USER, timeZone: TIME_ZONE, n
 const isSignedIn = () => session.get(KEYS.auth) === 'yes';
 
 // ---------------------------------------------------------- data stores ---
-/** Browser-only store: demo data re-seeded once a day (it is dated relative to today). */
+/**
+ * Browser-only store. Presentation demo: demo data re-seeded once a day (it is
+ * dated relative to today). Clean start: empty at first, then kept as entered.
+ */
+const EDITION = DEMO_CONTENT ? 'demo' : 'clean';
 function browserStore() {
   return {
     kind: 'browser',
     async load() {
       try {
         const saved = JSON.parse(local.get(KEYS.data) ?? 'null');
+        const current = DEMO_CONTENT ? saved?.seededOn === todayKey() : true;
         // Data saved before a collection existed (e.g. leads) gets it empty.
-        if (saved?.seededOn === todayKey() && saved.data?.version === 2)
+        if (current && (saved?.edition ?? 'demo') === EDITION && saved.data?.version === 2)
           return { ...emptyData(), ...saved.data };
       } catch {
-        /* fall through to a fresh seed */
+        /* fall through to a fresh start */
       }
-      return seedDemoData(context());
+      return DEMO_CONTENT ? seedDemoData(context()) : emptyData();
     },
     async save(data) {
-      local.set(KEYS.data, JSON.stringify({ seededOn: todayKey(), data }));
+      local.set(KEYS.data, JSON.stringify({ seededOn: todayKey(), edition: EDITION, data }));
     },
   };
 }

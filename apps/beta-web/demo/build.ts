@@ -10,7 +10,9 @@
 // The app's sources stay untouched: location/history access is redirected to
 // the demo router at build time, and the build fails if any is left over.
 //
-//   node demo/build.ts   → dist/demo/index.html (single file; sources staged in dist/demo-src)
+//   node demo/build.ts           → dist/demo/index.html (single file; sources staged in dist/demo-src)
+//   node demo/build.ts --empty   → the same as a clean start: no demo records or demo numbers,
+//                                  only what the user enters (core/edition.js → DEMO_CONTENT = false)
 import {
   cpSync,
   existsSync,
@@ -29,6 +31,7 @@ const ROOT = resolve(APP, '../..');
 const OUT = resolve(APP, 'dist/demo-src'); // staged modules, bundled below
 const FINAL = resolve(APP, 'dist/demo');
 const HOME = resolve(ROOT, 'prototypes/home');
+const EMPTY = process.argv.includes('--empty');
 
 rmSync(OUT, { recursive: true, force: true });
 rmSync(FINAL, { recursive: true, force: true });
@@ -96,6 +99,9 @@ for (const file of walk(APP_SRC)) {
     cpSync(file, join(OUT, 'app', rel));
   }
 }
+
+// The edition switch is read by the browser code and the bundled server alike.
+if (EMPTY) write('app/js/core/edition.js', 'export const DEMO_CONTENT = false;\n');
 
 cpSync(join(HOME, 'styles.css'), join(OUT, 'home/styles.css'));
 write(
@@ -287,5 +293,5 @@ writeFileSync(
 );
 const kb = Math.round(readFileSync(join(FINAL, 'index.html')).length / 1024);
 console.log(
-  `Demo built: ${relative(process.cwd(), join(FINAL, 'index.html'))} (${kb} KB, one file)`,
+  `Demo built${EMPTY ? ' (clean start, no demo data)' : ''}: ${relative(process.cwd(), join(FINAL, 'index.html'))} (${kb} KB, one file)`,
 );

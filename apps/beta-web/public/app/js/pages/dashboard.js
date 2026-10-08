@@ -13,6 +13,7 @@ import {
   setDashboardPeriod,
 } from '../core/dashboard-period.js';
 import { dayRange, formatSlot, todayKey } from '../core/format.js';
+import { DEMO_CONTENT } from '../core/edition.js';
 import { currentQuarterPeriod } from '../core/period.js';
 import { renderHistory, renderHistorySkeleton } from '../features/dashboard/history-view.js';
 import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-cards.js';
@@ -59,6 +60,17 @@ if (dateEl) {
   }).format(new Date());
   dateEl.textContent = text.charAt(0).toUpperCase() + text.slice(1);
   dateEl.setAttribute('datetime', todayKey());
+}
+
+// Clean start: no example content. "Čekaš odgovor" and the notification dot are
+// demo examples (no data behind them yet); the pipeline counts come from the API.
+if (!DEMO_CONTENT) {
+  document
+    .querySelector('[aria-labelledby="odgovor-title"] .list')
+    ?.replaceChildren(el('li', 'empty-row', 'Nema stavki koje čekaju odgovor.'));
+  document.querySelector('.bell__dot')?.remove();
+  document.querySelector('.bell')?.setAttribute('aria-label', 'Obavijesti');
+  document.querySelectorAll('.pipeline .stage__count').forEach((count) => (count.textContent = ''));
 }
 
 // ------------------------------------------------------------- Danas ---
@@ -180,7 +192,8 @@ async function updatePipeline() {
     const stage = totals[index];
     if (!stage) return;
     row.querySelector('.stage__count').textContent = String(stage.total);
-    row.style.setProperty('--fill', `${Math.max(Math.round((stage.total / max) * 100), 14)}%`);
+    const fill = stage.total ? Math.max(Math.round((stage.total / max) * 100), 14) : 0;
+    row.style.setProperty('--fill', `${fill}%`);
   });
 }
 

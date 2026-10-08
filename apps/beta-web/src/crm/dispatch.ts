@@ -230,28 +230,33 @@ export function createCrmApi(crm: CrmServices) {
       handler: ({ ctx, query }) =>
         ok({ summary: crm.dashboard.getPeriodSummary(ctx, q(query, 'from'), q(query, 'to')) }),
     },
-    // ---- BETA: restore this organization's demo data
-    {
-      method: 'POST',
-      pattern: /^\/api\/demo\/reset$/,
-      handler: ({ ctx }) => {
-        const data = crm.repo.data();
-        const seed = seedDemoData(ctx);
-        const keep = <T extends { organizationId: string }>(rows: T[]) =>
-          rows.filter((row) => row.organizationId !== ctx.organizationId);
-        crm.repo.replace({
-          ...data,
-          seq: Math.max(data.seq, seed.seq),
-          customers: [...keep(data.customers), ...seed.customers],
-          contacts: [...keep(data.contacts), ...seed.contacts],
-          opportunities: [...keep(data.opportunities), ...seed.opportunities],
-          tasks: [...keep(data.tasks), ...seed.tasks],
-          activities: [...keep(data.activities), ...seed.activities],
-          leads: [...keep(data.leads), ...seed.leads],
-        });
-        return ok({ customers: inOrg(crm.repo.data().customers, ctx).length });
-      },
-    },
+    // ---- BETA: restore this organization's demo data (presentation demo only;
+    // a clean start has no demo data to restore, so the route does not exist)
+    ...(crm.demoContent
+      ? ([
+          {
+            method: 'POST',
+            pattern: /^\/api\/demo\/reset$/,
+            handler: ({ ctx }) => {
+              const data = crm.repo.data();
+              const seed = seedDemoData(ctx);
+              const keep = <T extends { organizationId: string }>(rows: T[]) =>
+                rows.filter((row) => row.organizationId !== ctx.organizationId);
+              crm.repo.replace({
+                ...data,
+                seq: Math.max(data.seq, seed.seq),
+                customers: [...keep(data.customers), ...seed.customers],
+                contacts: [...keep(data.contacts), ...seed.contacts],
+                opportunities: [...keep(data.opportunities), ...seed.opportunities],
+                tasks: [...keep(data.tasks), ...seed.tasks],
+                activities: [...keep(data.activities), ...seed.activities],
+                leads: [...keep(data.leads), ...seed.leads],
+              });
+              return ok({ customers: inOrg(crm.repo.data().customers, ctx).length });
+            },
+          },
+        ] satisfies Route[])
+      : []),
   ];
 
   /** Which route a request addresses (method included). */

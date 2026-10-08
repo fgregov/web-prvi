@@ -85,7 +85,15 @@ function demoBaseline(today: string, range: Range): PeriodMetrics {
   return round(total);
 }
 
-export function createDashboardService(repo: CrmRepository, tasks: TaskService) {
+export function createDashboardService(
+  repo: CrmRepository,
+  tasks: TaskService,
+  { demoContent = true } = {},
+) {
+  /** Demo numbers are added only in the presentation demo; a clean start counts records only. */
+  const baseline = (today: string, range: Range) =>
+    demoContent ? demoBaseline(today, range) : ZERO_METRICS;
+
   function bounds(ctx: CrmContext, range: Range) {
     return {
       from: startOfDayInZone(range.startDate, ctx.timeZone).getTime(),
@@ -170,7 +178,7 @@ export function createDashboardService(repo: CrmRepository, tasks: TaskService) 
         period.quarter === current.quarter;
 
       const real = realRecords(ctx, range);
-      const metrics = add(demoBaseline(today, range), real.metrics);
+      const metrics = add(baseline(today, range), real.metrics);
 
       let previousRange: Range;
       let previousMetrics: PeriodMetrics;
@@ -182,14 +190,14 @@ export function createDashboardService(repo: CrmRepository, tasks: TaskService) 
           endDate: addDays(prevQ.startDate, elapsed - 1),
         };
         previousMetrics = add(
-          DEMO_CURRENT_TO_DATE_PREVIOUS,
+          demoContent ? DEMO_CURRENT_TO_DATE_PREVIOUS : ZERO_METRICS,
           realRecords(ctx, previousRange).metrics,
         );
       } else {
         const prev = previousPeriod(period);
         previousRange = { startDate: prev.startDate, endDate: prev.endDate };
         previousMetrics = add(
-          demoBaseline(today, previousRange),
+          baseline(today, previousRange),
           realRecords(ctx, previousRange).metrics,
         );
       }

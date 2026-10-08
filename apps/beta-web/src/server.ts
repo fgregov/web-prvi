@@ -6,7 +6,9 @@ import { createAuthService } from './auth/service.ts';
 import { loadCrmConfig } from './crm/config.ts';
 import { createCrmServices } from './crm/index.ts';
 import { createFileRepository } from './crm/file-repository.ts';
+import { emptyData } from './crm/repository.ts';
 import { seedDemoData } from './crm/seed.ts';
+import { DEMO_CONTENT } from '../public/app/js/core/edition.js';
 
 let config;
 try {
@@ -21,13 +23,16 @@ try {
 
 const auth = createAuthService(config, createBetaAuthProvider(config));
 const crmConfig = loadCrmConfig(process.env);
+// First start: demo records in the presentation demo, nothing in a clean start.
 const repo = createFileRepository(crmConfig.dataFile, () =>
-  seedDemoData({
-    organizationId: crmConfig.organizationId,
-    timeZone: crmConfig.timeZone,
-    user: { id: `beta-${config.username}`, displayName: config.displayName },
-    now: new Date(),
-  }),
+  DEMO_CONTENT
+    ? seedDemoData({
+        organizationId: crmConfig.organizationId,
+        timeZone: crmConfig.timeZone,
+        user: { id: `beta-${config.username}`, displayName: config.displayName },
+        now: new Date(),
+      })
+    : emptyData(),
 );
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 3000);
