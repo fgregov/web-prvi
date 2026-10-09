@@ -11,6 +11,7 @@
     "test": "vitest run",
     "demo:build": "node demo/build.ts",
     "demo:build:empty": "node demo/build.ts --empty",
+    "demo:build:mobile": "node demo/build.ts --mobile",
     "push:keys": "node src/notifications/vapid-keys.ts"
   },
   "engines": {

@@ -103,6 +103,12 @@ export const DEMO_QUARTERS: Record<number, PeriodMetrics> = {
   [-4]: quarter([27, 12, 16, 4, 6, 15400], [22, 5], [16, 4, 0], [27, 17, 10, 6], [8, 6]),
 };
 
+/**
+ * Customers that first bought in each quarter (keyed like DEMO_QUARTERS). BUYERS
+ * of a year adds those of the same calendar year up to the end of the period.
+ */
+export const DEMO_NEW_BUYERS: Record<number, number> = { 0: 2, [-1]: 6, [-2]: 5, [-3]: 4, [-4]: 3 };
+
 /** The current quarter is still running: what the previous quarter had after as many days. */
 export const DEMO_CURRENT_TO_DATE_PREVIOUS: PeriodMetrics = quarter(
   [16, 6, 10, 2, 1, 14000],

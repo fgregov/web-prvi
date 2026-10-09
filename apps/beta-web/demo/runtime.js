@@ -376,8 +376,9 @@ function pageFor(pathname) {
 const STORE_NOTE = {
   database:
     'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Kupci, kontakti, prilike, zadaci i leadovi spremaju se u testnu bazu ovog demoa.',
-  browser:
-    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Testna baza ovdje nije dostupna, pa se podaci spremaju samo u ovom pregledniku.',
+  browser: DEMO_CONTENT
+    ? 'Demo s primjerima podataka: prijava prihvaća bilo koje korisničko ime i lozinku. Promjene se spremaju samo u ovom pregledniku, a primjeri se svaki dan vraćaju na početno stanje.'
+    : 'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Testna baza ovdje nije dostupna, pa se podaci spremaju samo u ovom pregledniku.',
 };
 
 let generation = 0;

@@ -123,6 +123,17 @@ describe('DashboardService · period summary', () => {
     expect(q3.hasData).toBe(true);
   });
 
+  it('BUYERS in the presentation demo: earlier buyers of the year plus real won customers', () => {
+    const services = crm();
+    const buyers = (from: string, to: string) =>
+      services.dashboard.getPeriodSummary(ctx, from, to).pipelineOverview;
+    // Demo buyers Q1 4 + Q2 5 + Q3 6, plus Adria Tech (won in Q3).
+    expect(buyers('2026-07-01', '2026-09-30')).toMatchObject({ buyers: 16, buyersYear: 2026 });
+    // + 2 demo buyers this quarter; Adria Tech won again in Q4 is still one customer.
+    expect(buyers('2026-10-01', '2026-12-31').buyers).toBe(18);
+    expect(buyers('2025-10-01', '2025-12-31')).toMatchObject({ buyers: 3, buyersYear: 2025 });
+  });
+
   it('a new record counts in the period it was created in', () => {
     const services = crm();
     const before = services.dashboard.getPeriodSummary(ctx, '2026-10-01', '2026-12-31');

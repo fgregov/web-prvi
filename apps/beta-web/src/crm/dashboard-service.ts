@@ -33,6 +33,7 @@ import {
 import { leadOutcomeMetrics, outcomeRates, sumMoney } from '@renvara/domain';
 import {
   DEMO_CURRENT_TO_DATE_PREVIOUS,
+  DEMO_NEW_BUYERS,
   DEMO_QUARTERS,
   ZERO_METRICS,
   type PeriodMetrics,
@@ -201,7 +202,25 @@ export function createDashboardService(
         })
         .map((o) => o.companyId),
     );
-    return { count: companies.size, year, asOf: new Date(to - 1).toISOString() };
+    const asOf = new Date(to - 1);
+    return {
+      count: companies.size + demoBuyers(ctx, year, calendarDateInZone(asOf, ctx.timeZone)),
+      year,
+      asOf: asOf.toISOString(),
+    };
+  }
+
+  /** DEMO ONLY: the demo's earlier buyers of that year, up to `asOfDay`. */
+  function demoBuyers(ctx: CrmContext, year: number, asOfDay: string) {
+    if (!demoContent) return 0;
+    const current = quarterOf(calendarDateInZone(ctx.now, ctx.timeZone));
+    const last = quarterOf(asOfDay);
+    let total = 0;
+    for (const [offset, count] of Object.entries(DEMO_NEW_BUYERS)) {
+      const q = shiftQuarter(current, Number(offset));
+      if (q.year === year && q.year * 4 + q.quarter <= last.year * 4 + last.quarter) total += count;
+    }
+    return total;
   }
 
   return {

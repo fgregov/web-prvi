@@ -20,9 +20,16 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     ...ctx,
     now: zonedDateTime(day, time, ctx.timeZone),
   });
-  const prev = shiftQuarter(quarterOf(today), -1);
+  const now = quarterOf(today);
+  const prev = shiftQuarter(now, -1);
   const lastQuarter = quarterPeriod(prev.year, prev.quarter).startDate;
   const lq = (days: number) => addDays(lastQuarter, days); // a day in the previous quarter
+  const quarterStart = quarterPeriod(now.year, now.quarter).startDate;
+  /** `days` ago, but not before this quarter began: counts in the current quarter. */
+  const tq = (days: number) => {
+    const day = addDays(today, -days);
+    return day < quarterStart ? quarterStart : day;
+  };
 
   const customer = (input: Record<string, string>, on?: string) =>
     crm.customers.createCustomer(on ? then(on) : ctx, {
@@ -110,12 +117,15 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     },
     lq(30),
   );
-  const novaDeal = opportunity({
-    companyId: nova.id,
-    title: 'Pilot projekt',
-    value: '9800',
-    stage: 'in_progress',
-  });
+  const novaDeal = opportunity(
+    {
+      companyId: nova.id,
+      title: 'Pilot projekt',
+      value: '9800',
+      stage: 'in_progress',
+    },
+    lq(75),
+  );
   // Deliberately without a next action: shows the "needs attention" state.
   const feroDeal = opportunity(
     {
@@ -132,7 +142,38 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     crm.offers.recordSent(ctx, { opportunityId, title, sentDate: addDays(today, -sentDaysAgo) });
   offer(adriaDeal.id, 'CRM licence – ponuda', 0);
   offer(feroDeal.id, 'Oprema za skladište – ponuda', 4);
+  offer(novaDeal.id, 'Pilot projekt – ponuda', 7);
   offer(initiumDeal.id, 'Implementacija faza 2 – ponuda', 11);
+  // An earlier version the customer answered: kept on the deal, not in the feedback list.
+  const firstDraft = crm.offers.recordSent(then(lq(55), '12:00'), {
+    opportunityId: initiumDeal.id,
+    title: 'Implementacija faza 2 – prva verzija',
+  });
+  crm.offers.markAnswered(then(lq(62), '15:30'), firstDraft.id);
+
+  // Closed this quarter: won with a final amount below the estimate, and lost with a reason.
+  const training = opportunity(
+    {
+      companyId: adria.id,
+      contactId: adria.primaryContactId,
+      title: 'Edukacija korisnika',
+      value: '4800',
+      stage: 'negotiation',
+    },
+    tq(9),
+  );
+  crm.opportunities.closeOpportunity(then(tq(2), '13:00'), training.id, {
+    outcome: 'won',
+    wonValue: '4500',
+  });
+  const cooling = opportunity(
+    { companyId: feroTerm.id, title: 'Rashladni sustav', value: '7200', stage: 'offer_sent' },
+    tq(8),
+  );
+  crm.opportunities.closeOpportunity(then(tq(1), '11:00'), cooling.id, {
+    outcome: 'lost',
+    lostReason: 'Odabrali ponudu konkurencije',
+  });
 
   const task = (input: Record<string, unknown>) => crm.tasks.createTask(ctx, input);
 
@@ -207,13 +248,20 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     scheduledEndAt: at(addDays(today, -1), '16:00'),
   });
   crm.tasks.completeTask(ctx, intro.id);
-  task({
+  const contract = task({
     title: 'Follow-up Initium – ugovor',
     type: 'follow_up',
     companyId: initium.id,
     opportunityId: initiumDeal.id,
     scheduledStartAt: at(addDays(today, 1), '10:00'),
   });
+  // Push reminders (saved; delivery needs the server and a device that allows notifications).
+  crm.reminders.setReminder(ctx, { kind: 'task', id: contract.id }, at(addDays(today, 1), '09:30'));
+  crm.reminders.setReminder(
+    ctx,
+    { kind: 'opportunity', id: adriaDeal.id },
+    at(addDays(today, 3), '09:00'),
+  );
   task({ title: 'Ažurirati cjenik za 2027.', type: 'general', priority: 'low' });
 
   // ---- The previous quarter: what was held, closed and left undone back then.
@@ -317,6 +365,7 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     stage: 'contacted',
     estimatedValue: '15000',
   });
+  crm.reminders.setReminder(ctx, { kind: 'lead', id: babic.id }, at(addDays(today, 2), '09:00'));
   crm.tasks.createTask(ctx, {
     title: 'Poslati demo Babić Logistici',
     type: 'follow_up',

@@ -302,6 +302,7 @@ browser code and the server alike:
 ```bash
 pnpm --filter @renvara/beta-web demo:build         # → apps/beta-web/dist/demo/index.html (presentation demo)
 pnpm --filter @renvara/beta-web demo:build:empty   # → the same file as a clean start (no demo data)
+pnpm --filter @renvara/beta-web demo:build:mobile  # → dist/demo-mobile/index.html (presentation demo, phone frame)
 ```
 
 Builds a clickable demo as **one self-contained page** (scripts, styles and
@@ -325,6 +326,14 @@ username and password sign in.
 - Anywhere else (or when the database is unavailable) the data stays in the
   browser's localStorage. The presentation demo re-seeds it once a day; the
   clean start keeps what was entered.
+
+The **mobile demo** (`--mobile`) is the presentation demo for showing Renvara as
+a phone app: on a wide screen with a mouse it runs the app in a phone-sized
+frame (an iframe of the same page, so the app's own phone layout applies) next
+to a short guide, with "Vrati demo na početak" (fresh example data) and
+"Prikaži preko cijelog prozora"; on phones and tablets it is the app, full
+screen. If the frame does not start within 8 s, the app runs directly in the
+page. It keeps data in the browser only (no artifact database).
 
 Nothing in the app's sources changes for the demo: the build redirects
 `window.location`/`history` to an in-page router and fails if it finds any it

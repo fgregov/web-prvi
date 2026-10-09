@@ -13,6 +13,8 @@
 //   node demo/build.ts           → dist/demo/index.html (single file; sources staged in dist/demo-src)
 //   node demo/build.ts --empty   → the same as a clean start: no demo records or demo numbers,
 //                                  only what the user enters (core/edition.js → DEMO_CONTENT = false)
+//   node demo/build.ts --mobile  → dist/demo-mobile/index.html: the presentation demo in a phone
+//                                  frame on wide screens, full screen on phones (demo/phone-frame.html)
 import {
   cpSync,
   existsSync,
@@ -29,9 +31,13 @@ import { rolldown } from 'rolldown';
 const APP = resolve(import.meta.dirname, '..');
 const ROOT = resolve(APP, '../..');
 const OUT = resolve(APP, 'dist/demo-src'); // staged modules, bundled below
-const FINAL = resolve(APP, 'dist/demo');
 const HOME = resolve(ROOT, 'prototypes/home');
 const EMPTY = process.argv.includes('--empty');
+const MOBILE = process.argv.includes('--mobile');
+// The phone frame runs the app in an iframe, where the artifact's test database is not
+// available, so it is only for the presentation demo (browser storage).
+if (EMPTY && MOBILE) throw new Error('--mobile is the presentation demo; it cannot be --empty');
+const FINAL = resolve(APP, MOBILE ? 'dist/demo-mobile' : 'dist/demo');
 
 rmSync(OUT, { recursive: true, force: true });
 rmSync(FINAL, { recursive: true, force: true });
@@ -287,12 +293,24 @@ const script = output[0].code.replaceAll('</script', '<\\/script');
 const shell = readFileSync(resolve(APP, 'demo/index.html'), 'utf8');
 const tag = '<script type="module" src="demo/runtime.js"></script>';
 if (!shell.includes(tag)) throw new Error('demo/index.html: runtime script tag not found');
+let page = shell.replace(tag, () => `<script>\n${script}</script>`);
+if (MOBILE) {
+  const frame = readFileSync(resolve(APP, 'demo/phone-frame.html'), 'utf8').replaceAll(
+    '%LOGO%',
+    LOGO,
+  );
+  // Framed: this page shows the frame; the app itself starts inside it.
+  page = shell
+    .replace('<title>Renvara Demo</title>', '<title>Renvara Mobile Demo</title>')
+    .replace(
+      tag,
+      () => `${frame}\n<script id="rv-app">if (!window.__rvFramed) {\n${script}\n}</script>`,
+    );
+  if (!page.includes('<title>Renvara Mobile Demo</title>')) throw new Error('title not set');
+}
 mkdirSync(FINAL, { recursive: true });
-writeFileSync(
-  join(FINAL, 'index.html'),
-  shell.replace(tag, () => `<script>\n${script}</script>`),
-);
+writeFileSync(join(FINAL, 'index.html'), page);
 const kb = Math.round(readFileSync(join(FINAL, 'index.html')).length / 1024);
 console.log(
-  `Demo built${EMPTY ? ' (clean start, no demo data)' : ''}: ${relative(process.cwd(), join(FINAL, 'index.html'))} (${kb} KB, one file)`,
+  `Demo built${EMPTY ? ' (clean start, no demo data)' : MOBILE ? ' (phone frame)' : ''}: ${relative(process.cwd(), join(FINAL, 'index.html'))} (${kb} KB, one file)`,
 );
