@@ -1,0 +1,326 @@
+<!-- Phone frame for the mobile demo build (node demo/build.ts --mobile).
+     On a wide screen with a mouse, the app runs inside a phone-sized frame
+     (an iframe with the same page, so its own mobile layout applies) next to
+     a short guide. Phones and tablets get the app full screen, as before.
+     If the frame does not start, the app runs directly in this page. -->
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+/>
+<style>
+  /* Layout: guide on the left, the phone on the right; stacked when narrow. */
+  :root {
+    --stage-bg: #f3f1ef;
+    --stage-ink: #17181b;
+    --stage-muted: #575c66;
+    --stage-accent: #d91f1f;
+    --stage-line: #e2ddd9;
+    --stage-button: #ffffff;
+    --phone-body: #121316;
+    --phone-edge: #34363c;
+    --phone-shadow: rgb(23 24 27 / 0.28);
+    --stage-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root.rv-framed:not([data-theme='light']) {
+      --stage-bg: #121315;
+      --stage-ink: #f1f1f3;
+      --stage-muted: #a6aab3;
+      --stage-accent: #ff5d52;
+      --stage-line: #2b2d32;
+      --stage-button: #1c1e22;
+      --phone-body: #050506;
+      --phone-edge: #43464e;
+      --phone-shadow: rgb(0 0 0 / 0.6);
+      color-scheme: dark;
+    }
+  }
+  :root.rv-framed[data-theme='dark'] {
+    --stage-bg: #121315;
+    --stage-ink: #f1f1f3;
+    --stage-muted: #a6aab3;
+    --stage-accent: #ff5d52;
+    --stage-line: #2b2d32;
+    --stage-button: #1c1e22;
+    --phone-body: #050506;
+    --phone-edge: #43464e;
+    --phone-shadow: rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+  :root.rv-framed body {
+    background: var(--stage-bg);
+    color: var(--stage-ink);
+  }
+  :root.rv-framed #rv-root {
+    display: none;
+  }
+  .rv-stage {
+    --s: 1;
+    box-sizing: border-box;
+    min-height: 100vh;
+    padding: 32px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 32px 64px;
+    font-family: var(--stage-font);
+  }
+  .rv-guide {
+    flex: 0 1 340px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .rv-guide__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+  }
+  .rv-guide__brand img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+  }
+  .rv-guide h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.15;
+    font-weight: 800;
+    text-wrap: balance;
+  }
+  .rv-guide p {
+    margin: 0;
+    color: var(--stage-muted);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .rv-guide h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--stage-muted);
+  }
+  .rv-guide ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .rv-guide li {
+    padding-left: 16px;
+    position: relative;
+  }
+  .rv-guide li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--stage-accent);
+  }
+  .rv-guide__note {
+    padding-top: 16px;
+    border-top: 1px solid var(--stage-line);
+    font-size: 13px;
+  }
+  .rv-guide__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .rv-guide__actions button {
+    font: 600 14px var(--stage-font);
+    color: var(--stage-ink);
+    background: var(--stage-button);
+    border: 1px solid var(--stage-line);
+    border-radius: 999px;
+    padding: 10px 16px;
+    cursor: pointer;
+  }
+  .rv-guide__actions button:hover {
+    border-color: var(--stage-muted);
+  }
+  .rv-guide__actions button:focus-visible {
+    outline: 2px solid var(--stage-accent);
+    outline-offset: 2px;
+  }
+  /* Stacked (too narrow for side by side): the phone first. */
+  @media (max-width: 879px) {
+    .rv-phone-slot {
+      order: -1;
+    }
+  }
+  .rv-phone-slot {
+    flex: none;
+    width: calc(414px * var(--s));
+    height: calc(868px * var(--s));
+  }
+  .rv-phone {
+    box-sizing: border-box;
+    width: 414px;
+    height: 868px;
+    padding: 12px;
+    border-radius: 58px;
+    background: var(--phone-body);
+    box-shadow:
+      0 0 0 2px var(--phone-edge),
+      0 36px 70px -24px var(--phone-shadow);
+    transform: scale(var(--s));
+    transform-origin: top left;
+  }
+  .rv-phone__screen {
+    width: 390px;
+    height: 844px;
+    border-radius: 46px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+  .rv-phone iframe {
+    display: block;
+    width: 390px;
+    height: 844px;
+    border: 0;
+  }
+</style>
+<script>
+  (() => {
+    const wide = matchMedia(
+      '(min-width: 760px) and (min-height: 560px) and (hover: hover) and (pointer: fine)',
+    ).matches;
+    if (!wide) return;
+    window.__rvFramed = true;
+    document.documentElement.classList.add('rv-framed');
+
+    const KEYS = [
+      'renvara.demo.crm.v1',
+      'renvara.demo.auth',
+      'renvara.demo.nav',
+      'renvara.dashboard.period',
+    ];
+    const forget = () => {
+      for (const store of ['localStorage', 'sessionStorage']) {
+        try {
+          for (const key of KEYS) window[store].removeItem(key);
+        } catch {
+          /* storage blocked: the app keeps its data in memory only */
+        }
+      }
+    };
+
+    function mount() {
+      const app = document.getElementById('rv-app')?.textContent ?? '';
+      const shellCss = document.getElementById('rv-shell-css')?.textContent ?? '';
+      // The same page for the frame, with the reset the artifact host adds around it.
+      const page =
+        '<!doctype html><html lang="hr"><head><meta charset="utf-8">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">' +
+        '<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,-apple-system,sans-serif}' +
+        'img{max-width:100%}[hidden]{display:none!important}' +
+        shellCss +
+        '</style></head><body><div id="rv-root"></div><script>' +
+        app +
+        '<\/script><script>const rvWait=setInterval(()=>{if(document.getElementById("rv-root").children.length){clearInterval(rvWait);parent.postMessage({rvFrame:"ready"},"*")}},100)<\/script></body></html>';
+
+      const stage = document.createElement('main');
+      stage.className = 'rv-stage';
+      stage.innerHTML = document.getElementById('rv-frame-guide').innerHTML;
+      const screen = stage.querySelector('.rv-phone__screen');
+      let frame = null;
+      /** A fresh frame: a new app start (same as reopening the page). */
+      const open = () => {
+        const next = document.createElement('iframe');
+        next.title = 'Renvara, mobilna aplikacija';
+        next.srcdoc = page;
+        if (frame) frame.replaceWith(next);
+        else screen.append(next);
+        frame = next;
+      };
+      document.body.prepend(stage);
+
+      const fit = () => {
+        const s = Math.max(0.5, Math.min(1, (innerHeight - 64) / 868, (innerWidth - 48) / 414));
+        stage.style.setProperty('--s', s.toFixed(3));
+      };
+      fit();
+      addEventListener('resize', fit);
+
+      let started = false;
+      addEventListener('message', (event) => {
+        if (event.source === frame.contentWindow && event.data?.rvFrame === 'ready') started = true;
+      });
+
+      /** The app directly in this page (no frame): the fallback, and "full window". */
+      const unframe = () => {
+        stage.remove();
+        removeEventListener('resize', fit);
+        document.documentElement.classList.remove('rv-framed');
+        window.__rvFramed = false;
+        const script = document.createElement('script');
+        script.textContent = app;
+        document.body.append(script);
+      };
+      setTimeout(() => {
+        if (!started) unframe();
+      }, 8000);
+
+      stage.querySelector('[data-action="restart"]').addEventListener('click', () => {
+        forget();
+        open();
+      });
+      stage.querySelector('[data-action="unframe"]').addEventListener('click', () => {
+        started = true;
+        unframe();
+      });
+      open();
+    }
+    document.addEventListener('DOMContentLoaded', mount);
+  })();
+</script>
+<template id="rv-frame-guide">
+  <section class="rv-guide" aria-labelledby="rv-guide-title">
+    <div class="rv-guide__brand"><img src="%LOGO%" alt="" />RENVARA</div>
+    <h1 id="rv-guide-title">Mobilni demo</h1>
+    <p>
+      Renvara kakvu vide prodajni timovi na mobitelu: Sales Kalendar, prioriteti, leadovi, prilike,
+      ponude i podsjetnici, s primjerima podataka.
+    </p>
+    <div>
+      <h2>Isprobajte</h2>
+      <ul>
+        <li>
+          Početna: kartice WON i LOST prebacite s # na %, Feedback overview pokazuje koliko dana
+          ponuda čeka.
+        </li>
+        <li>„+” → Novi lead, uz „Označi kao Prospect”.</li>
+        <li>Kupci → Initium → Prilike: Ponuda poslana, Dobiveno, Izgubljeno.</li>
+        <li>Lead → Dodaj zadatak, s podsjetnikom.</li>
+        <li>Odaberite prošli kvartal za povijesni pregled.</li>
+      </ul>
+    </div>
+    <p class="rv-guide__note">
+      Prijava prihvaća bilo koje korisničko ime i lozinku. Promjene ostaju samo u ovom pregledniku i
+      svaki dan se vraćaju na primjere. Push podsjetnici se u demou spremaju, ali ne stižu na
+      uređaj. Na mobitelu otvorite istu poveznicu za prikaz preko cijelog zaslona.
+    </p>
+    <div class="rv-guide__actions">
+      <button type="button" data-action="restart">Vrati demo na početak</button>
+      <button type="button" data-action="unframe">Prikaži preko cijelog prozora</button>
+    </div>
+  </section>
+  <div class="rv-phone-slot">
+    <div class="rv-phone"><div class="rv-phone__screen"></div></div>
+  </div>
+</template>

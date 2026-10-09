@@ -1,0 +1,333 @@
+/* Renvara BETA · Prijava — the approved white sign-in design, unchanged in layout. */
+:root {
+  --red: #c42127;
+  --red-text: #a81b20;
+  --ink: #14161a;
+  --label: #3f4450;
+  --muted: #5b616e;
+  --field-border: #d5d9e0;
+  --field-bg: #f8f9fa;
+  --line: #e3e5ea;
+  --bg: #ffffff;
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+input::placeholder {
+  color: #8a909c;
+}
+
+.page {
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 40px) 24px
+    calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+
+/* Brand */
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.brand__logo {
+  display: block;
+  width: auto;
+  height: 94px;
+  margin: 19px 0 15px;
+}
+
+.brand__name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  padding-left: 0.32em;
+  color: var(--red);
+}
+
+/* Sign in */
+.signin {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 28px;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.intro h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.intro p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--label);
+}
+
+.input,
+.password {
+  height: 50px;
+  border-radius: 14px;
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
+}
+
+.input {
+  width: 100%;
+  padding: 0 16px;
+  font-size: 16px;
+  color: var(--ink);
+  outline-color: var(--red);
+}
+
+.password {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 16px;
+}
+
+.password:focus-within {
+  outline: 2px solid var(--red);
+  outline-offset: 1px;
+}
+
+.password__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+}
+
+.password__toggle {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.password__toggle .icon--hide,
+.password__toggle[aria-pressed='true'] .icon--show {
+  display: none;
+}
+
+.password__toggle[aria-pressed='true'] .icon--hide {
+  display: block;
+}
+
+[aria-invalid='true'].input,
+.password:has([aria-invalid='true']) {
+  border-color: var(--red);
+}
+
+.forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.text-button {
+  height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--red-text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.text-button--inline {
+  height: auto;
+  min-height: 24px;
+  padding: 0;
+  font-size: inherit;
+}
+
+.form-message {
+  margin: -2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--red-text);
+  text-align: center;
+}
+
+.form-message[data-kind='info'] {
+  color: var(--muted);
+}
+
+.form-message[hidden] {
+  display: none;
+}
+
+.primary {
+  height: 52px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--red);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: -6px;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.divider__line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line);
+}
+
+.divider__text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.socials {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.social {
+  height: 50px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.social--apple {
+  border: 0;
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.social--google {
+  border: 1px solid var(--field-border);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.social__icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.social__icon--stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.footer {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.text-button:focus-visible,
+.primary:focus-visible,
+.social:focus-visible,
+.password__toggle:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Renvara · Početna</title>
+    <link rel="icon" href="assets/renvara-logo.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="/app/css/components.css" />
+  </head>
+  <body>
+    <!-- Icon sprite: Lucide icons (ISC license), inlined so the page has no external dependencies. -->
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="i-bell" viewBox="0 0 24 24">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </symbol>
+      <symbol id="i-users" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </symbol>
+      <symbol id="i-funnel" viewBox="0 0 24 24">
+        <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+      </symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24">
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </symbol>
+      <symbol id="i-calendar-check" viewBox="0 0 24 24">
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+        <path d="m9 16 2 2 4-4" />
+      </symbol>
+      <symbol id="i-bars" viewBox="0 0 24 24">
+        <path d="M6 20v-4M12 20V10M18 20V4" />
+      </symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24">
+        <path d="m5 12 7-7 7 7M12 19V5" />
+      </symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24">
+        <path d="M12 5v14M19 12l-7 7-7-7" />
+      </symbol>
+      <symbol id="i-repeat" viewBox="0 0 24 24">
+        <path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3" />
+      </symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol id="i-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </symbol>
+      <symbol id="i-building" viewBox="0 0 24 24">
+        <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+        <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+        <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+        <path d="M10 6h4M10 10h4M10 14h4M10 18h4" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M5 12h14M12 5v14" />
+      </symbol>
+      <symbol id="i-home" viewBox="0 0 24 24">
+        <path
+          d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2h-4v-7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v7H5a2 2 0 0 1-2-2z"
+        />
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path
+          d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"
+        />
+        <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
+      </symbol>
+      <symbol id="i-ellipsis" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+        <circle cx="5" cy="12" r="1" />
+      </symbol>
+      <symbol id="i-user-plus" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M19 8v6M22 11h-6" />
+      </symbol>
+      <symbol id="i-square-check" viewBox="0 0 24 24">
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="m9 12 2 2 4-4" />
+      </symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </symbol>
+      <symbol id="i-log-out" viewBox="0 0 24 24">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5M21 12H9" />
+      </symbol>
+    </svg>
+
+    <div class="app">
+      <!-- 1–2 · Header + date -->
+      <header class="app-header">
+        <div class="brand">
+          <img class="brand__logo" src="assets/renvara-logo.png" alt="" width="44" height="51" />
+          <div class="brand__text">
+            <span class="brand__name">RENVARA</span>
+            <time class="brand__date" datetime="2025-04-24">Četvrtak, 24. travnja 2025.</time>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-button bell" type="button" aria-label="Obavijesti, ima novih">
+            <svg class="icon"><use href="#i-bell" /></svg>
+            <span class="bell__dot" aria-hidden="true"></span>
+          </button>
+          <div class="account">
+            <button
+              class="avatar"
+              type="button"
+              aria-label="Moj profil"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="account-menu"
+            >
+              <img src="assets/avatar-placeholder.svg" alt="" width="48" height="48" />
+            </button>
+            <div class="account-menu" id="account-menu" role="menu" aria-label="Račun" hidden>
+              <p class="account-menu__name" data-account-name>Moj račun</p>
+              <button type="button" role="menuitem" data-logout>
+                <svg class="icon"><use href="#i-log-out" /></svg>Odjava
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <!-- Period selector (rendered by /app/js/features/dashboard/period-selector.js) -->
+        <section class="period" id="period-bar" aria-label="Period pregleda"></section>
+
+        <!-- 3 · KPI cards of the selected period -->
+        <section class="metrics" aria-label="Pregled prodaje" aria-busy="true"></section>
+
+        <!-- Current quarter: the operational dashboard -->
+        <div class="dashboard-view" id="dashboard-current">
+          <!-- 4 · DANAS -->
+          <section class="card module" aria-labelledby="danas-title">
+            <div class="module__head">
+              <span class="module__icon"
+                ><svg class="icon"><use href="#i-calendar" /></svg
+              ></span>
+              <h2 class="module__title" id="danas-title">Sales Kalendar</h2>
+              <a class="module__link" href="/calendar"
+                >Pogledaj kalendar<svg class="icon"><use href="#i-chevron-right" /></svg
+              ></a>
+            </div>
+            <ul class="list" role="list" aria-live="polite">
+              <li class="empty-row">Učitavanje…</li>
+            </ul>
+          </section>
+
+          <!-- 5 · PRIORITETI -->
+          <section class="card module" aria-labelledby="prioriteti-title">
+            <div class="module__head">
+              <span class="module__icon"
+                ><svg class="icon"><use href="#i-target" /></svg
+              ></span>
+              <h2 class="module__title" id="prioriteti-title">Prioriteti</h2>
+              <a class="module__link" href="/tasks"
+                >Pogledaj sve<svg class="icon"><use href="#i-chevron-right" /></svg
+              ></a>
+            </div>
+            <ul class="list" role="list" aria-live="polite">
+              <li class="empty-row">Učitavanje…</li>
+            </ul>
+          </section>
+
+          <!-- 6 · OPPORTUNITY PIPELINE + ČEKAŠ ODGOVOR -->
+          <div class="split">
+            <section class="card module module--compact" aria-labelledby="pipeline-title">
+              <div class="module__head">
+                <span class="module__icon"
+                  ><svg class="icon"><use href="#i-bars" /></svg
+                ></span>
+                <h2 class="module__title" id="pipeline-title">Opportunity Pipeline</h2>
+                <a class="module__link" href="/opportunities"
+                  >Full dashboard<svg class="icon"><use href="#i-chevron-right" /></svg
+                ></a>
+              </div>
+              <ul class="pipeline pipeline--overview" role="list" aria-live="polite">
+                <li class="empty-row">Učitavanje…</li>
+              </ul>
+            </section>
+
+            <section class="card module module--compact" aria-labelledby="odgovor-title">
+              <div class="module__head">
+                <span class="module__icon"
+                  ><svg class="icon"><use href="#i-clock" /></svg
+                ></span>
+                <h2 class="module__title" id="odgovor-title">Feedback overview</h2>
+                <a class="module__link" href="/customers"
+                  >Svi<svg class="icon"><use href="#i-chevron-right" /></svg
+                ></a>
+              </div>
+              <ul class="list" role="list" aria-live="polite">
+                <li class="empty-row">Učitavanje…</li>
+              </ul>
+            </section>
+          </div>
+        </div>
+
+        <!-- Past quarter or custom period: the historical dashboard -->
+        <div class="dashboard-view" id="dashboard-history" hidden></div>
+      </main>
+
+      <!-- Quick add: "+" opens the Quick Add bottom sheet (/app/js/features/quick-add) -->
+      <div class="quick-add">
+        <button
+          class="fab"
+          type="button"
+          aria-label="Brzo dodavanje"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+        >
+          <svg class="icon"><use href="#i-plus" /></svg>
+        </button>
+      </div>
+
+      <!-- 7 · Bottom navigation (rendered by /app/js/ui/tabbar.js) -->
+      <nav class="tabbar" aria-label="Glavna navigacija"></nav>
+
+      <div class="toast" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <script src="app.js" defer></script>
+    <script type="module" src="/app/js/pages/dashboard.js"></script>
+  </body>
+</html>

@@ -1,0 +1,194 @@
+/* Renvara · dedicated task screens (mobile navigation push), e.g. /customers/new.
+   Mobile first: one column, no bottom navigation, page scrolls with the keyboard. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--rv-bg);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  color: var(--rv-ink);
+  font-family: var(--rv-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Natural document flow (no fixed-height container) so the virtual keyboard never traps fields. */
+.rv-screen {
+  min-height: 100vh;
+  animation: rv-push-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes rv-push-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+.rv-screen__header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rv-border);
+}
+
+.rv-screen__header-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 560px;
+  min-height: 56px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+.rv-screen__back {
+  color: var(--rv-ink);
+}
+
+.rv-screen__back .rv-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.rv-screen__back:disabled {
+  opacity: 0.4;
+}
+
+.rv-screen__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rv-screen__title:focus {
+  outline: none;
+}
+
+.rv-screen__body {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+}
+
+/* Mobile-sized controls: 16px text avoids iOS zoom-on-focus; ≥48px touch height. */
+.rv-screen .rv-form {
+  gap: 28px;
+}
+
+.rv-screen .rv-form__section-title {
+  font-size: 12px;
+}
+
+.rv-screen .rv-field__label {
+  font-size: 14px;
+}
+
+.rv-screen .rv-input {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.rv-screen .rv-field {
+  scroll-margin: 88px 0 120px;
+}
+
+.rv-screen__error {
+  margin: 20px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-red-soft);
+  color: var(--rv-red-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rv-screen__error[hidden] {
+  display: none;
+}
+
+.rv-screen__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.rv-screen__actions .rv-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rv-screen__actions .rv-btn--secondary {
+  flex: 1 1 0;
+}
+
+.rv-screen__actions .rv-btn--primary {
+  flex: 2 1 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-screen {
+    animation: none;
+  }
+}
+
+.rv-screen__loading {
+  color: var(--rv-muted);
+}
+
+/* Time pickers side by side on the task screen. */
+.rv-screen .rv-form__grid:has(> [data-field='startTime']) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rv-screen .rv-form__grid:has(> [data-field='startTime']) > :not([data-field$='Time']) {
+  grid-column: 1 / -1;
+}
+
+/* Task detail */
+.rv-task-detail {
+  padding: 18px 18px 8px;
+}
+
+.rv-task-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rv-task-detail__title {
+  margin: 12px 0 8px;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.rv-task-detail .rv-dl a {
+  color: var(--rv-red-text);
+  font-weight: 600;
+}
+
+.rv-screen__actions--stack {
+  flex-direction: column;
+}
+
+.rv-screen__actions--stack .rv-btn {
+  width: 100%;
+}

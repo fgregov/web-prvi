@@ -1,0 +1,29 @@
+{
+  "name": "@renvara/beta-web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Renvara BETA web app: single-user authentication backtest in front of the approved login and dashboard screens.",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.ts",
+    "dev": "node --env-file-if-exists=.env --watch src/server.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "demo:build": "node demo/build.ts",
+    "demo:build:empty": "node demo/build.ts --empty",
+    "demo:build:mobile": "node demo/build.ts --mobile",
+    "push:keys": "node src/notifications/vapid-keys.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "dependencies": {
+    "@renvara/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "rolldown": "1.2.12",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

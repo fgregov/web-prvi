@@ -1,0 +1,10 @@
+{
+  "name": "Renvara",
+  "short_name": "Renvara",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [{ "src": "/brand/renvara-logo.png", "sizes": "222x256", "type": "image/png" }]
+}
