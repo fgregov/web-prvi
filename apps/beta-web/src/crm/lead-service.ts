@@ -31,6 +31,7 @@ import {
   str,
   type Body,
 } from './scope.ts';
+import { cancelReminders, reminderView, shownReminder } from './reminders.ts';
 import type { TaskService } from './task-service.ts';
 import type { CrmContext, CrmData, Customer, Lead } from './types.ts';
 
@@ -150,8 +151,12 @@ export function createLeadService(
     const customer = findInOrg(data.customers, ctx, lead.convertedCustomerId);
     const contact = findInOrg(data.contacts, ctx, lead.convertedContactId);
     const opportunity = findInOrg(data.opportunities, ctx, lead.convertedOpportunityId);
+    const reminder = shownReminder(data, ctx, 'leadId', lead.id);
     return {
       ...lead,
+      /** A Prospect is a qualified lead: qualifiedAt is when it first became one. */
+      isProspect: lead.qualifiedAt !== null,
+      reminder: reminder ? reminderView(reminder) : null,
       convertedCustomerName: customer?.companyName ?? null,
       convertedContactName: contact ? contactName(contact) : null,
       convertedOpportunityTitle: opportunity?.title ?? null,
@@ -186,7 +191,12 @@ export function createLeadService(
         createdAt: now,
         updatedAt: now,
       };
-      setStage(ctx, lead, (opt(input.stage) ?? 'new') as LeadStage);
+      // "Označi kao Prospect" marks it qualified right away (prospect ≡ qualified).
+      setStage(
+        ctx,
+        lead,
+        (input.prospect === true ? 'qualified' : (opt(input.stage) ?? 'new')) as LeadStage,
+      );
       data.leads.push(lead);
       addLeadActivity(
         data,
@@ -232,7 +242,11 @@ export function createLeadService(
       if (hasErrors(errors)) throw new CrmValidationError(errors);
       const before = lead.stage;
       Object.assign(lead, fields(merged), { updatedAt: ctx.now.toISOString() });
-      setStage(ctx, lead, (opt(merged.stage) ?? lead.stage) as LeadStage);
+      setStage(
+        ctx,
+        lead,
+        (input.prospect === true ? 'qualified' : (opt(merged.stage) ?? lead.stage)) as LeadStage,
+      );
       if (lead.stage !== before) {
         addLeadActivity(
           data,
@@ -254,6 +268,7 @@ export function createLeadService(
       const lead = requireInOrg(data.leads, ctx, id);
       requireActive(lead);
       const now = ctx.now.toISOString();
+      cancelReminders(data, ctx, 'leadId', lead.id);
       Object.assign(lead, {
         status: 'lost',
         lostAt: now,
@@ -372,6 +387,7 @@ export function createLeadService(
           convertedOpportunityId: opportunityId,
           updatedAt: now,
         });
+        cancelReminders(data, ctx, 'leadId', lead.id);
         // The lead's own tasks without a customer now belong to it too (nothing is moved or lost).
         for (const task of inOrg(data.tasks, ctx)) {
           if (task.leadId === lead.id && !task.companyId) task.companyId = customerId;

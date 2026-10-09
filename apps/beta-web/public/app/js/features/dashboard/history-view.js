@@ -6,7 +6,9 @@ import { labelOf, TASK_TYPES } from '../../core/constants.js';
 import { dayKey, parseDayKey } from '../../core/format.js';
 import { h } from '../../ui/dom.js';
 import { withParams } from '../../ui/navigation.js';
+import { renderFeedbackOverview } from './feedback-overview.js';
 import { comparisonLabel, formatEuro } from './kpi-cards.js';
+import { renderPipelineOverview } from './pipeline-overview.js';
 import { spriteIcon } from './sprite.js';
 
 const HOME = '/dashboard';
@@ -268,49 +270,32 @@ function leadsCard(summary, period) {
   });
 }
 
+/** LEADS, PROSPECTS, NEGOTIATIONS of the period; BUYERS of its year up to its end. */
 function pipelineCard(summary, title) {
-  const max = Math.max(...summary.pipeline.map((s) => s.count), 1);
-  const colors = {
-    new: '--bar-new',
-    in_progress: '--bar-progress',
-    offer_sent: '--bar-offer',
-    negotiation: '--bar-negotiation',
-    won: '--bar-closing',
-  };
+  const list = h('ul', { class: 'pipeline', role: 'list' });
+  renderPipelineOverview(list, summary.pipelineOverview);
   return moduleCard({
     id: 'hist-pipeline-title',
     title: 'Opportunity Pipeline',
     iconName: 'bars',
     compact: true,
-    link: { label: 'Prilike', href: '/opportunities' },
+    link: { label: 'Full dashboard', href: '/opportunities' },
+    children: [h('p', { class: 'hist-caption' }, title), list],
+  });
+}
+
+/** Offers that were waiting for an answer at the end of the period (not today). */
+function feedbackCard(summary) {
+  const list = h('ul', { class: 'list', role: 'list' });
+  renderFeedbackOverview(list, summary.feedback.items);
+  return moduleCard({
+    id: 'hist-feedback-title',
+    title: 'Feedback overview',
+    iconName: 'clock',
+    link: { label: 'Kupci', href: '/customers' },
     children: [
-      h('p', { class: 'hist-caption' }, `Prilike tijekom ${title}`),
-      h(
-        'ul',
-        { class: 'pipeline', role: 'list' },
-        summary.pipeline.map((stage) =>
-          h(
-            'li',
-            {},
-            h(
-              'span',
-              {
-                class: `stage stage--static${stage.key === 'won' ? ' stage--won' : ''}`,
-                style: `--fill: ${Math.max(Math.round((stage.count / max) * 100), stage.count ? 10 : 0)}%; --bar: var(${colors[stage.key]})`,
-              },
-              h(
-                'span',
-                { class: 'stage__label' },
-                stage.key === 'won'
-                  ? [spriteIcon('check', 'icon stage__check'), stage.label]
-                  : stage.label,
-              ),
-              h('span', { class: 'stage__track' }, h('span', { class: 'stage__fill' })),
-              h('span', { class: 'stage__count' }, String(stage.count)),
-            ),
-          ),
-        ),
-      ),
+      h('p', { class: 'hist-caption' }, `Stanje na ${shortDate(summary.feedback.asOf)}`),
+      list,
     ],
   });
 }
@@ -368,6 +353,7 @@ export function renderHistory(container, summary, info, { onBackToCurrent }) {
     tasksCard(summary),
     leadsCard(summary, info.period),
     h('div', { class: 'split' }, pipelineCard(summary, title), followUpCard(summary)),
+    feedbackCard(summary),
   );
 }
 

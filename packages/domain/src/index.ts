@@ -6,3 +6,5 @@ export * from './opportunity/opportunity.ts';
 export * from './task/due.ts';
 export * from './next-action/next-action.ts';
 export * from './lead/lead-metrics.ts';
+export * from './offer/feedback.ts';
+export * from './metrics/outcomes.ts';

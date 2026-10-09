@@ -110,6 +110,17 @@ export const api = {
   convertLead: (id, input) => request('POST', `/api/leads/${enc(id)}/convert`, input),
   markLeadLost: (id, input) =>
     request('POST', `/api/leads/${enc(id)}/lost`, input).then((r) => r.lead),
+  // reminders (null removes) and this device's push subscription
+  setReminder: (kind, id, reminderAt) =>
+    request('PUT', `/api/${kind}/${enc(id)}/reminder`, { reminderAt }).then((r) => r.reminder),
+  pushStatus: () => request('GET', '/api/push/status'),
+  subscribePush: (input) => request('POST', '/api/push/subscriptions', input),
+  // opportunities: close, offers
+  closeOpportunity: (id, input) =>
+    request('POST', `/api/opportunities/${enc(id)}/close`, input).then((r) => r.opportunity),
+  recordOffer: (input) => request('POST', '/api/offers', input).then((r) => r.offer),
+  offerAnswered: (id) =>
+    request('POST', `/api/offers/${enc(id)}/answered`, {}).then((r) => r.offer),
   // Sales Calendar: tasks scheduled in [from, to)
   calendar: (from, to) =>
     request(

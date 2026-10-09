@@ -10,6 +10,7 @@ import { TASK_PRIORITIES, TASK_TYPES } from '../core/constants.js';
 import { nextMeetingSlot } from '../core/format.js';
 import { hasErrors, MESSAGES } from '../core/validation.js';
 import { CustomerPicker } from '../features/pickers/customer-picker.js';
+import { ReminderControl } from '../features/reminders/reminder-control.js';
 import { ContactPicker, OpportunityPicker } from '../features/pickers/related-picker.js';
 import {
   formValuesFromTask,
@@ -72,6 +73,7 @@ function LeadContext() {
   };
 }
 const leadContext = LeadContext();
+const reminder = ReminderControl();
 
 const form = createForm(
   [
@@ -125,9 +127,11 @@ const form = createForm(
         }),
       ],
     },
+    reminder.section,
   ],
   { single: true },
 );
+reminder.attach(form);
 
 function showCalendar(on, { prefill = false } = {}) {
   for (const name of ['date', 'startTime', 'endTime']) form.setVisible(name, on);
@@ -168,6 +172,7 @@ async function prefill() {
     const values = formValuesFromTask(task);
     for (const [name, value] of Object.entries(values)) form.setValue(name, value);
     showCalendar(values.inCalendar);
+    reminder.write(task.reminder);
     if (task.leadId) showLead(task.leadId, task.leadName ?? 'Lead');
     if (task.companyId) {
       customer.write(await customerById(task.companyId).catch(() => null));
@@ -230,11 +235,15 @@ try {
 }
 
 async function save() {
-  const { input, errors } = taskInputFromForm(form.values());
-  if (hasErrors(errors)) {
-    form.setErrors(errors);
+  const values = form.values();
+  const { input, errors } = taskInputFromForm(values);
+  // The reminder is separate from the calendar slot and the deadline: none is changed by it.
+  const push = reminder.read(values);
+  if (hasErrors(errors) || hasErrors(push.errors)) {
+    form.setErrors({ ...errors, ...push.errors });
     return;
   }
+  input.reminderAt = push.reminderAt;
   screen.setSaving(true);
   try {
     const task = editId ? await api.updateTask(editId, input) : await api.createTask(input);

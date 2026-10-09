@@ -6,7 +6,7 @@ import { CrmConflictError, CrmNotFoundError, CrmValidationError } from './errors
 import type { CrmServices } from './index.ts';
 import { inOrg, type Body } from './scope.ts';
 import { seedDemoData } from './seed.ts';
-import type { CrmContext } from './types.ts';
+import type { CrmContext, ReminderTarget } from './types.ts';
 
 export interface ApiResponse {
   readonly status: number;
@@ -28,18 +28,55 @@ type Handler = (args: {
 }) => { status?: number; body: Record<string, unknown> };
 
 export interface Route {
-  readonly method: 'GET' | 'POST' | 'PATCH';
+  readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT';
   readonly pattern: RegExp;
   readonly handler: Handler;
 }
 
-export function createCrmApi(crm: CrmServices) {
+/** Whether this server can deliver push reminders (Web Push keys configured). */
+export interface PushConfig {
+  readonly configured: boolean;
+  readonly publicKey: string | null;
+}
+
+export function createCrmApi(
+  crm: CrmServices,
+  { push = { configured: false, publicKey: null } }: { push?: PushConfig } = {},
+) {
   const q = (query: URLSearchParams, name: string) => query.get(name) || null;
   const ok = (body: Record<string, unknown>, status = 200) => ({
     status,
     body: { success: true, ...body },
   });
   const id = (params: string[]) => params[0] as string;
+
+  /**
+   * A record and its optional reminder (`reminderAt` in the body) are saved
+   * together: an invalid reminder time saves neither. Absent `reminderAt`
+   * leaves an existing reminder as it is; null removes it.
+   */
+  function withReminder<T>(
+    ctx: CrmContext,
+    body: Body,
+    kind: ReminderTarget['kind'],
+    write: () => T,
+    idOf: (result: T) => string,
+  ): T {
+    if (!('reminderAt' in body)) return write();
+    crm.reminders.check(ctx, body.reminderAt);
+    return crm.repo.transaction(() => {
+      const result = write();
+      crm.reminders.applyIn(crm.repo.data(), ctx, { kind, id: idOf(result) }, body.reminderAt);
+      crm.repo.commit();
+      return result;
+    });
+  }
+  const reminderRoute = (kind: ReminderTarget['kind'], plural: string): Route => ({
+    method: 'PUT',
+    pattern: new RegExp(`^/api/${plural}/${ID}/reminder$`),
+    handler: ({ ctx, params, body }) =>
+      ok({ reminder: crm.reminders.setReminder(ctx, { kind, id: id(params) }, body.reminderAt) }),
+  });
 
   const routes: Route[] = [
     // ---- customers
@@ -104,7 +141,37 @@ export function createCrmApi(crm: CrmServices) {
     {
       method: 'POST',
       pattern: /^\/api\/opportunities$/,
-      handler: ({ ctx, body }) => ok(crm.opportunities.createOpportunity(ctx, body), 201),
+      handler: ({ ctx, body }) => {
+        const result = withReminder(
+          ctx,
+          body,
+          'opportunity',
+          () => crm.opportunities.createOpportunity(ctx, body),
+          (r) => r.opportunity.id,
+        );
+        return ok(
+          { ...result, opportunity: crm.opportunities.getOpportunity(ctx, result.opportunity.id) },
+          201,
+        );
+      },
+    },
+    {
+      method: 'POST',
+      pattern: new RegExp(`^/api/opportunities/${ID}/close$`),
+      handler: ({ ctx, params, body }) =>
+        ok({ opportunity: crm.opportunities.closeOpportunity(ctx, id(params), body) }),
+    },
+    reminderRoute('opportunity', 'opportunities'),
+    // ---- offers (sent within an opportunity) and the FEEDBACK OVERVIEW
+    {
+      method: 'POST',
+      pattern: /^\/api\/offers$/,
+      handler: ({ ctx, body }) => ok({ offer: crm.offers.recordSent(ctx, body) }, 201),
+    },
+    {
+      method: 'POST',
+      pattern: new RegExp(`^/api/offers/${ID}/answered$`),
+      handler: ({ ctx, params }) => ok({ offer: crm.offers.markAnswered(ctx, id(params)) }),
     },
     {
       method: 'GET',
@@ -147,7 +214,16 @@ export function createCrmApi(crm: CrmServices) {
     {
       method: 'POST',
       pattern: /^\/api\/tasks$/,
-      handler: ({ ctx, body }) => ok({ task: crm.tasks.createTask(ctx, body) }, 201),
+      handler: ({ ctx, body }) => {
+        const task = withReminder(
+          ctx,
+          body,
+          'task',
+          () => crm.tasks.createTask(ctx, body),
+          (t) => t.id,
+        );
+        return ok({ task: crm.tasks.getTask(ctx, task.id) }, 201);
+      },
     },
     {
       method: 'GET',
@@ -157,8 +233,18 @@ export function createCrmApi(crm: CrmServices) {
     {
       method: 'PATCH',
       pattern: new RegExp(`^/api/tasks/${ID}$`),
-      handler: ({ ctx, params, body }) => ok({ task: crm.tasks.updateTask(ctx, id(params), body) }),
+      handler: ({ ctx, params, body }) => {
+        const task = withReminder(
+          ctx,
+          body,
+          'task',
+          () => crm.tasks.updateTask(ctx, id(params), body),
+          (t) => t.id,
+        );
+        return ok({ task: crm.tasks.getTask(ctx, task.id) });
+      },
     },
+    reminderRoute('task', 'tasks'),
     {
       method: 'POST',
       pattern: new RegExp(`^/api/tasks/${ID}/(complete|reopen|cancel)$`),
@@ -195,8 +281,18 @@ export function createCrmApi(crm: CrmServices) {
     {
       method: 'POST',
       pattern: /^\/api\/leads$/,
-      handler: ({ ctx, body }) => ok({ lead: crm.leads.createLead(ctx, body) }, 201),
+      handler: ({ ctx, body }) => {
+        const lead = withReminder(
+          ctx,
+          body,
+          'lead',
+          () => crm.leads.createLead(ctx, body),
+          (l) => l.id,
+        );
+        return ok({ lead: crm.leads.getLead(ctx, lead.id) }, 201);
+      },
     },
+    reminderRoute('lead', 'leads'),
     {
       method: 'GET',
       pattern: new RegExp(`^/api/leads/${ID}$`),
@@ -230,6 +326,27 @@ export function createCrmApi(crm: CrmServices) {
       handler: ({ ctx, query }) =>
         ok({ summary: crm.dashboard.getPeriodSummary(ctx, q(query, 'from'), q(query, 'to')) }),
     },
+    // ---- push reminders: this user's devices
+    {
+      method: 'GET',
+      pattern: /^\/api\/push\/status$/,
+      handler: ({ ctx }) =>
+        ok({
+          configured: push.configured,
+          publicKey: push.configured ? push.publicKey : null,
+          devices: crm.pushSubscriptions.devices(ctx),
+        }),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/api\/push\/subscriptions$/,
+      handler: ({ ctx, body }) => ok(crm.pushSubscriptions.subscribe(ctx, body), 201),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/api\/push\/unsubscribe$/,
+      handler: ({ ctx, body }) => ok(crm.pushSubscriptions.unsubscribe(ctx, body)),
+    },
     // ---- BETA: restore this organization's demo data (presentation demo only;
     // a clean start has no demo data to restore, so the route does not exist)
     ...(crm.demoContent
@@ -251,6 +368,9 @@ export function createCrmApi(crm: CrmServices) {
                 tasks: [...keep(data.tasks), ...seed.tasks],
                 activities: [...keep(data.activities), ...seed.activities],
                 leads: [...keep(data.leads), ...seed.leads],
+                offers: [...keep(data.offers), ...seed.offers],
+                // Reminders of the replaced records go with them.
+                reminders: keep(data.reminders),
               });
               return ok({ customers: inOrg(crm.repo.data().customers, ctx).length });
             },

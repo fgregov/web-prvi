@@ -7,6 +7,8 @@ import type {
   LeadSource,
   LeadStage,
   LeadStatus,
+  OfferStatus,
+  ReminderStatus,
   TaskPriority,
   TaskStatus,
   TaskType,
@@ -65,9 +67,61 @@ export interface Opportunity extends TenantRecord {
   ownerId: string | null;
   ownerName: string | null;
   notes: string;
+  /** When it was won or lost (with status). Reporting date for WON / LOST. */
   closedAt: Iso | null;
+  /** Final amount of a won deal; null → `value` (the estimate) was won. */
+  wonValue?: number | null;
+  lostReason?: string;
   /** Seeded demo rows are already part of the dashboard's static pipeline numbers. */
   seeded?: boolean;
+}
+
+/** A sales offer sent within an opportunity (public.offers). Waits for feedback while `sent`. */
+export interface Offer extends TenantRecord {
+  opportunityId: string;
+  title: string;
+  status: OfferStatus;
+  sentAt: Iso | null;
+  answeredAt: Iso | null;
+  withdrawnAt: Iso | null;
+  createdBy: string | null;
+}
+
+export type ReminderTarget =
+  | { readonly kind: 'task'; readonly id: string }
+  | { readonly kind: 'lead'; readonly id: string }
+  | { readonly kind: 'opportunity'; readonly id: string };
+
+/** A push reminder for exactly one task, lead or opportunity (public.reminders). */
+export interface Reminder extends TenantRecord {
+  recipientUserId: string;
+  createdBy: string | null;
+  taskId: string | null;
+  leadId: string | null;
+  opportunityId: string | null;
+  /** The instant to deliver (UTC). */
+  remindAt: Iso;
+  /** The zone it was chosen in (display, DST-safe editing). */
+  timeZone: string;
+  status: ReminderStatus;
+  attempts: number;
+  nextAttemptAt: Iso | null;
+  deliveredAt: Iso | null;
+  cancelledAt: Iso | null;
+  lastError: string | null;
+}
+
+/** One device of a user that receives push reminders (Web Push subscription). */
+export interface PushSubscriptionRecord extends TenantRecord {
+  userId: string;
+  platform: 'web';
+  provider: 'webpush';
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent: string;
+  enabled: boolean;
+  lastSeenAt: Iso;
 }
 
 /**
@@ -151,6 +205,9 @@ export interface CrmData {
   tasks: Task[];
   activities: Activity[];
   leads: Lead[];
+  offers: Offer[];
+  reminders: Reminder[];
+  pushSubscriptions: PushSubscriptionRecord[];
 }
 
 /** Who is acting, for which organization, at what time. Built per request from the session. */

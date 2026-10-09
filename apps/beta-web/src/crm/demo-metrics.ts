@@ -13,7 +13,15 @@ export interface PeriodMetrics {
   meetings: number;
   won: number;
   lost: number;
+  /** Value won in the period, in cents (EUR). */
   revenue: number;
+  /** Estimated value of opportunities created in the period, in cents (EUR). */
+  potential: number;
+  /** Opportunities left out of revenue / potential because they are not in EUR. */
+  wonOtherCurrency: number;
+  potentialOtherCurrency: number;
+  /** Opportunities with a negotiation event in the period (distinct). */
+  negotiations: number;
   tasksDone: number;
   tasksNotDone: number;
   followUpsDone: number;
@@ -36,6 +44,10 @@ export const ZERO_METRICS: PeriodMetrics = {
   won: 0,
   lost: 0,
   revenue: 0,
+  potential: 0,
+  wonOtherCurrency: 0,
+  potentialOtherCurrency: 0,
+  negotiations: 0,
   tasksDone: 0,
   tasksNotDone: 0,
   followUpsDone: 0,
@@ -63,7 +75,12 @@ const quarter = (
     meetings,
     won,
     lost,
-    revenue,
+    revenue: revenue * 100,
+    // No demo numbers for these: they always come from records only.
+    potential: 0,
+    wonOtherCurrency: 0,
+    potentialOtherCurrency: 0,
+    negotiations: 0,
     tasksDone: tasks[0],
     tasksNotDone: tasks[1],
     followUpsDone: followUps[0],

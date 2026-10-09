@@ -5,7 +5,10 @@ import { createContactService } from './contact-service.ts';
 import { createCustomerService } from './customer-service.ts';
 import { createDashboardService } from './dashboard-service.ts';
 import { createLeadService } from './lead-service.ts';
+import { createOfferService } from './offer-service.ts';
 import { createOpportunityService } from './opportunity-service.ts';
+import { createPushSubscriptionService } from './push-subscription-service.ts';
+import { createReminderService } from './reminder-service.ts';
 import type { CrmRepository } from './repository.ts';
 import { createTaskService } from './task-service.ts';
 
@@ -21,6 +24,9 @@ export function createCrmServices(repo: CrmRepository, { demoContent = DEMO_CONT
   const calendar = createCalendarService(repo, tasks);
   const dashboard = createDashboardService(repo, tasks, { demoContent });
   const leads = createLeadService(repo, { customers, contacts, opportunities, tasks });
+  const offers = createOfferService(repo);
+  const reminders = createReminderService(repo);
+  const pushSubscriptions = createPushSubscriptionService(repo);
   return {
     repo,
     demoContent,
@@ -31,6 +37,9 @@ export function createCrmServices(repo: CrmRepository, { demoContent = DEMO_CONT
     calendar,
     dashboard,
     leads,
+    offers,
+    reminders,
+    pushSubscriptions,
   };
 }
 

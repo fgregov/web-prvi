@@ -7,16 +7,19 @@ import type { Activity, CrmContext, CrmData } from './types.ts';
 
 export const newId = (): string => randomUUID();
 
+/** Only the organization is needed to scope a lookup (the reminder scheduler has no user). */
+type OrgScope = Pick<CrmContext, 'organizationId'>;
+
 export function inOrg<T extends { organizationId: string }>(
   list: readonly T[],
-  ctx: CrmContext,
+  ctx: OrgScope,
 ): T[] {
   return list.filter((row) => row.organizationId === ctx.organizationId);
 }
 
 export function findInOrg<T extends { id: string; organizationId: string }>(
   list: readonly T[],
-  ctx: CrmContext,
+  ctx: OrgScope,
   id: unknown,
 ): T | undefined {
   if (typeof id !== 'string' || id === '') return undefined;

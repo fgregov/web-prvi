@@ -186,9 +186,18 @@ describe('Clean start (no demo content)', () => {
     ]) {
       const summary = services.dashboard.getPeriodSummary(ctx, from, to);
       expect(summary.hasData).toBe(false);
-      for (const metric of Object.values(summary.kpis)) {
-        if (metric && typeof metric === 'object') expect(metric).toEqual({ value: 0, previous: 0 });
+      const { kpis } = summary;
+      for (const metric of [kpis.leads, kpis.won, kpis.lost, kpis.potential, kpis.wonValue]) {
+        expect(metric).toEqual({ value: 0, previous: 0 });
       }
+      expect(kpis.rates).toMatchObject({ wonRate: null, lostRate: null });
+      expect(summary.pipelineOverview).toMatchObject({
+        leads: 0,
+        prospects: 0,
+        negotiations: 0,
+        buyers: 0,
+      });
+      expect(summary.feedback.items).toEqual([]);
       expect(summary.pipeline.every((stage) => stage.count === 0)).toBe(true);
       expect(summary.leads).toMatchObject({ created: 0, won: 0, lost: 0, winRate: null });
       expect(summary.calendar).toMatchObject({ total: 0, done: 0 });

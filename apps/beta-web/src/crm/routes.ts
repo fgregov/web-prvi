@@ -4,15 +4,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BodyError, isJsonRequest, isSameOrigin, readJsonBody, sendJson } from '../http/respond.ts';
 import { MESSAGES } from '../messages.ts';
-import { createCrmApi } from './dispatch.ts';
+import { createCrmApi, type PushConfig } from './dispatch.ts';
 import type { CrmServices } from './index.ts';
 import type { Body } from './scope.ts';
 import type { CrmContext } from './types.ts';
 
 const MAX_BODY_BYTES = 32 * 1024;
 
-export function createCrmRoutes(crm: CrmServices) {
-  const api = createCrmApi(crm);
+export function createCrmRoutes(crm: CrmServices, options: { push?: PushConfig } = {}) {
+  const api = createCrmApi(crm, options);
 
   /** Returns false when the path is not a CRM endpoint. */
   async function handle(

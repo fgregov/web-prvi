@@ -1,9 +1,21 @@
 // One task in a list (Tasks screen, customer profile): completion checkbox,
 // title, when/what/who line, status badge, chevron to the task detail.
-import { labelOf, TASK_TYPES } from '../../core/constants.js';
+import { labelOf, TASK_PRIORITIES, TASK_TYPES } from '../../core/constants.js';
 import { formatDue, formatSchedule } from '../../core/format.js';
 import { h } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
+
+/** Business priority → colour: low yellow, normal (MEDIUM) red, high black. */
+const PRIORITY_TONE = { low: 'low', normal: 'medium', high: 'high' };
+
+/** The priority as a coloured badge that always carries its label. */
+export function priorityBadge(priority) {
+  return h(
+    'span',
+    { class: `rv-badge rv-priority--${PRIORITY_TONE[priority] ?? 'medium'}` },
+    labelOf(TASK_PRIORITIES, priority),
+  );
+}
 
 export function taskStatusBadge(task) {
   if (task.status === 'completed')
@@ -16,7 +28,7 @@ export function taskStatusBadge(task) {
   if (task.status === 'cancelled')
     return h('span', { class: 'rv-badge rv-badge--neutral' }, 'Otkazano');
   if (task.overdue) return h('span', { class: 'rv-badge rv-badge--red' }, 'Kasni');
-  if (task.priority === 'high') return h('span', { class: 'rv-badge rv-badge--red' }, 'Visoko');
+  if (task.priority === 'high') return priorityBadge('high');
   return null;
 }
 

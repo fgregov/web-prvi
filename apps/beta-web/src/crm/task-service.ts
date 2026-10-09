@@ -26,6 +26,7 @@ import {
   str,
   type Body,
 } from './scope.ts';
+import { cancelReminders, reminderView, shownReminder, type ReminderView } from './reminders.ts';
 import { calendarDateInZone, dayRange, startOfDayInZone } from './time.ts';
 import type { CrmContext, CrmData, RecordSource, Task } from './types.ts';
 
@@ -39,6 +40,8 @@ export interface TaskView extends Task {
   dueState: DueState;
   /** Open and past its deadline (due_at < now, or the due day has ended). */
   overdue: boolean;
+  /** The viewing user's push reminder that has not fired yet. */
+  reminder: ReminderView | null;
 }
 
 export interface TaskFilter {
@@ -85,6 +88,7 @@ export function createTaskService(repo: CrmRepository) {
     const opportunity = findInOrg(data.opportunities, ctx, task.opportunityId);
     const lead = findInOrg(data.leads, ctx, task.leadId);
     const state = dueState(due(task), ctx.now, ctx.timeZone);
+    const reminder = shownReminder(data, ctx, 'taskId', task.id);
     return {
       ...task,
       leadId: task.leadId ?? null,
@@ -97,6 +101,7 @@ export function createTaskService(repo: CrmRepository) {
         : null,
       dueState: state,
       overdue: task.status === 'open' && state === 'overdue',
+      reminder: reminder ? reminderView(reminder) : null,
     };
   }
 
@@ -224,6 +229,7 @@ export function createTaskService(repo: CrmRepository) {
     task.completedAt = next === 'completed' ? now : null;
     task.cancelledAt = next === 'cancelled' ? now : null;
     task.updatedAt = now;
+    if (next !== 'open') cancelReminders(data, ctx, 'taskId', task.id); // done or cancelled: nothing to remind of
     if (task.companyId) {
       const type = {
         open: 'task_reopened',

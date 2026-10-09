@@ -1,9 +1,10 @@
 // /tasks/{id} · Task detail: what, when, for whom; complete, reopen, edit or cancel.
 import { api, ApiError, onDataChanged } from '../core/api.js';
-import { labelOf, TASK_PRIORITIES, TASK_TYPES } from '../core/constants.js';
+import { labelOf, TASK_TYPES } from '../core/constants.js';
 import { formatDateTime, formatDue, formatSchedule } from '../core/format.js';
 import { MESSAGES } from '../core/validation.js';
-import { taskStatusBadge, taskTypeIcon } from '../features/tasks/task-row.js';
+import { reminderLabel } from '../features/reminders/reminder-control.js';
+import { priorityBadge, taskStatusBadge, taskTypeIcon } from '../features/tasks/task-row.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -60,7 +61,8 @@ function render(task) {
         { class: 'rv-dl' },
         row('Zakazano', formatSchedule(task) || 'Nije u Sales Kalendaru'),
         row('Rok', formatDue(task).replace(/^Rok: /, '') || 'Bez roka'),
-        row('Prioritet', labelOf(TASK_PRIORITIES, task.priority)),
+        row('Prioritet', priorityBadge(task.priority)),
+        row('Podsjetnik', reminderLabel(task.reminder)),
         row(
           'Kupac',
           task.customerName

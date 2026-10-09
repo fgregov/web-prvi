@@ -15,9 +15,11 @@ import {
 import { dayRange, formatSlot, todayKey } from '../core/format.js';
 import { DEMO_CONTENT } from '../core/edition.js';
 import { currentQuarterPeriod } from '../core/period.js';
+import { renderFeedbackOverview } from '../features/dashboard/feedback-overview.js';
 import { renderHistory, renderHistorySkeleton } from '../features/dashboard/history-view.js';
 import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-cards.js';
 import { PeriodSelector } from '../features/dashboard/period-selector.js';
+import { renderPipelineOverview } from '../features/dashboard/pipeline-overview.js';
 import { QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
 import { renderTabbar } from '../ui/tabbar.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
@@ -62,15 +64,10 @@ if (dateEl) {
   dateEl.setAttribute('datetime', todayKey());
 }
 
-// Clean start: no example content. "Čekaš odgovor" and the notification dot are
-// demo examples (no data behind them yet); the pipeline counts come from the API.
+// Clean start: the notification dot is a demo example (no data behind it).
 if (!DEMO_CONTENT) {
-  document
-    .querySelector('[aria-labelledby="odgovor-title"] .list')
-    ?.replaceChildren(el('li', 'empty-row', 'Nema stavki koje čekaju odgovor.'));
   document.querySelector('.bell__dot')?.remove();
   document.querySelector('.bell')?.setAttribute('aria-label', 'Obavijesti');
-  document.querySelectorAll('.pipeline .stage__count').forEach((count) => (count.textContent = ''));
 }
 
 // ------------------------------------------------------------- Danas ---
@@ -92,7 +89,8 @@ function eventRow(task) {
     status.setAttribute('aria-label', 'Dovršeno');
     status.append(spriteIcon('check'));
   } else {
-    const tone = task.priority === 'high' ? 'red' : task.companyId ? 'green' : 'gray';
+    // High priority is black (priority colours: low yellow, medium red, high black).
+    const tone = task.priority === 'high' ? 'priority-high' : task.companyId ? 'green' : 'gray';
     status = el('span', `dot dot--${tone}`);
     status.setAttribute('aria-label', task.priority === 'high' ? 'Visok prioritet' : 'Otvoreno');
   }
@@ -168,7 +166,7 @@ function priorityRow(task) {
         ? PILL.overdue
         : task.dueState === 'due_today'
           ? PILL.today
-          : ['Visoko', 'red'];
+          : ['Visoko', 'priority-high'];
   li.append(check, title, el('span', `pill pill--${tone}`, label));
   return li;
 }
@@ -183,23 +181,6 @@ async function updatePriorities() {
       : [el('li', 'empty-row', 'Nema prioritetnih zadataka.')]),
   );
 }
-
-// ---------------------------------------------------------- Pipeline ---
-async function updatePipeline() {
-  const totals = await api.pipeline();
-  const max = Math.max(...totals.map((t) => t.total), 1);
-  document.querySelectorAll('.pipeline .stage').forEach((row, index) => {
-    const stage = totals[index];
-    if (!stage) return;
-    row.querySelector('.stage__count').textContent = String(stage.total);
-    const fill = stage.total ? Math.max(Math.round((stage.total / max) * 100), 14) : 0;
-    row.style.setProperty('--fill', `${fill}%`);
-  });
-}
-
-document
-  .querySelectorAll('.pipeline .stage')
-  .forEach((row) => row.addEventListener('click', () => window.location.assign('/opportunities')));
 
 // ------------------------------------------------------------ period ---
 const metricsEl = document.querySelector('.metrics');
@@ -236,6 +217,13 @@ async function showPeriod({ quiet = false } = {}) {
     ]);
     if (mine !== ticket) return; // a newer selection is loading
     renderKpiCards(metricsEl, summary);
+    if (info.isCurrent) {
+      renderPipelineOverview(document.querySelector('.pipeline'), summary.pipelineOverview);
+      renderFeedbackOverview(
+        document.querySelector('[aria-labelledby="odgovor-title"] .list'),
+        summary.feedback.items,
+      );
+    }
     if (!info.isCurrent)
       renderHistory(historyView, summary, info, { onBackToCurrent: backToCurrent });
     if (quiet) return;
@@ -252,7 +240,7 @@ async function showPeriod({ quiet = false } = {}) {
 }
 
 async function refreshOperational() {
-  await Promise.all([updateToday(), updatePriorities(), updatePipeline()]);
+  await Promise.all([updateToday(), updatePriorities()]);
 }
 
 /** After a change (completing a task, another tab): reload what is on screen. */

@@ -267,6 +267,7 @@ write(
   ].join('\n'),
 );
 cpSync(resolve(APP, 'demo/runtime.js'), join(OUT, 'demo/runtime.js'));
+cpSync(resolve(APP, 'demo/database-store.js'), join(OUT, 'demo/database-store.js'));
 
 // ------------------------------------------------------------------ verify
 for (const file of walk(OUT).filter((f) => f.endsWith('.js'))) {

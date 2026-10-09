@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "demo:build": "node demo/build.ts",
-    "demo:build:empty": "node demo/build.ts --empty"
+    "demo:build:empty": "node demo/build.ts --empty",
+    "push:keys": "node src/notifications/vapid-keys.ts"
   },
   "engines": {
     "node": ">=22.18"

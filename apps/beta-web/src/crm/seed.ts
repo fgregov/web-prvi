@@ -117,12 +117,22 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     stage: 'in_progress',
   });
   // Deliberately without a next action: shows the "needs attention" state.
-  opportunity({
-    companyId: feroTerm.id,
-    title: 'Oprema za skladište',
-    value: '12000',
-    stage: 'new',
-  });
+  const feroDeal = opportunity(
+    {
+      companyId: feroTerm.id,
+      title: 'Oprema za skladište',
+      value: '12000',
+      stage: 'new',
+    },
+    addDays(today, -6),
+  );
+
+  // Offers waiting for the customer (FEEDBACK OVERVIEW): 1D yellow, 5D red, 12D black.
+  const offer = (opportunityId: string, title: string, sentDaysAgo: number) =>
+    crm.offers.recordSent(ctx, { opportunityId, title, sentDate: addDays(today, -sentDaysAgo) });
+  offer(adriaDeal.id, 'CRM licence – ponuda', 0);
+  offer(feroDeal.id, 'Oprema za skladište – ponuda', 4);
+  offer(initiumDeal.id, 'Implementacija faza 2 – ponuda', 11);
 
   const task = (input: Record<string, unknown>) => crm.tasks.createTask(ctx, input);
 

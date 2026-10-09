@@ -465,6 +465,87 @@ export type Database = {
           },
         ];
       };
+      offers: {
+        Row: {
+          answered_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          opportunity_id: string;
+          organization_id: string;
+          sent_at: string | null;
+          status: Database['public']['Enums']['offer_status'];
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+          withdrawn_at: string | null;
+        };
+        Insert: {
+          answered_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          opportunity_id: string;
+          organization_id: string;
+          sent_at?: string | null;
+          status?: Database['public']['Enums']['offer_status'];
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          withdrawn_at?: string | null;
+        };
+        Update: {
+          answered_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          opportunity_id?: string;
+          organization_id?: string;
+          sent_at?: string | null;
+          status?: Database['public']['Enums']['offer_status'];
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          withdrawn_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'offers_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offers_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunities';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offers_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunity_overview';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offers_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offers_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       opportunities: {
         Row: {
           closed_at: string | null;
@@ -487,6 +568,7 @@ export type Database = {
           title: string;
           updated_at: string;
           updated_by: string | null;
+          won_value: number | null;
         };
         Insert: {
           closed_at?: string | null;
@@ -509,6 +591,7 @@ export type Database = {
           title: string;
           updated_at?: string;
           updated_by?: string | null;
+          won_value?: number | null;
         };
         Update: {
           closed_at?: string | null;
@@ -531,6 +614,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
           updated_by?: string | null;
+          won_value?: number | null;
         };
         Relationships: [
           {
@@ -720,6 +804,196 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string | null;
+          created_at: string;
+          enabled: boolean;
+          endpoint: string;
+          id: string;
+          last_seen_at: string;
+          organization_id: string;
+          p256dh: string | null;
+          platform: string;
+          provider: string;
+          updated_at: string;
+          user_agent: string | null;
+          user_id: string;
+        };
+        Insert: {
+          auth?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          endpoint: string;
+          id?: string;
+          last_seen_at?: string;
+          organization_id: string;
+          p256dh?: string | null;
+          platform?: string;
+          provider?: string;
+          updated_at?: string;
+          user_agent?: string | null;
+          user_id: string;
+        };
+        Update: {
+          auth?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          endpoint?: string;
+          id?: string;
+          last_seen_at?: string;
+          organization_id?: string;
+          p256dh?: string | null;
+          platform?: string;
+          provider?: string;
+          updated_at?: string;
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'push_subscriptions_member_fk';
+            columns: ['organization_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'push_subscriptions_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'push_subscriptions_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reminders: {
+        Row: {
+          attempts: number;
+          cancelled_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          delivered_at: string | null;
+          id: string;
+          last_error: string | null;
+          lead_id: string | null;
+          next_attempt_at: string | null;
+          opportunity_id: string | null;
+          organization_id: string;
+          recipient_user_id: string;
+          remind_at: string;
+          status: Database['public']['Enums']['reminder_status'];
+          task_id: string | null;
+          time_zone: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          attempts?: number;
+          cancelled_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delivered_at?: string | null;
+          id?: string;
+          last_error?: string | null;
+          lead_id?: string | null;
+          next_attempt_at?: string | null;
+          opportunity_id?: string | null;
+          organization_id: string;
+          recipient_user_id: string;
+          remind_at: string;
+          status?: Database['public']['Enums']['reminder_status'];
+          task_id?: string | null;
+          time_zone: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          attempts?: number;
+          cancelled_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delivered_at?: string | null;
+          id?: string;
+          last_error?: string | null;
+          lead_id?: string | null;
+          next_attempt_at?: string | null;
+          opportunity_id?: string | null;
+          organization_id?: string;
+          recipient_user_id?: string;
+          remind_at?: string;
+          status?: Database['public']['Enums']['reminder_status'];
+          task_id?: string | null;
+          time_zone?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reminders_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reminders_lead_fk';
+            columns: ['organization_id', 'lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'reminders_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunities';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'reminders_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunity_overview';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'reminders_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reminders_recipient_fk';
+            columns: ['organization_id', 'recipient_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'reminders_task_fk';
+            columns: ['organization_id', 'task_id'];
+            isOneToOne: false;
+            referencedRelation: 'tasks';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'reminders_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       tasks: {
         Row: {
@@ -983,6 +1257,7 @@ export type Database = {
         | 'meeting'
         | 'note'
         | 'offer_sent'
+        | 'offer_answered'
         | 'follow_up'
         | 'status_change'
         | 'other';
@@ -1011,8 +1286,10 @@ export type Database = {
       lead_status: 'active' | 'won' | 'lost';
       member_role: 'owner' | 'admin' | 'manager' | 'sales';
       member_status: 'active' | 'suspended' | 'removed';
+      offer_status: 'draft' | 'sent' | 'answered' | 'withdrawn';
       opportunity_stage: 'new_lead' | 'contacted' | 'qualified' | 'proposal' | 'negotiation';
       opportunity_status: 'active' | 'won' | 'lost';
+      reminder_status: 'pending' | 'processing' | 'sent' | 'failed' | 'cancelled';
       task_priority: 'low' | 'normal' | 'high';
       task_status: 'open' | 'completed' | 'cancelled';
       task_type:
@@ -1142,6 +1419,7 @@ export const Constants = {
         'meeting',
         'note',
         'offer_sent',
+        'offer_answered',
         'follow_up',
         'status_change',
         'other',
@@ -1173,8 +1451,10 @@ export const Constants = {
       lead_status: ['active', 'won', 'lost'],
       member_role: ['owner', 'admin', 'manager', 'sales'],
       member_status: ['active', 'suspended', 'removed'],
+      offer_status: ['draft', 'sent', 'answered', 'withdrawn'],
       opportunity_stage: ['new_lead', 'contacted', 'qualified', 'proposal', 'negotiation'],
       opportunity_status: ['active', 'won', 'lost'],
+      reminder_status: ['pending', 'processing', 'sent', 'failed', 'cancelled'],
       task_priority: ['low', 'normal', 'high'],
       task_status: ['open', 'completed', 'cancelled'],
       task_type: [

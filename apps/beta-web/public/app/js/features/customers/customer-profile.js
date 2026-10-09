@@ -12,6 +12,7 @@ import { customerActivities } from './profile/customer-activities.js';
 import { customerContacts } from './profile/customer-contacts.js';
 import { customerHeader } from './profile/customer-header.js';
 import { customerOpportunities } from './profile/customer-opportunities.js';
+import { opportunityActions } from './profile/opportunity-actions.js';
 import { customerOverview } from './profile/customer-overview.js';
 import { customerTasks } from './profile/customer-tasks.js';
 
@@ -33,6 +34,10 @@ export function customerActions(profile, reload) {
     note: () => openNoteForm({ profile, onSaved: after('Bilješka dodana.') }),
     email: () => openEmailForm({ profile, onSaved: after('E-mail zabilježen u aktivnostima.') }),
     edit: () => openCustomerForm({ profile, onSaved: after('Podaci kupca spremljeni.') }),
+    deal: opportunityActions(async (message) => {
+      showToast(message);
+      await reload();
+    }),
     toggleTask: async (task) => {
       try {
         if (task.status === 'completed') await api.reopenTask(task.id);

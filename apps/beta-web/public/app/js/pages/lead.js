@@ -12,6 +12,8 @@ import {
   leadStatusBadge,
   leadValue,
 } from '../features/leads/lead-view.js';
+import { activeReminder, reminderLabel } from '../features/reminders/reminder-control.js';
+import { openReminderSheet } from '../features/reminders/reminder-sheet.js';
 import { taskRow } from '../features/tasks/task-row.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { h, uid } from '../ui/dom.js';
@@ -194,12 +196,29 @@ function actions(lead) {
     'Označi kao izgubljen',
   );
   lost.addEventListener('click', () => lostSheet(lead));
+  const reminder = h(
+    'button',
+    { type: 'button', class: 'rv-btn rv-btn--secondary' },
+    activeReminder(lead.reminder) ? 'Promijeni podsjetnik' : 'Postavi podsjetnik',
+  );
+  reminder.addEventListener('click', () =>
+    openReminderSheet({
+      title: 'Podsjetnik za lead',
+      reminder: lead.reminder,
+      save: async (reminderAt) => {
+        await api.setReminder('leads', lead.id, reminderAt);
+        showToast(reminderAt ? 'Podsjetnik je spremljen.' : 'Podsjetnik je uklonjen.');
+        await load();
+      },
+    }),
+  );
   return h(
     'div',
     { class: 'rv-screen__actions rv-screen__actions--stack' },
     h('a', { class: 'rv-btn rv-btn--primary', href: convertHref(lead) }, 'Pretvori u kupca'),
     h('a', { class: 'rv-btn rv-btn--secondary', href: taskHref }, 'Dodaj zadatak'),
     opportunity,
+    reminder,
     lost,
   );
 }
@@ -375,7 +394,8 @@ function render(lead) {
         row('Procjena vrijednosti', value),
         row('Kreirano', formatDateTime(lead.createdAt)),
         row('Vlasnik', lead.ownerName),
-        row('Kvalificiran', lead.qualifiedAt ? formatDateTime(lead.qualifiedAt) : null),
+        row('Prospect od', lead.qualifiedAt ? formatDateTime(lead.qualifiedAt) : null),
+        row('Podsjetnik', reminderLabel(lead.reminder)),
         row('Bilješka', lead.notes),
       ),
       outcome(lead),

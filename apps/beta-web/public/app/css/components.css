@@ -27,6 +27,16 @@
   --rv-radius-field: 12px;
   --rv-shadow-card: 0 1px 2px rgba(17, 17, 17, 0.04), 0 4px 14px rgba(17, 17, 17, 0.04);
   --rv-shadow-drawer: -18px 0 48px rgba(17, 17, 17, 0.16);
+
+  /* Signal colours: Feedback Overview wait (1–4D, 5–9D, 10D+) and task priority. */
+  --rv-signal-yellow: #f5c518;
+  --rv-signal-yellow-ink: #3d2f00;
+  --rv-signal-red: #e32222;
+  --rv-signal-black: #111111;
+  --rv-priority-low: var(--rv-signal-yellow);
+  --rv-priority-low-ink: var(--rv-signal-yellow-ink);
+  --rv-priority-medium: var(--rv-signal-red);
+  --rv-priority-high: var(--rv-signal-black);
 }
 
 html.rv-scroll-lock {
@@ -1076,4 +1086,105 @@ select.rv-input {
 
 .period-range .rv-confirm__actions .rv-btn:disabled {
   opacity: 0.45;
+}
+
+/* ------------------------------------------------- signals & priority --- */
+/* Feedback Overview: days an offer has been waiting ("5D"). Text + colour. */
+.rv-wait {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rv-wait--yellow {
+  background: var(--rv-signal-yellow);
+  color: var(--rv-signal-yellow-ink);
+}
+
+.rv-wait--red {
+  background: var(--rv-signal-red);
+  color: #ffffff;
+}
+
+.rv-wait--black {
+  background: var(--rv-signal-black);
+  color: #ffffff;
+}
+
+/* Task priority badge: LOW yellow, MEDIUM red, HIGH black (always with its label). */
+.rv-priority--low {
+  background: var(--rv-priority-low);
+  color: var(--rv-priority-low-ink);
+}
+
+.rv-priority--medium {
+  background: var(--rv-priority-medium);
+  color: #ffffff;
+}
+
+.rv-priority--high {
+  background: var(--rv-priority-high);
+  color: #ffffff;
+}
+
+/* ----------------------------------------------------- sheet forms --- */
+.rv-sheet--form .rv-input {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.rv-sheet__actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.rv-sheet__actions .rv-btn {
+  min-height: 50px;
+  border-radius: 14px;
+}
+
+.rv-sheet__actions .rv-btn--secondary {
+  flex: 1 1 0;
+}
+
+.rv-sheet__actions .rv-btn--primary {
+  flex: 2 1 0;
+}
+
+/* ------------------------------------------------------- reminders --- */
+.rv-reminder__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rv-reminder__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-green-soft);
+  color: var(--rv-green-text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.rv-reminder__note.is-warning {
+  background: var(--rv-surface-muted);
+  color: var(--rv-text-2);
+}
+
+.rv-reminder__note[hidden] {
+  display: none;
 }

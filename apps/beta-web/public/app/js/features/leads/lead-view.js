@@ -25,7 +25,13 @@ export function leadStatusBadge(lead) {
 }
 
 export function leadStageBadge(lead) {
-  return h('span', { class: 'rv-badge rv-badge--neutral' }, labelOf(LEAD_STAGES, lead.stage));
+  // Qualified = Prospect (a lead with confirmed commercial potential).
+  const label = labelOf(LEAD_STAGES, lead.stage);
+  return h(
+    'span',
+    { class: 'rv-badge rv-badge--neutral' },
+    lead.stage === 'qualified' ? `${label} · Prospect` : label,
+  );
 }
 
 /** "12.500 €" or null. */

@@ -1065,7 +1065,6 @@ a {
 
 .module--history:not(.module--compact) .module__title {
   font-size: 1.125rem;
-  white-space: nowrap;
 }
 
 .module--history.module--compact .module__head {
@@ -1445,4 +1444,131 @@ a {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ------------------------------------------- KPI: won / lost / money --- */
+.metric--outcome {
+  cursor: default;
+}
+
+.metric__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 20px;
+}
+
+.metric__note {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.metric__modes {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 1px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+}
+
+.metric__mode {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.metric__mode[aria-pressed='true'] {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.12);
+}
+
+.metric--money {
+  flex-basis: 128px;
+  gap: 4px;
+}
+
+.metric__pair {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.metric__key {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+.metric__amount {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.metric__pair--won .metric__amount {
+  color: var(--green-text);
+}
+
+/* ---------------------------------- pipeline: four business categories --- */
+.pipeline--overview {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.stage--metric {
+  min-height: 38px;
+}
+
+.stage--metric .stage__label {
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.stage--metric .stage__count {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+/* --------------------------------------- feedback overview & priority --- */
+.waiting--offer .rv-wait {
+  min-width: 28px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 0.625rem;
+}
+
+.waiting__more {
+  font-size: 0.6875rem;
+}
+
+.dot--priority-high {
+  background: var(--rv-priority-high);
+}
+
+.pill--priority-high {
+  background: var(--rv-priority-high);
+  color: #ffffff;
+}
+
+/* LOST: fewer is better, so a rise reads red and a fall green. */
+.trend--worse {
+  color: var(--red-text);
+}
+
+.trend--better {
+  color: var(--green-text);
 }

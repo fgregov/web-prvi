@@ -7,6 +7,7 @@ import { hasErrors, MESSAGES, validateOpportunity } from '../core/validation.js'
 import { contextCustomer } from '../features/pickers/context.js';
 import { CustomerPicker } from '../features/pickers/customer-picker.js';
 import { ContactPicker } from '../features/pickers/related-picker.js';
+import { ReminderControl } from '../features/reminders/reminder-control.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { h } from '../ui/dom.js';
 import {
@@ -34,6 +35,7 @@ screen.setContent(h('p', { class: 'rv-screen__loading' }, 'Učitavanje...'));
 
 const customer = CustomerPicker({ clearable: false });
 const contact = ContactPicker();
+const reminder = ReminderControl();
 const form = createForm(
   [
     {
@@ -67,9 +69,11 @@ const form = createForm(
         DatePickerField('nextActionDueDate', 'Rok sljedeće akcije'),
       ],
     },
+    reminder.section,
   ],
   { single: true },
 );
+reminder.attach(form);
 
 try {
   const preset = await contextCustomer(params.get('companyId'));
@@ -85,10 +89,12 @@ screen.setContent(form.element, () => form.values());
 async function save() {
   const input = form.values();
   const errors = validateOpportunity(input);
-  if (hasErrors(errors)) {
-    form.setErrors(errors);
+  const push = reminder.read(input);
+  if (hasErrors(errors) || hasErrors(push.errors)) {
+    form.setErrors({ ...errors, ...push.errors });
     return;
   }
+  input.reminderAt = push.reminderAt;
   screen.setSaving(true);
   let result;
   try {

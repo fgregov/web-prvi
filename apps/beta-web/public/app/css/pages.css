@@ -549,6 +549,62 @@ a {
   font-size: 13px;
 }
 
+/* Offers of an opportunity, its reminder and its actions (send offer, won, lost). */
+.rv-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border-radius: var(--rv-radius-sm);
+  background: var(--rv-surface-muted);
+  font-size: 13px;
+}
+
+.rv-offer > .rv-icon {
+  color: var(--rv-red);
+}
+
+.rv-offer__text {
+  display: flex;
+  flex: 1 1 160px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rv-offer__text span {
+  color: var(--rv-muted);
+}
+
+.rv-opp__reminder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--rv-text-2);
+  font-size: 13px;
+}
+
+.rv-opp__reminder.is-failed {
+  color: var(--rv-red-text);
+}
+
+.rv-opp__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 /* timeline */
 .rv-timeline__item {
   position: relative;

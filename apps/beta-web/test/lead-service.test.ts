@@ -462,3 +462,75 @@ describe('LeadService · period semantics', () => {
     expect(crm.leads.getLead(ctxA, lead.id).createdAt).toBe(inQ3.now.toISOString());
   });
 });
+
+describe('Lead → Task regression (the "freeze" report)', () => {
+  // The freeze came from the demo's database layer (see demo-database-store.test.ts);
+  // these keep every task/link combination working on the server.
+  const tomorrow10 = '2026-10-06T08:00:00.000Z'; // 10:00 in Zagreb
+
+  it('A–C: standalone, customer and opportunity tasks still work', () => {
+    const standalone = crm.tasks.createTask(ctxA, { title: 'Pripremiti prezentaciju' });
+    expect(standalone).toMatchObject({ companyId: null, leadId: null, opportunityId: null });
+    const customer = crm.customers.createCustomer(ctxA, {
+      companyName: 'FERO-TERM',
+      oib: '12345678901',
+      city: 'Osijek',
+      contactName: 'Marko',
+    });
+    expect(crm.tasks.createTask(ctxA, { title: 'Poziv', companyId: customer.id }).companyId).toBe(
+      customer.id,
+    );
+    const { opportunity } = crm.opportunities.createOpportunity(ctxA, {
+      companyId: customer.id,
+      title: 'Vending',
+    });
+    expect(
+      crm.tasks.createTask(ctxA, { title: 'Follow-up', opportunityId: opportunity.id }),
+    ).toMatchObject({ opportunityId: opportunity.id, companyId: customer.id });
+  });
+
+  it('D–F: a lead task needs no customer, with or without a calendar slot', () => {
+    const lead = marko();
+    const undated = crm.tasks.createTask(ctxA, { title: 'Nazvati', leadId: lead.id });
+    const scheduled = crm.tasks.createTask(ctxA, {
+      title: 'Follow-up Marko',
+      type: 'follow_up',
+      leadId: lead.id,
+      scheduledStartAt: tomorrow10,
+    });
+    for (const task of [undated, scheduled]) {
+      expect(task).toMatchObject({ leadId: lead.id, companyId: null, contactId: null });
+    }
+    expect(
+      crm.leads
+        .getLead(ctxA, lead.id)
+        .tasks.map((t) => t.id)
+        .sort(),
+    ).toEqual([undated.id, scheduled.id].sort());
+  });
+
+  it('G: a lead of another organization is refused', () => {
+    const foreign = crm.leads.createLead(ctxB, { name: 'Tuđi' });
+    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', leadId: foreign.id }), {
+      leadId: MESSAGES.unavailable,
+    });
+  });
+
+  it('J: a scheduled lead task is in the Sales Calendar of its day', () => {
+    const lead = marko();
+    const task = crm.tasks.createTask(ctxA, {
+      title: 'Follow-up Marko',
+      leadId: lead.id,
+      scheduledStartAt: tomorrow10,
+    });
+    const day = crm.calendar.getCalendarTasks(
+      ctxA,
+      new Date('2026-10-05T22:00:00Z'),
+      new Date('2026-10-06T22:00:00Z'),
+    );
+    expect(day.map((t) => t.id)).toContain(task.id);
+    expect(day.find((t) => t.id === task.id)).toMatchObject({
+      leadName: 'Marko Horvat · ABC d.o.o.',
+    });
+  });
+});

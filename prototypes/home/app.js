@@ -15,7 +15,8 @@
     }, 1800);
   }
 
-  // Quick Add, "Danas" and "Prioriteti" are rendered from live data by
+  // Quick Add, "Sales Kalendar", "Prioriteti", the pipeline and "Feedback overview"
+  // are rendered from live data by
   // /app/js/pages/dashboard.js (served by apps/beta-web).
 
   // ------------------------------------------- placeholder destinations ---

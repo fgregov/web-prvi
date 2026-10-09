@@ -2,8 +2,15 @@
 // optional contact must belong to the same customer. The next action is
 // derived from tasks (ADR-0004), never stored on the opportunity.
 import { labelOf, PIPELINE_BASELINE, STAGES } from '../../public/app/js/core/constants.js';
-import { hasErrors, MESSAGES, validateOpportunity } from '../../public/app/js/core/validation.js';
+import {
+  hasErrors,
+  MESSAGES,
+  validateOpportunity,
+  validateOpportunityClose,
+} from '../../public/app/js/core/validation.js';
 import { CrmValidationError, type FieldErrors } from './errors.ts';
+import { offerView } from './offer-service.ts';
+import { cancelReminders, reminderView, shownReminder, type ReminderView } from './reminders.ts';
 import type { CrmRepository } from './repository.ts';
 import {
   addActivity,
@@ -25,7 +32,16 @@ export interface OpportunityView extends Opportunity {
   nextAction: TaskView | null;
   /** Active and without an open task: breaks "no opportunity without a next action". */
   needsNextAction: boolean;
+  /** Offers sent in this deal, newest first, with their current wait. */
+  offers: Array<ReturnType<typeof offerView>>;
+  /** The viewing user's push reminder that has not fired yet. */
+  reminder: ReminderView | null;
 }
+
+const amount = (value: unknown): number | null => {
+  const raw = str(String(value ?? '')).replace(',', '.');
+  return raw === '' ? null : Math.round(Number(raw) * 100) / 100;
+};
 
 const money = (value: number | null, currency: string) =>
   value === null
@@ -44,12 +60,18 @@ export function createOpportunityService(
   function view(data: CrmData, ctx: CrmContext, o: Opportunity): OpportunityView {
     const contact = findInOrg(data.contacts, ctx, o.contactId);
     const nextAction = tasks.nextActionFor(ctx, o.id);
+    const reminder = shownReminder(data, ctx, 'opportunityId', o.id);
     return {
       ...o,
       customerName: findInOrg(data.customers, ctx, o.companyId)?.companyName ?? '',
       contactName: contact ? contactName(contact) : null,
       nextAction,
       needsNextAction: o.status === 'active' && nextAction === null,
+      offers: inOrg(data.offers ?? [], ctx)
+        .filter((offer) => offer.opportunityId === o.id)
+        .sort((a, b) => (b.sentAt ?? b.createdAt).localeCompare(a.sentAt ?? a.createdAt))
+        .map((offer) => offerView(offer, ctx, o)),
+      reminder: reminder ? reminderView(reminder) : null,
     };
   }
 
@@ -150,6 +172,52 @@ export function createOpportunityService(
       repo.commit();
       const result = view(data, ctx, opportunity);
       return { opportunity: result, nextActionMissing: result.needsNextAction };
+    },
+
+    /**
+     * Closes a deal: WON (optionally with the final amount, when it differs
+     * from the estimate) or LOST (optionally with a reason). The day it is
+     * closed is the day it counts as won or lost. Its pending reminders end.
+     */
+    closeOpportunity(ctx: CrmContext, id: string, input: Body): OpportunityView {
+      const errors = validateOpportunityClose(input);
+      if (hasErrors(errors)) throw new CrmValidationError(errors);
+      const data = repo.data();
+      const opportunity = requireInOrg(data.opportunities, ctx, id);
+      if (opportunity.status !== 'active') {
+        throw new CrmValidationError(
+          { status: MESSAGES.opportunityClosed },
+          MESSAGES.opportunityClosed,
+        );
+      }
+      const now = ctx.now.toISOString();
+      const won = input.outcome === 'won';
+      const final = won ? amount(input.wonValue) : null;
+      Object.assign(opportunity, {
+        status: won ? 'won' : 'lost',
+        closedAt: now,
+        wonValue: won && final !== null && final !== opportunity.value ? final : null,
+        lostReason: won ? '' : str(input.lostReason),
+        updatedAt: now,
+      });
+      cancelReminders(data, ctx, 'opportunityId', opportunity.id);
+      const shown = won ? (opportunity.wonValue ?? opportunity.value) : opportunity.value;
+      addActivity(
+        data,
+        ctx,
+        opportunity.companyId,
+        won ? 'opportunity_won' : 'opportunity_lost',
+        [
+          opportunity.title,
+          money(shown, opportunity.currency),
+          won ? null : str(input.lostReason) || null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        opportunity.id,
+      );
+      repo.commit();
+      return view(data, ctx, opportunity);
     },
 
     /** Dashboard pipeline: active opportunities created in the CRM, plus the demo's static totals. */

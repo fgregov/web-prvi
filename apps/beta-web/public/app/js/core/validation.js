@@ -32,6 +32,10 @@ export const MESSAGES = Object.freeze({
   leadSaveFailed: 'Nije moguće spremiti lead. Pokušajte ponovno.',
   leadClosed: 'Lead je već zatvoren (won ili lost).',
   possibleExistingCustomer: 'Mogući postojeći kupac',
+  reminderInPast: 'Odaberite datum i vrijeme u budućnosti.',
+  reminderInvalid: 'Odaberite datum i vrijeme podsjetnika.',
+  opportunityClosed: 'Prilika je već zatvorena (dobivena ili izgubljena).',
+  offerNotWaiting: 'Ponuda ne čeka odgovor.',
 });
 
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -317,6 +321,48 @@ export function validateEmail(input) {
   if (!text(input.subject)) errors.subject = REQUIRED;
   maxLength(errors, input, 'subject', 300);
   maxLength(errors, input, 'body', 10000);
+  return errors;
+}
+
+/**
+ * Optional push reminder of a task, lead or opportunity: `reminderAt` is an
+ * instant in the future, or null/empty (no reminder).
+ * @param {unknown} value
+ * @param {Date} now
+ * @returns {string | null} the message for the reminder field, or null when valid
+ */
+export function reminderError(value, now) {
+  if (blank(value)) return null;
+  if (!isInstant(value)) return MESSAGES.reminderInvalid;
+  return Date.parse(String(value)) <= now.getTime() ? MESSAGES.reminderInPast : null;
+}
+
+/**
+ * "Ponuda poslana": the offer's title and the day it was sent (today or earlier).
+ * @param {Record<string, unknown>} input
+ * @param {{ today: string }} options  today's calendar date in the organization's timezone
+ */
+export function validateOffer(input, { today }) {
+  const errors = {};
+  if (!text(input.title)) errors.title = REQUIRED;
+  maxLength(errors, input, 'title', 300);
+  if (!blank(input.sentDate)) {
+    if (!isCalendarDate(input.sentDate)) errors.sentDate = 'Neispravan datum.';
+    else if (String(input.sentDate) > today)
+      errors.sentDate = 'Ponuda ne može biti poslana u budućnosti.';
+  }
+  return errors;
+}
+
+/** Closing a deal: WON with an optional final amount, or LOST with an optional reason. */
+export function validateOpportunityClose(input) {
+  const errors = {};
+  if (input.outcome !== 'won' && input.outcome !== 'lost') errors.outcome = 'Odaberite ishod.';
+  if (input.outcome === 'won') {
+    const value = amountError(input.wonValue);
+    if (value) errors.wonValue = value;
+  }
+  if (input.outcome === 'lost') maxLength(errors, input, 'lostReason', 1000);
   return errors;
 }
 

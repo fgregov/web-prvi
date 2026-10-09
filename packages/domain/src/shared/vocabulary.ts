@@ -37,6 +37,7 @@ export const ACTIVITY_TYPES = [
   'meeting',
   'note',
   'offer_sent',
+  'offer_answered',
   'follow_up',
   'status_change',
   'other',
@@ -106,3 +107,14 @@ export const LEAD_LOST_REASONS = [
   'other',
 ] as const;
 export type LeadLostReason = (typeof LEAD_LOST_REASONS)[number];
+
+/**
+ * Sales offer (public.offers). Only a `sent` offer waits for feedback; an
+ * answer is recorded explicitly (a viewed PDF is not an answer).
+ */
+export const OFFER_STATUSES = ['draft', 'sent', 'answered', 'withdrawn'] as const;
+export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+/** Push reminder delivery (public.reminders): pending → processing → sent | failed; or cancelled. */
+export const REMINDER_STATUSES = ['pending', 'processing', 'sent', 'failed', 'cancelled'] as const;
+export type ReminderStatus = (typeof REMINDER_STATUSES)[number];

@@ -19,6 +19,12 @@ erDiagram
   COMPANIES |o--o{ ACTIVITIES : timeline
   CONTACTS |o--o{ ACTIVITIES : timeline
   OPPORTUNITIES |o--o{ TASKS : "next actions"
+  OPPORTUNITIES ||--o{ OFFERS : "offers sent"
+  TASKS |o--o{ REMINDERS : ""
+  LEADS |o--o{ REMINDERS : ""
+  OPPORTUNITIES |o--o{ REMINDERS : ""
+  ORGANIZATION_MEMBERS ||--o{ REMINDERS : "recipient"
+  ORGANIZATION_MEMBERS ||--o{ PUSH_SUBSCRIPTIONS : "devices"
   COMPANIES |o--o{ TASKS : ""
   CONTACTS |o--o{ TASKS : ""
   ORGANIZATION_MEMBERS |o--o{ COMPANIES : "owner"
@@ -88,6 +94,13 @@ A deal with exactly one company. It has two orthogonal dimensions (ADR-0003):
 enforces `status = active ⇔ closed_at IS NULL` and allows `lost_reason` only
 when lost. `expected_close_date` is a `date`, not a timestamp.
 
+`value` is the estimate (the opportunity's potential, counted in the period
+it was created). `won_value` (migration `20261009120000_offers_reminders_push.sql`)
+is the final amount when it differs; it is allowed only while `won`, and
+reopening or losing clears it. Won revenue = `coalesce(won_value, value)`,
+counted in the period of `closed_at`. Money is summed in integer cents and
+never across currencies.
+
 Probability (`manual_probability` 0–100) and `interest_level` are explicit
 manual inputs. Computed scores such as engagement or AI intent will be separate
 derived values, never overwriting manual ones.
@@ -144,6 +157,38 @@ The two are mutually exclusive (CHECK). Tasks may have no subject at all,
 which allows personal reminders. A task may concern a lead (`lead_id`, same
 organization) before that lead is a customer.
 
+### Offer
+An offer sent to the customer for an opportunity (`offers`, composite FK to
+the opportunity). Minimal by design: `title`, `status` (draft · sent ·
+answered · withdrawn) and one timestamp per state (`sent_at`, `answered_at`,
+`withdrawn_at`, enforced by CHECKs). Sending and answering also write
+`offer_sent` / `offer_answered` activities. An answered offer leaves the
+**Feedback overview** but is never deleted. No document, share link or line
+items yet (see "Future entities").
+
+Feedback overview (Home): offers sent by the as-of moment, not answered or
+withdrawn by then, whose opportunity was not closed by then. Waiting days are
+calendar days in the organization's timezone, counting the sending day as 1D;
+bands 1–4D yellow, 5–9D red, 10D+ black (`offerWaitingDays`, `waitingBand` in
+`@renvara/domain`). A past period is shown as of its last day.
+
+### Reminder and push subscription
+A **reminder** (`reminders`) is a stored request to notify one member
+(`recipient_user_id`) at an exact instant (`remind_at`, with the `time_zone`
+it was chosen in) about exactly one task, lead or opportunity
+(`num_nonnulls(...) = 1`, composite FKs). It is separate from the calendar
+slot and the deadline: setting one changes neither. Lifecycle: pending →
+processing (claimed by the scheduler) → sent, or failed (after up to three
+attempts, with `last_error`), or cancelled (removed by the user, or the record
+was completed, cancelled, converted, won or lost). A **push subscription**
+(`push_subscriptions`) is one device of a member: endpoint (unique) and its
+keys; a user may have several devices; RLS lets a user see only their own.
+
+Saving a reminder is not delivering it: delivery depends on server push
+configuration, a device that allowed notifications, the push service and the
+device's own settings. A failed reminder stays visible on its record as "not
+delivered" until a new one is set.
+
 ## The next-action rule (ADR-0004)
 
 > No active sales opportunity should exist without a known next action.
@@ -188,9 +233,9 @@ resolution (finding "Mark") and the application services.
 |---|---|---|
 | **FollowUp** | **Not a separate entity.** It is a `task` with `type = follow_up`. | A follow-up is something the user must do at a time. A second "future action" table would split the next-action rule in two. |
 | **WaitingItem** | **Model as task state, not an entity.** *Proposal, needs approval:* add a task type `await_response` (or a `waiting_since` column) whose due date is the expected-response date. When it passes, the task is overdue and becomes the follow-up prompt. | Waiting is "the next action is the customer's". Keeping it in tasks keeps one source of truth for next actions and makes "how long have I been waiting" a simple derived value. |
-| **Offer** | **Entity** (`offers`): belongs to an opportunity, has a document in Storage, a public share token, sent_at and status. | It has its own identity, lifecycle and external link. It is not a pricing engine: no line items or calculations. |
+| **Offer** | **Entity** (`offers`): belongs to an opportunity, has a document in Storage, a public share token, sent_at and status. *Implemented minimally:* title, status and its timestamps (see "Offer"); the document and share token are still to come. | It has its own identity, lifecycle and external link. It is not a pricing engine: no line items or calculations. |
 | **OfferView** | **Entity, append-only event** (`offer_views`), written by an Edge Function when the share link is opened. | High-volume telemetry. Engagement scores are derived from it. Significant views can also produce an `offer_viewed` activity on the timeline. |
-| **Notification** | **Entity as a delivery log** (`notifications`). What *should* notify is derived from tasks and events; the table records what was sent, to whom, on which channel and when it was read. | Reminders are derived from task due values, so there is nothing to keep in sync. The log gives idempotency and read state. |
+| **Notification** | **Entity as a delivery log** (`notifications`). What *should* notify is derived from tasks and events; the table records what was sent, to whom, on which channel and when it was read. *Partly implemented:* user-chosen reminders are explicit `reminders` rows (status, attempts, last error), because the user picks their exact time. | Automatic notifications stay derived from tasks and events. The log gives idempotency and read state. |
 | **AIConversation / AIMessage** | **Entities**, user-private by default (RLS on `user_id` as well as organization). | Needed for context, audit and cost tracking. Message content is not CRM data. |
 | **AINote** | **Not an entity.** It is an `activity` (`type = note`, `source = ai_assistant`). | One timeline. Provenance is captured by `source` and the linked conversation ID in `metadata`. |
 | **Plan / Subscription** | **Entities in a billing module**, provider-neutral, with a `provider` and `external_id` per subscription. | Keeps Stripe, Apple and Google behind adapters (ADR-0007). |

@@ -25,6 +25,9 @@ export const emptyData = (): CrmData => ({
   tasks: [],
   activities: [],
   leads: [],
+  offers: [],
+  reminders: [],
+  pushSubscriptions: [],
 });
 
 export function createMemoryRepository(initial: CrmData = emptyData()): CrmRepository {

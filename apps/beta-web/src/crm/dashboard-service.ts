@@ -2,14 +2,22 @@
 // historical dashboard). A period is only a filter over existing records —
 // nothing is reset or archived when a quarter ends.
 //
-// Definitions (records of the caller's organization, period in the org timezone):
-//   novi leadovi   leads created in the period (created_at)
-//   kvalificirani  leads that reached stage qualified in the period (qualified_at)
+// Definitions (records of the caller's organization, period in the org timezone,
+// start inclusive, end exclusive). Each count uses its own event date:
+//   LEADS          leads created in the period (created_at)
+//   PROSPECTS      leads that became prospects (= reached stage qualified) in the period (qualified_at)
+//   WON / LOST     opportunities won / lost in the period (closed_at with status)
+//   WON / LOST RATE  won ÷ (won + lost) / lost ÷ (won + lost); "—" when nothing closed
+//   OPPORTUNITY POTENTIAL  estimated value of opportunities created in the period (EUR)
+//   OPPORTUNITY WON        final value of opportunities won in the period (EUR; won_value, else the estimate)
+//   NEGOTIATIONS   distinct opportunities with a negotiation event in the period: created,
+//                  offer sent, offer answered, or a task of that opportunity completed
+//   BUYERS         distinct customers with a won opportunity in the calendar year of the
+//                  period's end, up to the end of the period (annual, as of)
 //   lead won/lost  leads converted (converted_at) / closed as lost (lost_at) in the period
 //   sastanci       meetings scheduled in the period (not cancelled)
-//   dobivene/izgubljene  opportunities closed won/lost in the period
-//   prihod         value of opportunities won in the period
 //   zadaci         tasks dated in the period (calendar slot or deadline)
+// Money is summed in integer cents; other currencies are counted apart, never converted.
 import { STAGES } from '../../public/app/js/core/constants.js';
 import {
   addDays,
@@ -22,7 +30,7 @@ import {
   shiftQuarter,
   validateRange,
 } from '../../public/app/js/core/period.js';
-import { leadOutcomeMetrics } from '@renvara/domain';
+import { leadOutcomeMetrics, outcomeRates, sumMoney } from '@renvara/domain';
 import {
   DEMO_CURRENT_TO_DATE_PREVIOUS,
   DEMO_QUARTERS,
@@ -30,6 +38,7 @@ import {
   type PeriodMetrics,
 } from './demo-metrics.ts';
 import { CrmValidationError } from './errors.ts';
+import { feedbackItems } from './offer-service.ts';
 import type { CrmRepository } from './repository.ts';
 import { inOrg } from './scope.ts';
 import { effectiveTime, type TaskService, type TaskView } from './task-service.ts';
@@ -117,8 +126,26 @@ export function createDashboardService(
       created.filter((o) => o.status !== 'active' || STAGE_ORDER.indexOf(o.stage) >= stage).length;
     const won = opportunities.filter((o) => o.status === 'won' && inside(o.closedAt));
     const lost = opportunities.filter((o) => o.status === 'lost' && inside(o.closedAt));
+    const wonMoney = sumMoney(
+      won.map((o) => ({ amount: o.wonValue ?? o.value, currency: o.currency })),
+    );
+    const potentialMoney = sumMoney(
+      created.map((o) => ({ amount: o.value, currency: o.currency })),
+    );
+
+    // Negotiations: one count per opportunity, whatever the number of events in the period.
+    const negotiating = new Set<string>(created.map((o) => o.id));
+    for (const offer of inOrg(data.offers ?? [], ctx)) {
+      if (inside(offer.sentAt) || inside(offer.answeredAt)) negotiating.add(offer.opportunityId);
+    }
 
     const allTasks = inOrg(data.tasks, ctx);
+    for (const t of allTasks) {
+      if (t.opportunityId && t.status === 'completed' && inside(t.completedAt)) {
+        negotiating.add(t.opportunityId);
+      }
+    }
+    const opportunityIds = new Set(opportunities.map((o) => o.id));
     const dated = (t: Task) => {
       const at = effectiveTime(t, ctx.timeZone);
       return at === null ? inside(t.completedAt) : at >= from && at < to;
@@ -138,7 +165,11 @@ export function createDashboardService(
       meetings: scheduled.filter((t) => t.type === 'meeting').length,
       won: won.length,
       lost: lost.length,
-      revenue: won.reduce((sum, o) => sum + (o.value ?? 0), 0),
+      revenue: wonMoney.cents,
+      potential: potentialMoney.cents,
+      wonOtherCurrency: wonMoney.excluded,
+      potentialOtherCurrency: potentialMoney.excluded,
+      negotiations: [...negotiating].filter((id) => opportunityIds.has(id)).length,
       tasksDone: periodTasks.filter((t) => t.status === 'completed').length,
       tasksNotDone: periodTasks.filter((t) => t.status !== 'completed').length,
       followUpsDone: followUps.filter((t) => t.status === 'completed').length,
@@ -150,6 +181,27 @@ export function createDashboardService(
       stageNegotiation: reached(3),
     };
     return { metrics, periodTasks, scheduled };
+  }
+
+  /**
+   * BUYERS: distinct customers with at least one won opportunity in the
+   * calendar year of the period's end, counted up to the end of the period
+   * (or now, if earlier). Annual context, whatever quarter is selected.
+   */
+  function buyers(ctx: CrmContext, range: Range) {
+    const year = Number(range.endDate.slice(0, 4));
+    const from = startOfDayInZone(`${year}-01-01`, ctx.timeZone).getTime();
+    const to = Math.min(bounds(ctx, range).to, ctx.now.getTime() + 1);
+    const companies = new Set(
+      inOrg(repo.data().opportunities, ctx)
+        .filter((o) => {
+          if (o.status !== 'won' || !o.closedAt) return false;
+          const at = Date.parse(o.closedAt);
+          return at >= from && at < to;
+        })
+        .map((o) => o.companyId),
+    );
+    return { count: companies.size, year, asOf: new Date(to - 1).toISOString() };
   }
 
   return {
@@ -227,19 +279,48 @@ export function createDashboardService(
         .map(view);
       const realCalendarDone = real.scheduled.filter((t) => t.status === 'completed').length;
 
+      const euros = (key: 'revenue' | 'potential'): Metric => ({
+        value: metrics[key] / 100,
+        previous: previousMetrics[key] / 100,
+      });
+      const annual = buyers(ctx, range);
+      // Feedback as of the end of the period (now for the running one): a past
+      // period is rebuilt from the recorded dates, never from today's waiting state.
+      const asOf = new Date(Math.min(bounds(ctx, range).to - 1, ctx.now.getTime()));
+
       const hasData = Object.values(metrics).some((v) => v > 0);
       return {
         period: { ...period, isCurrent },
         previous: previousRange,
         kpis: {
+          leads: metric('newLeads'),
           newLeads: metric('newLeads'),
           qualified: metric('qualified'),
           meetings: metric('meetings'),
           won: metric('won'),
           lost: metric('lost'),
-          revenue: metric('revenue'),
-          avgWonValue: metrics.won ? Math.round(metrics.revenue / metrics.won) : null,
+          /** WON RATE / LOST RATE: closed opportunities of the period only. */
+          rates: outcomeRates({ won: metrics.won, lost: metrics.lost }),
+          previousRates: outcomeRates({ won: previousMetrics.won, lost: previousMetrics.lost }),
+          potential: euros('potential'),
+          wonValue: euros('revenue'),
+          revenue: euros('revenue'),
+          /** Opportunities in another currency, left out of the EUR amounts. */
+          otherCurrency: {
+            potential: metrics.potentialOtherCurrency,
+            won: metrics.wonOtherCurrency,
+          },
+          avgWonValue: metrics.won ? Math.round(metrics.revenue / 100 / metrics.won) : null,
         },
+        pipelineOverview: {
+          leads: metrics.newLeads,
+          prospects: metrics.qualified,
+          negotiations: metrics.negotiations,
+          buyers: annual.count,
+          buyersYear: annual.year,
+          buyersAsOf: annual.asOf,
+        },
+        feedback: { asOf: asOf.toISOString(), items: feedbackItems(repo.data(), ctx, asOf) },
         tasks: { done: metrics.tasksDone, notDone: metrics.tasksNotDone, items: taskItems },
         calendar: {
           // Demo meetings of past days count as held.

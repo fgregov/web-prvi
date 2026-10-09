@@ -17,6 +17,7 @@ import {
 import { resolveStaticFile, sendFile } from './http/static.ts';
 import { createCrmServices, type CrmServices } from './crm/index.ts';
 import { createMemoryRepository } from './crm/repository.ts';
+import type { PushConfig } from './crm/dispatch.ts';
 import { createCrmRoutes } from './crm/routes.ts';
 import { seedDemoData } from './crm/seed.ts';
 import type { CrmContext } from './crm/types.ts';
@@ -72,6 +73,8 @@ const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
 
 export interface CrmOptions {
   readonly services: CrmServices;
+  /** Push reminders: whether this server can deliver them (VAPID keys set). */
+  readonly push?: PushConfig;
   /** BETA: the single organization of the BETA account. */
   readonly organizationId: string;
   readonly timeZone: string;
@@ -126,7 +129,7 @@ export function createApp(
   const paths = options.paths ?? defaultPaths;
   const logger = options.logger ?? consoleLogger;
   const crm = options.crm ?? inMemoryCrm();
-  const crmRoutes = createCrmRoutes(crm.services);
+  const crmRoutes = createCrmRoutes(crm.services, crm.push ? { push: crm.push } : {});
   const now = crm.now ?? (() => new Date());
   const logoFile = resolve(paths.dashboardDir, 'assets/renvara-logo.png');
 
@@ -298,6 +301,17 @@ export function createApp(
     }
     if (path === '/brand/renvara-logo.png') {
       return sendFile(res, logoFile, { cacheControl: 'public, max-age=3600' });
+    }
+    // Push reminders: the service worker (root scope) and the web app manifest
+    // (iOS delivers web push only to apps added to the Home Screen). No data inside.
+    if (path === '/sw.js') {
+      res.setHeader('Service-Worker-Allowed', '/');
+      return sendFile(res, resolve(paths.appDir, '..', 'sw.js'), { cacheControl: 'no-cache' });
+    }
+    if (path === '/manifest.webmanifest') {
+      return sendFile(res, resolve(paths.appDir, '..', 'manifest.webmanifest'), {
+        cacheControl: 'public, max-age=3600',
+      });
     }
 
     if (path === DASHBOARD_PATH || path.startsWith(`${DASHBOARD_PATH}/`)) {

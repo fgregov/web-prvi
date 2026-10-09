@@ -6,7 +6,14 @@
 import { api, ApiError } from '../core/api.js';
 import { LEAD_SOURCES, LEAD_STAGES } from '../core/constants.js';
 import { hasErrors, MESSAGES, validateLead } from '../core/validation.js';
-import { FormField, SegmentedField, SelectField, TextAreaField } from '../ui/fields.js';
+import { ReminderControl } from '../features/reminders/reminder-control.js';
+import {
+  FormField,
+  SegmentedField,
+  SelectField,
+  SwitchField,
+  TextAreaField,
+} from '../ui/fields.js';
 import { createForm } from '../ui/form.js';
 import { createFormScreen } from '../ui/screen.js';
 import { setFlash } from '../ui/toast.js';
@@ -20,6 +27,7 @@ const screen = createFormScreen({
   onSubmit: save,
 });
 
+const reminder = ReminderControl();
 const form = createForm(
   [
     {
@@ -54,7 +62,19 @@ const form = createForm(
           placeholder: 'npr. 5000',
           hint: 'Neobavezno.',
         }),
-        SegmentedField('stage', 'Status / faza', { options: LEAD_STAGES, value: 'new' }),
+        SegmentedField('stage', 'Status / faza', {
+          options: LEAD_STAGES,
+          value: 'new',
+          onChange: (stage) => form.setValue('prospect', stage === 'qualified'),
+        }),
+        // A Prospect is a qualified lead: one state, shown in both controls.
+        SwitchField('prospect', 'Označi kao Prospect', {
+          hint: 'Lead s potvrđenim poslovnim potencijalom (faza: Kvalificiran).',
+          onChange: (on) => {
+            if (on) form.setValue('stage', 'qualified');
+            else if (form.values().stage === 'qualified') form.setValue('stage', 'new');
+          },
+        }),
         TextAreaField('notes', 'Bilješka', {
           rows: 4,
           maxlength: 5000,
@@ -62,22 +82,25 @@ const form = createForm(
         }),
       ],
     },
+    reminder.section,
   ],
   { single: true },
 );
+reminder.attach(form);
 screen.setContent(form.element, () => form.values());
 form.control('name')?.focus({ preventScroll: true });
 
 async function save() {
   const values = form.values();
   const errors = validateLead(values);
-  if (hasErrors(errors)) {
-    form.setErrors(errors);
+  const push = reminder.read(values);
+  if (hasErrors(errors) || hasErrors(push.errors)) {
+    form.setErrors({ ...errors, ...push.errors });
     return;
   }
   screen.setSaving(true);
   try {
-    const lead = await api.createLead(values);
+    const lead = await api.createLead({ ...values, reminderAt: push.reminderAt });
     screen.allowLeave();
     setFlash('Lead je uspješno kreiran.');
     // replace(): Back from the lead returns to where "Novi lead" was opened, not to this form.

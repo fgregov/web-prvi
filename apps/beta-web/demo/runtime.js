@@ -13,6 +13,7 @@ import { createCrmServices } from '../server/crm/index.js';
 import { emptyData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
 import { DEMO_CONTENT } from '../app/js/core/edition.js';
+import { databaseStore } from './database-store.js';
 import { LOADERS, PAGES, STYLES } from './pages.js';
 
 const ORIGIN = 'https://demo.renvara.app';
@@ -25,7 +26,16 @@ const USER = {
 };
 const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Zagreb';
 const KEYS = { data: 'renvara.demo.crm.v1', auth: 'renvara.demo.auth', nav: 'renvara.demo.nav' };
-const COLLECTIONS = ['customers', 'contacts', 'opportunities', 'tasks', 'activities', 'leads'];
+const COLLECTIONS = [
+  'customers',
+  'contacts',
+  'opportunities',
+  'tasks',
+  'activities',
+  'leads',
+  'offers',
+  'reminders',
+];
 const LATENCY_MS = 140; // makes loading states visible, like a real request
 const SAVE_FAILED = 'Spremanje u testnu bazu nije uspjelo. Pokušajte ponovno.';
 
@@ -97,75 +107,11 @@ function browserStore() {
   };
 }
 
-/** The artifact's test database: one document per record, e.g. customers/<id>. */
-function databaseStore(db) {
-  const saved = new Map(); // "collection/id" → JSON last written
-
-  const records = (data) => {
-    const out = new Map();
-    for (const name of COLLECTIONS) {
-      for (const row of data[name]) out.set(`${name}/${row.id}`, JSON.stringify(row));
-    }
-    return out;
-  };
-
-  async function withRetry(write) {
-    try {
-      return await write();
-    } catch (error) {
-      if (error?.code !== 'unavailable') throw error;
-      await new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 500));
-      return write();
-    }
-  }
-
-  return {
-    kind: 'database',
-    async load() {
-      const data = emptyData();
-      const snapshots = await Promise.all(
-        COLLECTIONS.map((name) => db.collection(name).limit(1000).get()),
-      );
-      snapshots.forEach((snap, i) => {
-        for (const doc of snap.docs) {
-          const row = structuredClone(doc.data());
-          data[COLLECTIONS[i]].push(row);
-          saved.set(`${COLLECTIONS[i]}/${doc.id}`, JSON.stringify(row));
-        }
-      });
-      data.seq = Math.max(0, ...data.activities.map((a) => a.seq ?? 0));
-      return data;
-    },
-    /** Writes only what changed since the last save; a few documents at a time. */
-    async save(data) {
-      const next = records(data);
-      const ops = [];
-      for (const [key, json] of next) if (saved.get(key) !== json) ops.push(['set', key, json]);
-      for (const key of saved.keys()) if (!next.has(key)) ops.push(['delete', key]);
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < ops.length) {
-          const [op, key, json] = ops[cursor++];
-          const ref = db.doc(key);
-          if (op === 'set') {
-            await withRetry(() => ref.set(JSON.parse(json)));
-            saved.set(key, json);
-          } else {
-            await withRetry(() => ref.delete());
-            saved.delete(key);
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(4, ops.length) }, worker));
-    },
-  };
-}
-
 async function openStore() {
   const use = window.claude?.use;
   if (typeof use !== 'function') return browserStore();
   const db = await use.call(window.claude, 'db').catch(() => null);
-  return db ? databaseStore(db) : browserStore();
+  return db ? databaseStore(db, { collections: COLLECTIONS, empty: emptyData }) : browserStore();
 }
 
 // ----------------------------------------------------- server, in page ---
@@ -217,7 +163,9 @@ async function answer(method, path, query, body) {
     return [result.status, result.body];
   }
 
-  // A write is only reported as saved once the store has it; otherwise it is undone.
+  // A write is only reported as saved once the store has it. Otherwise the page
+  // continues from what the store really holds (the test database undoes a
+  // partial save; browser storage simply keeps the state from before).
   const before = JSON.stringify(data);
   const result = api.run(hit, context(), query, body);
   if (result.status < 400) {
@@ -225,7 +173,7 @@ async function answer(method, path, query, body) {
       await store.save(data);
     } catch (error) {
       console.error('Test database write failed', error);
-      data = JSON.parse(before);
+      data = store.current ? store.current() : JSON.parse(before);
       return [503, { success: false, message: SAVE_FAILED }];
     }
   }
@@ -483,6 +431,18 @@ async function start() {
     data = await store.load();
   }
   if (store.kind === 'browser') await store.save(data); // keep the seeded ids stable across reloads
+  // Back from the background: other tabs or devices may have written meanwhile.
+  // Reload what the database holds, between requests (never during a save).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || store.kind !== 'database') return;
+    writes = writes.then(async () => {
+      try {
+        data = await store.load();
+      } catch (error) {
+        console.error('Test database refresh failed', error);
+      }
+    });
+  });
   render();
 }
 

@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#ffffff" />
     <title>Renvara · Početna</title>
     <link rel="icon" href="assets/renvara-logo.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="/app/css/components.css" />
   </head>
@@ -155,7 +156,7 @@
               <span class="module__icon"
                 ><svg class="icon"><use href="#i-calendar" /></svg
               ></span>
-              <h2 class="module__title" id="danas-title">Danas</h2>
+              <h2 class="module__title" id="danas-title">Sales Kalendar</h2>
               <a class="module__link" href="/calendar"
                 >Pogledaj kalendar<svg class="icon"><use href="#i-chevron-right" /></svg
               ></a>
@@ -190,57 +191,11 @@
                 ></span>
                 <h2 class="module__title" id="pipeline-title">Opportunity Pipeline</h2>
                 <a class="module__link" href="/opportunities"
-                  >Svi leadovi<svg class="icon"><use href="#i-chevron-right" /></svg
+                  >Full dashboard<svg class="icon"><use href="#i-chevron-right" /></svg
                 ></a>
               </div>
-              <ul class="pipeline" role="list">
-                <li>
-                  <button class="stage" type="button" style="--fill: 100%; --bar: var(--bar-new)">
-                    <span class="stage__label">Novi</span>
-                    <span class="stage__track"><span class="stage__fill"></span></span>
-                    <span class="stage__count">42</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    class="stage"
-                    type="button"
-                    style="--fill: 67%; --bar: var(--bar-progress)"
-                  >
-                    <span class="stage__label">U obradi</span>
-                    <span class="stage__track"><span class="stage__fill"></span></span>
-                    <span class="stage__count">28</span>
-                  </button>
-                </li>
-                <li>
-                  <button class="stage" type="button" style="--fill: 43%; --bar: var(--bar-offer)">
-                    <span class="stage__label">Ponuda poslana</span>
-                    <span class="stage__track"><span class="stage__fill"></span></span>
-                    <span class="stage__count">18</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    class="stage"
-                    type="button"
-                    style="--fill: 30%; --bar: var(--bar-negotiation)"
-                  >
-                    <span class="stage__label">Pregovori</span>
-                    <span class="stage__track"><span class="stage__fill"></span></span>
-                    <span class="stage__count">11</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    class="stage"
-                    type="button"
-                    style="--fill: 18%; --bar: var(--bar-closing)"
-                  >
-                    <span class="stage__label">Zatvaranje</span>
-                    <span class="stage__track"><span class="stage__fill"></span></span>
-                    <span class="stage__count">6</span>
-                  </button>
-                </li>
+              <ul class="pipeline pipeline--overview" role="list" aria-live="polite">
+                <li class="empty-row">Učitavanje…</li>
               </ul>
             </section>
 
@@ -249,51 +204,13 @@
                 <span class="module__icon"
                   ><svg class="icon"><use href="#i-clock" /></svg
                 ></span>
-                <h2 class="module__title" id="odgovor-title">Čekaš odgovor</h2>
+                <h2 class="module__title" id="odgovor-title">Feedback overview</h2>
                 <a class="module__link" href="/customers"
                   >Svi<svg class="icon"><use href="#i-chevron-right" /></svg
                 ></a>
               </div>
-              <ul class="list" role="list">
-                <li>
-                  <button class="waiting" type="button">
-                    <span class="waiting__icon"
-                      ><svg class="icon"><use href="#i-building" /></svg
-                    ></span>
-                    <span class="waiting__text">
-                      <span class="waiting__name">Adria Tech</span>
-                      <span class="waiting__sub">Poslana ponuda</span>
-                    </span>
-                    <span class="waiting__days">2 dana</span>
-                    <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-                  </button>
-                </li>
-                <li>
-                  <button class="waiting" type="button">
-                    <span class="waiting__icon"
-                      ><svg class="icon"><use href="#i-building" /></svg
-                    ></span>
-                    <span class="waiting__text">
-                      <span class="waiting__name">Nova d.o.o.</span>
-                      <span class="waiting__sub">Praćenje nakon sastanka</span>
-                    </span>
-                    <span class="waiting__days">3 dana</span>
-                    <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-                  </button>
-                </li>
-                <li>
-                  <button class="waiting" type="button">
-                    <span class="waiting__icon"
-                      ><svg class="icon"><use href="#i-building" /></svg
-                    ></span>
-                    <span class="waiting__text">
-                      <span class="waiting__name">Initium</span>
-                      <span class="waiting__sub">Čeka povratnu informaciju</span>
-                    </span>
-                    <span class="waiting__days">5 dana</span>
-                    <svg class="icon chevron"><use href="#i-chevron-right" /></svg>
-                  </button>
-                </li>
+              <ul class="list" role="list" aria-live="polite">
+                <li class="empty-row">Učitavanje…</li>
               </ul>
             </section>
           </div>
