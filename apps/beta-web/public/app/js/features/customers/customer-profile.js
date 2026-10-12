@@ -1,4 +1,4 @@
-// CustomerProfile: composes the header, section navigation and all sections.
+// CustomerProfile: composes the header card, PREGLED and the four accordion sections.
 // Creating meetings, opportunities, tasks and contacts opens their dedicated
 // screens with this customer preselected; they return here after saving.
 import { api, ApiError } from '../../core/api.js';
@@ -92,32 +92,24 @@ export function customerActions(profile, reload) {
   };
 }
 
-export function customerProfile(profile, actions) {
-  const open = profile.tasks.filter((t) => t.status === 'open').length;
-  const nav = [
-    ['pregled', 'Pregled'],
-    ['prilike', `Prilike (${profile.opportunities.length})`],
-    ['aktivnosti', `Aktivnosti (${profile.activities.length})`],
-    ['zadaci', `Zadaci (${open})`],
-    ['kontakti', `Kontakti (${profile.contacts.length})`],
-  ];
+/**
+ * Header card, PREGLED, then PRILIKE, AKTIVNOSTI, ZADACI and KONTAKTI as
+ * accordions. `openSections` is the page's set of open accordions (empty on a
+ * new visit), kept by the page so a refresh after an action keeps them open.
+ */
+export function customerProfile(profile, actions, openSections = new Set()) {
   return h(
     'div',
     { class: 'rv-profile' },
     customerHeader(profile, actions),
-    h(
-      'nav',
-      { class: 'rv-section-nav', 'aria-label': 'Sekcije kupca' },
-      nav.map(([id, label]) => h('a', { href: `#${id}` }, label)),
-    ),
+    customerOverview(profile, actions),
     h(
       'div',
-      { class: 'rv-profile-grid' },
-      h('div', { class: 'rv-profile-grid__overview' }, customerOverview(profile, actions)),
-      h('div', { class: 'rv-profile-grid__opps' }, customerOpportunities(profile, actions)),
-      h('div', { class: 'rv-profile-grid__activities' }, customerActivities(profile)),
-      h('div', { class: 'rv-profile-grid__tasks' }, customerTasks(profile, actions)),
-      h('div', { class: 'rv-profile-grid__contacts' }, customerContacts(profile, actions.contact)),
+      { class: 'rv-profile-sections' },
+      customerOpportunities(profile, actions, openSections),
+      customerActivities(profile, openSections),
+      customerTasks(profile, actions, openSections),
+      customerContacts(profile, openSections),
     ),
   );
 }

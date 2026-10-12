@@ -193,6 +193,18 @@ its customer's opportunity card (`/customers/{id}?offer={offerId}#prilike`,
 the offer marked), as offers have no page of their own. The task module on
 Home is **PRIORITETNI ZADACI**, its link "Pogledaj sve zadatke" (→ `/tasks`).
 
+### Customer Detail
+
+The header card (identity and all customer actions: Zakaži sastanak, Kreiraj
+priliku, Novi zadatak, Dodaj bilješku, Dodaj kontakt, Pošalji e-mail, Uredi
+kupca, Deaktiviraj kupca), then **PREGLED**, then **PRILIKE**, **AKTIVNOSTI**,
+**ZADACI** and **KONTAKTI** as accordions: closed on every visit, the whole
+header (icon, title, number of records, chevron) opens and closes one, several
+can be open at once, and they stay open while the profile refreshes after an
+action. A link to a section (`#prilike`, `#kontakti` …, or an offer from
+Feedback overview) opens that one. The sections have no create buttons of
+their own; creating stays in the header card.
+
 ### Customer activation
 
 On Customer Detail, **Deaktiviraj kupca** (after the confirmation "Deaktivirati

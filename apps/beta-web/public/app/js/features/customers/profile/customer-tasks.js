@@ -1,10 +1,11 @@
-// Zadaci: the customer's open and completed tasks, completed in place.
+// Zadaci: the customer's open and completed tasks (the count is all of them),
+// completed in place.
 import { taskRow } from '../../tasks/task-row.js';
 import { h } from '../../../ui/dom.js';
-import { emptyState, profileSection } from './section.js';
+import { accordionSection, emptyState } from './section.js';
 
-export function customerTasks(profile, actions) {
-  const open = profile.tasks.filter((t) => t.status === 'open');
+export function customerTasks(profile, actions, open) {
+  const pending = profile.tasks.filter((t) => t.status === 'open');
   const done = profile.tasks.filter((t) => t.status === 'completed');
   const row = (task) =>
     taskRow(task, {
@@ -13,17 +14,17 @@ export function customerTasks(profile, actions) {
       withCustomer: false,
     });
 
-  return profileSection({
+  return accordionSection({
     id: 'zadaci',
     title: 'Zadaci',
     iconName: 'check-square',
-    count: open.length,
-    action: { label: 'Novi zadatak', onClick: actions.task },
+    count: profile.tasks.length,
+    open,
     children: profile.tasks.length
       ? [
-          h('h3', { class: 'rv-subtitle' }, `Otvoreni (${open.length})`),
-          open.length
-            ? h('ul', { class: 'rv-tasks', role: 'list' }, open.map(row))
+          h('h3', { class: 'rv-subtitle' }, `Otvoreni (${pending.length})`),
+          pending.length
+            ? h('ul', { class: 'rv-tasks', role: 'list' }, pending.map(row))
             : h('p', { class: 'rv-muted' }, 'Nema otvorenih zadataka.'),
           done.length
             ? [
@@ -32,6 +33,6 @@ export function customerTasks(profile, actions) {
               ]
             : null,
         ]
-      : emptyState('Nema zadataka.', { label: 'Novi zadatak', onClick: actions.task }),
+      : emptyState('Nema evidentiranih zadataka.'),
   });
 }

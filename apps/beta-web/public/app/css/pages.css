@@ -297,70 +297,14 @@ a {
   justify-content: flex-end;
 }
 
-.rv-section-nav {
-  position: sticky;
-  top: 61px;
-  z-index: 10;
+/* PRILIKE, AKTIVNOSTI, ZADACI, KONTAKTI under PREGLED: accordions, one column. */
+.rv-profile-sections {
   display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  padding: 6px;
-  border: 1px solid var(--rv-border);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.96);
-  scrollbar-width: none;
-}
-
-.rv-section-nav a {
-  flex: 0 0 auto;
-  padding: 8px 14px;
-  border-radius: 10px;
-  color: var(--rv-text-2);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.rv-section-nav a:hover {
-  background: var(--rv-surface-muted);
-}
-
-.rv-profile-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-  grid-template-areas:
-    'opps overview'
-    'activities overview'
-    'activities tasks'
-    'activities contacts';
-  grid-template-rows: auto auto auto 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.rv-profile-grid__overview {
-  grid-area: overview;
-}
-.rv-profile-grid__opps {
-  grid-area: opps;
-}
-.rv-profile-grid__activities {
-  grid-area: activities;
-}
-.rv-profile-grid__tasks {
-  grid-area: tasks;
-}
-.rv-profile-grid__contacts {
-  grid-area: contacts;
+  flex-direction: column;
+  gap: 12px;
 }
 
 @media (max-width: 960px) {
-  .rv-profile-grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'overview' 'opps' 'activities' 'tasks' 'contacts';
-    grid-template-rows: none;
-  }
-
   .rv-profile-actions {
     align-items: stretch;
     width: 100%;
@@ -418,6 +362,99 @@ a {
   font-size: 12px;
   font-weight: 700;
   text-align: center;
+}
+
+/* Accordion section: the whole header is the toggle; closed = only the header. */
+.rv-accordion {
+  scroll-margin-top: 120px;
+  overflow: hidden;
+}
+
+.rv-accordion__heading {
+  margin: 0;
+}
+
+.rv-accordion__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px 12px 20px;
+  border: 0;
+  background: none;
+  color: var(--rv-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rv-accordion__toggle:hover {
+  background: var(--rv-surface-muted);
+}
+
+.rv-accordion__toggle:focus-visible {
+  outline: 2px solid var(--rv-red);
+  outline-offset: -2px;
+  border-radius: var(--rv-radius);
+}
+
+.rv-accordion__toggle .rv-section__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rv-accordion__chevron {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border-radius: 10px;
+  background: var(--rv-surface-muted);
+  color: var(--rv-red);
+}
+
+.rv-accordion__chevron .rv-icon {
+  stroke-width: 2.4;
+  transition: transform 0.24s ease;
+}
+
+.rv-accordion.is-open .rv-accordion__chevron .rv-icon {
+  transform: rotate(180deg); /* chevron up */
+}
+
+/* Height animation without measuring: 0fr → 1fr. */
+.rv-accordion__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s ease;
+}
+
+.rv-accordion.is-open .rv-accordion__panel {
+  grid-template-rows: 1fr;
+}
+
+.rv-accordion__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rv-accordion__content {
+  padding: 4px 20px 20px;
+}
+
+.rv-accordion__content > .rv-empty {
+  padding: 8px 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-accordion__panel,
+  .rv-accordion__chevron .rv-icon {
+    transition: none;
+  }
 }
 
 .rv-section__summary {
@@ -1029,10 +1066,6 @@ a.rv-agenda__row:hover {
 
   .rv-page {
     padding: 16px 16px 48px;
-  }
-
-  .rv-section-nav {
-    top: 108px;
   }
 
   .rv-profile-header__name {

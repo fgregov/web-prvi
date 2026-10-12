@@ -6,7 +6,7 @@ import { h } from '../../../ui/dom.js';
 import { icon } from '../../../ui/icons.js';
 import { activeReminder, reminderLabel } from '../../reminders/reminder-control.js';
 import { taskMeta } from '../../tasks/task-row.js';
-import { emptyState, profileSection } from './section.js';
+import { accordionSection, emptyState } from './section.js';
 
 /** "Sljedeća akcija: …" or the missing-next-action warning with "Dodaj zadatak". */
 export function nextActionLine(o, addTaskHref) {
@@ -74,15 +74,15 @@ function offerRow(offer, deal) {
   );
 }
 
-export function customerOpportunities(profile, actions) {
+export function customerOpportunities(profile, actions, open) {
   const active = profile.opportunities.filter((o) => o.status === 'active');
   const total = active.reduce((sum, o) => sum + (o.value ?? 0), 0);
-  return profileSection({
+  return accordionSection({
     id: 'prilike',
     title: 'Prilike',
     iconName: 'target',
     count: profile.opportunities.length,
-    action: { label: 'Kreiraj priliku', onClick: actions.opportunity },
+    open,
     children: profile.opportunities.length
       ? [
           h(
@@ -189,9 +189,6 @@ export function customerOpportunities(profile, actions) {
             ),
           ),
         ]
-      : emptyState('Još nema prilika za ovog kupca.', {
-          label: 'Kreiraj priliku',
-          onClick: actions.opportunity,
-        }),
+      : emptyState('Nema evidentiranih prilika.'),
   });
 }

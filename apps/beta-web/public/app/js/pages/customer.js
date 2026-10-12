@@ -8,6 +8,14 @@ import { consumeFlash } from '../ui/toast.js';
 const customerId = decodeURIComponent(window.location.pathname.split('/')[2] ?? '');
 const root = document.getElementById('app');
 
+/** ?offer={id} (from Feedback overview): the offer row to mark and show. */
+const focusOffer = new URLSearchParams(window.location.search).get('offer');
+// Accordions: all closed on a new visit, except the one a link points at
+// (#prilike, #zadaci …, or an offer); kept while the page stays open.
+const SECTIONS = ['prilike', 'aktivnosti', 'zadaci', 'kontakti'];
+const linked = focusOffer ? 'prilike' : window.location.hash.slice(1);
+const openSections = new Set(SECTIONS.includes(linked) ? [linked] : []);
+
 renderShell('customers');
 
 async function load() {
@@ -29,12 +37,10 @@ async function load() {
   }
   document.title = `Renvara · ${profile.companyName}`;
   const scroll = window.scrollY;
-  root.replaceChildren(customerProfile(profile, customerActions(profile, load)));
+  root.replaceChildren(customerProfile(profile, customerActions(profile, load), openSections));
   window.scrollTo({ top: scroll });
 }
 
-/** ?offer={id} (from Feedback overview): the offer row to mark and show. */
-const focusOffer = new URLSearchParams(window.location.search).get('offer');
 function markOffer() {
   if (!focusOffer) return null;
   const row = [...document.querySelectorAll('.rv-offer[data-offer-id]')].find(
