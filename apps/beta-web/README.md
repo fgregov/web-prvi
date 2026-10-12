@@ -205,6 +205,13 @@ refreshes after an action. A link to a section (`#pregled`, `#prilike`,
 `#kontakti` …, or an offer from Feedback overview) opens that one. The sections have no create buttons of
 their own; creating stays in the header card.
 
+**Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE, BEZ DATUMA and
+DOVRŠENO are accordions with their number of tasks, closed on every visit and
+open while the page stays open. "Novi zadatak" stays at the top of the page.
+On both pages, coming Back (e.g. from a task) shows the sections that were
+open; the open sections are kept in that history entry (`ui/accordion.js`), so
+a new visit never inherits them.
+
 ### Customer activation
 
 On Customer Detail, **Deaktiviraj kupca** (after the confirmation "Deaktivirati
@@ -287,7 +294,7 @@ Renvara, Focus) decide how they are shown.
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
 | `/contacts/new`                                   | New contact (customer required)                        |
 | `/opportunities`, `/opportunities/new`            | Pipeline with next actions, New opportunity            |
-| `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO        |
+| `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO (accordions) |
 | `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
 | `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |

@@ -1,6 +1,8 @@
-// /tasks · Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO. Completed tasks stay as history.
+// /tasks · Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO as accordions (the
+// Customer Detail principle). Completed tasks stay as history.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { taskRow } from '../features/tasks/task-row.js';
+import { accordionSection, openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { renderShell } from '../ui/shell.js';
@@ -10,11 +12,18 @@ renderShell('tasks');
 const root = document.getElementById('app');
 
 const SECTIONS = [
-  ['today', 'Danas', 'Nema zadataka za danas.'],
-  ['upcoming', 'Nadolazeće', 'Nema nadolazećih zadataka.'],
-  ['unscheduled', 'Bez datuma', 'Svi zadaci imaju datum.'],
-  ['completed', 'Dovršeno', 'Još nema dovršenih zadataka.'],
+  ['today', 'Danas', 'calendar', 'Nema zadataka za danas.'],
+  ['upcoming', 'Nadolazeće', 'clock', 'Nema nadolazećih zadataka.'],
+  ['unscheduled', 'Bez datuma', 'check-square', 'Svi zadaci imaju datum.'],
+  ['completed', 'Dovršeno', 'check', 'Još nema dovršenih zadataka.'],
 ];
+// Accordions: all closed on a new visit (except the one a link points at,
+// #zadaci-today …); as they were when coming Back, e.g. from a task; kept while
+// the page stays open, also when it refreshes after completing a task.
+const openSections = openSectionsState(
+  SECTIONS.map(([key]) => `zadaci-${key}`),
+  window.location.hash.slice(1),
+);
 
 async function toggle(task) {
   try {
@@ -50,23 +59,26 @@ function render(sections) {
         'Novi zadatak',
       ),
     ),
-    ...SECTIONS.map(([key, title, empty]) =>
-      h(
-        'section',
-        { class: 'rv-card rv-task-group', 'aria-labelledby': `group-${key}`, id: `zadaci-${key}` },
-        h(
-          'h2',
-          { class: 'rv-task-group__title', id: `group-${key}` },
+    h(
+      'div',
+      { class: 'rv-accordion-list' },
+      SECTIONS.map(([key, title, iconName, empty]) =>
+        accordionSection({
+          id: `zadaci-${key}`,
           title,
-          h('span', { class: 'rv-section__count' }, String(sections[key].length)),
-        ),
-        sections[key].length
-          ? h(
-              'ul',
-              { class: 'rv-tasks', role: 'list' },
-              sections[key].map((task) => taskRow(task, { onToggle: toggle, returnTo: '/tasks' })),
-            )
-          : h('p', { class: 'rv-muted rv-task-group__empty' }, empty),
+          iconName,
+          count: sections[key].length,
+          open: openSections,
+          children: sections[key].length
+            ? h(
+                'ul',
+                { class: 'rv-tasks', role: 'list' },
+                sections[key].map((task) =>
+                  taskRow(task, { onToggle: toggle, returnTo: '/tasks' }),
+                ),
+              )
+            : h('p', { class: 'rv-muted rv-task-group__empty' }, empty),
+        }),
       ),
     ),
   );
@@ -84,4 +96,7 @@ async function load() {
 
 onDataChanged(load);
 await load();
+if (window.location.hash && openSections.size) {
+  document.getElementById(openSections.first())?.scrollIntoView();
+}
 consumeFlash();

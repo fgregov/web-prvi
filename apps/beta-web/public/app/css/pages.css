@@ -297,8 +297,8 @@ a {
   justify-content: flex-end;
 }
 
-/* PREGLED, PRILIKE, AKTIVNOSTI, ZADACI, KONTAKTI: accordions, one column. */
-.rv-profile-sections {
+/* Accordion sections, one column (Customer Detail, Zadaci). */
+.rv-accordion-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1124,22 +1124,6 @@ a.rv-agenda__row:hover {
 .rv-task__check:disabled {
   opacity: 0.4;
   cursor: default;
-}
-
-.rv-task-group {
-  margin-bottom: 14px;
-  padding: 16px 16px 8px;
-}
-
-.rv-task-group__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .rv-task-group__empty {

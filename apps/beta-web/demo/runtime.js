@@ -270,11 +270,11 @@ const PATTERNS = [
   [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert'],
 ];
 
-let nav = { stack: ['/login'], index: 0 };
+let nav = { stack: ['/login'], states: [null], index: 0 };
 try {
   const saved = JSON.parse(session.get(KEYS.nav) ?? 'null');
   if (Array.isArray(saved?.stack) && saved.stack.length && Number.isInteger(saved.index))
-    nav = saved;
+    nav = { ...saved, states: Array.isArray(saved.states) ? saved.states : [] };
 } catch {
   /* start at the login */
 }
@@ -294,10 +294,14 @@ const scheduleRender = () => {
 };
 function navigate(url, mode) {
   const next = normalize(url);
-  if (mode === 'replace') nav.stack[nav.index] = next;
-  else {
+  if (mode === 'replace') {
+    nav.stack[nav.index] = next;
+    nav.states[nav.index] = null; // a new page in this entry: its own state
+  } else {
     nav.stack = nav.stack.slice(0, nav.index + 1);
+    nav.states = nav.states.slice(0, nav.index + 1);
     nav.stack.push(next);
+    nav.states[nav.index + 1] = null;
     nav.index += 1;
   }
   remember();
@@ -336,11 +340,14 @@ globalThis.__rv = {
       remember();
       scheduleRender();
     },
-    replaceState(_state, _title, url) {
-      if (url) {
-        nav.stack[nav.index] = normalize(url);
-        remember();
-      }
+    /** Per-entry state, like the browser's (e.g. which accordions are open). */
+    get state() {
+      return nav.states[nav.index] ?? null;
+    },
+    replaceState(state, _title, url) {
+      nav.states[nav.index] = state === undefined ? null : JSON.parse(JSON.stringify(state));
+      if (url) nav.stack[nav.index] = normalize(url);
+      remember();
     },
   },
   get referrer() {

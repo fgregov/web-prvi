@@ -104,7 +104,7 @@ export function customerProfile(profile, actions, openSections = new Set()) {
     customerHeader(profile, actions),
     h(
       'div',
-      { class: 'rv-profile-sections' },
+      { class: 'rv-accordion-list' },
       customerOverview(profile, actions, openSections),
       customerOpportunities(profile, actions, openSections),
       customerActivities(profile, openSections),

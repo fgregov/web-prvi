@@ -1,6 +1,7 @@
 // /customers/{id} · Customer Detail View
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { customerActions, customerProfile } from '../features/customers/customer-profile.js';
+import { openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
 import { renderShell } from '../ui/shell.js';
 import { consumeFlash } from '../ui/toast.js';
@@ -10,11 +11,13 @@ const root = document.getElementById('app');
 
 /** ?offer={id} (from Feedback overview): the offer row to mark and show. */
 const focusOffer = new URLSearchParams(window.location.search).get('offer');
-// Accordions: all closed on a new visit, except the one a link points at
-// (#prilike, #zadaci …, or an offer); kept while the page stays open.
-const SECTIONS = ['pregled', 'prilike', 'aktivnosti', 'zadaci', 'kontakti'];
-const linked = focusOffer ? 'prilike' : window.location.hash.slice(1);
-const openSections = new Set(SECTIONS.includes(linked) ? [linked] : []);
+// Accordions: all closed on a new visit (except the one a link points at:
+// #prilike, #zadaci …, or an offer); as they were when coming Back; kept while
+// the page stays open.
+const openSections = openSectionsState(
+  ['pregled', 'prilike', 'aktivnosti', 'zadaci', 'kontakti'],
+  focusOffer ? 'prilike' : window.location.hash.slice(1),
+);
 
 renderShell('customers');
 
