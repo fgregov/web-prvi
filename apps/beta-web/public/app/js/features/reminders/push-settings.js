@@ -22,6 +22,9 @@ const DEVICE_TEXT = {
 const HOME_SCREEN_HINT =
   'Na iPhoneu: u Safariju dodirnite Dijeli → Dodaj na početni zaslon, otvorite Renvaru s ikone na početnom zaslonu i ovdje uključite obavijesti.';
 
+const DEMO_NOTE =
+  'Ovo je demo bez poslužitelja: podsjetnike možete postavljati i vide se na zapisima, ali obavijesti ne stižu na uređaj. Za prave obavijesti Renvara mora raditi na vlastitom poslužitelju.';
+
 const devicesText = (n) => `${n} ${n === 1 ? 'uređaj' : 'uređaja'}`;
 
 function testMessage(result) {
@@ -88,6 +91,15 @@ export function openPushSettings() {
 
   async function refresh() {
     const status = await preloadPushStatus({ fresh: true }); // device count changes here
+    if (status?.demo) {
+      server.textContent = 'Demo: obavijesti se ne šalju';
+      device.textContent = 'Nije dostupno u demou';
+      hint.textContent = DEMO_NOTE;
+      hint.hidden = false;
+      enable.hidden = true;
+      test.hidden = true;
+      return;
+    }
     const state = await deviceState();
     const configured = Boolean(status?.configured);
     server.textContent = !status

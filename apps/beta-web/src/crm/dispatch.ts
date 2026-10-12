@@ -37,6 +37,8 @@ export interface Route {
 export interface PushConfig {
   readonly configured: boolean;
   readonly publicKey: string | null;
+  /** The in-browser demo: no server, so nothing is ever delivered. */
+  readonly demo?: boolean;
 }
 
 export function createCrmApi(
@@ -335,6 +337,7 @@ export function createCrmApi(
           configured: push.configured,
           publicKey: push.configured ? push.publicKey : null,
           devices: crm.pushSubscriptions.devices(ctx),
+          ...(push.demo ? { demo: true } : {}),
         }),
     },
     {

@@ -32,6 +32,7 @@ export function preloadPushStatus({ fresh = false } = {}) {
 export const PUSH_UNAVAILABLE = {
   server:
     'Slanje push obavijesti ovdje nije uključeno: podsjetnik se sprema, ali neće stići na uređaj.',
+  demo: 'U demou se obavijesti ne šalju: podsjetnik se sprema, ali neće stići na uređaj.',
   unsupported:
     'Ovaj preglednik ne prima push obavijesti (na iPhoneu najprije dodajte Renvaru na početni zaslon).',
   denied:
@@ -51,6 +52,8 @@ const keyBytes = (base64url) => {
  * @returns {Promise<{ ok: true } | { ok: false, reason: keyof typeof PUSH_UNAVAILABLE }>}
  */
 export async function enablePush() {
+  // The demo never delivers, whatever this browser supports.
+  if (known?.demo) return { ok: false, reason: 'demo' };
   if (!supported()) return { ok: false, reason: 'unsupported' };
   // Never ask for a permission the server could not use.
   if (known && (!known.configured || !known.publicKey)) return { ok: false, reason: 'server' };
@@ -61,6 +64,7 @@ export async function enablePush() {
       : Promise.resolve(Notification.permission);
   const status = known ?? (await preloadPushStatus());
   if (!status) return { ok: false, reason: 'server' };
+  if (status.demo) return { ok: false, reason: 'demo' };
   if (!status.configured || !status.publicKey) return { ok: false, reason: 'server' };
   const permission = await asked;
   if (permission !== 'granted') return { ok: false, reason: 'denied' };

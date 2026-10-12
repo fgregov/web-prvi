@@ -134,7 +134,10 @@ const repo = {
     }
   },
 };
-const api = createCrmApi(createCrmServices(repo));
+// No server behind the demo: reminders are saved, push is never delivered (and says so).
+const api = createCrmApi(createCrmServices(repo), {
+  push: { configured: false, publicKey: null, demo: true },
+});
 
 async function answer(method, path, query, body) {
   if (path === '/api/auth/session') {

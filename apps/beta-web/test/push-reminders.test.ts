@@ -501,6 +501,17 @@ describe('Reminder API', () => {
     });
     expect(ok.body).toMatchObject({ devices: 1 });
     expect(call('GET', '/api/push/status', {}, ctx('org-b')).body.devices).toBe(0);
+    expect(call('GET', '/api/push/status').body).not.toHaveProperty('demo');
+    // The in-browser demo says plainly that nothing is delivered.
+    const demo = createCrmApi(createCrmServices(createMemoryRepository(emptyData())), {
+      push: { configured: false, publicKey: null, demo: true },
+    });
+    const hit = demo.match('GET', '/api/push/status');
+    if (hit.kind !== 'ok') throw new Error('route');
+    expect(demo.run(hit, ctx(), new URLSearchParams(), {}).body).toMatchObject({
+      configured: false,
+      demo: true,
+    });
   });
 });
 
