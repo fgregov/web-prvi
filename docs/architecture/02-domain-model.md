@@ -74,6 +74,15 @@ inactive_customer) describes the **relationship** and is independent from any
 deal. A company can have many opportunities over time. `archived_at` hides it
 from working lists without losing history.
 
+**Activation** is separate (migration 0008): `is_active` (default true), with
+`deactivated_at` / `deactivated_by` set by the database when it turns false
+and cleared when it turns true again. Deactivating changes the company row only
+(the same row comes back on reactivation); its contacts, opportunities, offers,
+tasks, reminders and activities stay, and each change is logged as a system
+`status_change` activity. The legacy value `inactive_customer` was mapped to
+`is_active = false` once; activation itself no longer lives in
+`customer_status`. Archiving remains the user-facing delete.
+
 ### Contact
 A person. `company_id` is nullable, so a person can be captured before their
 company is known, which voice capture will need. At most one non-archived
@@ -171,6 +180,12 @@ withdrawn by then, whose opportunity was not closed by then. Waiting days are
 calendar days in the organization's timezone, counting the sending day as 1D;
 bands 1–4D yellow, 5–9D red, 10D+ black (`offerWaitingDays`, `waitingBand` in
 `@renvara/domain`). A past period is shown as of its last day.
+
+FEEDBACK OVERVIEW / PONUDE (`/feedback-overview`): the offers **created** in
+the period, each with its standing as of the period's end (waiting, draft —
+not yet sent then —, answered, withdrawn, or closed with its deal) and, only
+while waiting, the days since it was sent. Viewing an offer is not an answer;
+only a recorded answer is.
 
 ### Reminder and push subscription
 A **reminder** (`reminders`) is a stored request to notify one member

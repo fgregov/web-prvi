@@ -15,7 +15,7 @@
     }, 1800);
   }
 
-  // Quick Add, "Sales Kalendar", "Prioriteti", the pipeline and "Feedback overview"
+  // Quick Add, "Sales Kalendar", "Prioritetni zadaci", the pipeline and "Feedback overview"
   // are rendered from live data by
   // /app/js/pages/dashboard.js (served by apps/beta-web).
 

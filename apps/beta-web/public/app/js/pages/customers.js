@@ -1,9 +1,12 @@
-// /customers · customer list with search (name or OIB)
+// /customers · customer list: Aktivni | Neaktivni | Svi (default Aktivni) and
+// search by name or OIB within that filter. The filter is kept in the URL
+// (?status=), so Back from a customer returns to the same list.
 import { api, onDataChanged } from '../core/api.js';
 import { CUSTOMER_STATUSES, labelOf } from '../core/constants.js';
 import { DEMO_CONTENT } from '../core/edition.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
+import { withParams } from '../ui/navigation.js';
 import { renderShell } from '../ui/shell.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
@@ -11,6 +14,14 @@ renderShell('customers');
 const root = document.getElementById('app');
 let confirmReset = false;
 let query = '';
+
+const FILTERS = [
+  { value: 'active', label: 'Aktivni' },
+  { value: 'inactive', label: 'Neaktivni' },
+  { value: 'all', label: 'Svi' },
+];
+const requested = new URLSearchParams(window.location.search).get('status');
+let status = FILTERS.some((f) => f.value === requested) ? requested : 'active';
 
 const newCustomerLink = () =>
   h(
@@ -35,6 +46,33 @@ search.addEventListener('input', () => {
     load();
   }, 180);
 });
+
+const filters = h(
+  'div',
+  { class: 'rv-segmented rv-customer-filter', role: 'radiogroup', 'aria-label': 'Prikaži kupce' },
+  FILTERS.map((option) =>
+    h(
+      'label',
+      { class: 'rv-segmented__option' },
+      h('input', {
+        type: 'radio',
+        name: 'customer-status',
+        value: option.value,
+        checked: option.value === status,
+        onChange: () => {
+          status = option.value;
+          window.history.replaceState(
+            null,
+            '',
+            withParams('/customers', { status: status === 'active' ? '' : status }),
+          );
+          load();
+        },
+      }),
+      h('span', {}, option.label),
+    ),
+  ),
+);
 
 const list = h('div');
 const count = h('p', { class: 'rv-muted' });
@@ -69,13 +107,33 @@ root.replaceChildren(
       newCustomerLink(),
     ),
   ),
+  filters,
   search,
   list,
 );
 
+const EMPTY = {
+  active: 'Nema aktivnih kupaca.',
+  inactive: 'Nema neaktivnih kupaca.',
+  all: 'Još nema kupaca.',
+};
+const SEARCH_EMPTY = {
+  active: 'Nema aktivnih kupaca za ovu pretragu.',
+  inactive: 'Nema neaktivnih kupaca za ovu pretragu.',
+  all: 'Nema kupaca za ovu pretragu.',
+};
+const COUNT = {
+  active: (n) => `Aktivni: ${n}`,
+  inactive: (n) => `Neaktivni: ${n}`,
+  all: (n) => `${n} u CRM-u`,
+};
+
+let ticket = 0;
 async function load() {
-  const customers = await api.searchCustomers(query);
-  count.textContent = query ? `${customers.length} rezultata` : `${customers.length} u CRM-u`;
+  const mine = ++ticket;
+  const customers = await api.searchCustomers(query, status);
+  if (mine !== ticket) return; // a newer filter or search is already loading
+  count.textContent = query ? `${customers.length} rezultata` : COUNT[status](customers.length);
   list.replaceChildren(
     customers.length
       ? h(
@@ -112,8 +170,8 @@ async function load() {
       : h(
           'div',
           { class: 'rv-card rv-empty rv-empty--page' },
-          h('p', {}, query ? 'Nema kupaca za ovu pretragu.' : 'Još nema kupaca.'),
-          query ? null : newCustomerLink(),
+          h('p', {}, query ? SEARCH_EMPTY[status] : EMPTY[status]),
+          query || status === 'inactive' ? null : newCustomerLink(),
         ),
   );
 }

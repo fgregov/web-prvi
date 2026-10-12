@@ -136,8 +136,11 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           customer_status: Database['public']['Enums']['customer_status'];
+          deactivated_at: string | null;
+          deactivated_by: string | null;
           email: string | null;
           id: string;
+          is_active: boolean;
           legal_name: string | null;
           name: string;
           notes: string | null;
@@ -158,8 +161,11 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           customer_status?: Database['public']['Enums']['customer_status'];
+          deactivated_at?: string | null;
+          deactivated_by?: string | null;
           email?: string | null;
           id?: string;
+          is_active?: boolean;
           legal_name?: string | null;
           name: string;
           notes?: string | null;
@@ -180,8 +186,11 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           customer_status?: Database['public']['Enums']['customer_status'];
+          deactivated_at?: string | null;
+          deactivated_by?: string | null;
           email?: string | null;
           id?: string;
+          is_active?: boolean;
           legal_name?: string | null;
           name?: string;
           notes?: string | null;
@@ -198,6 +207,13 @@ export type Database = {
           {
             foreignKeyName: 'companies_created_by_fkey';
             columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'companies_deactivated_by_fkey';
+            columns: ['deactivated_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];

@@ -138,8 +138,12 @@ export function seedDemoData(ctx: CrmContext): CrmData {
   );
 
   // Offers waiting for the customer (FEEDBACK OVERVIEW): 1D yellow, 5D red, 12D black.
+  // Each is recorded on the day it was sent (its created date in FEEDBACK OVERVIEW / PONUDE).
   const offer = (opportunityId: string, title: string, sentDaysAgo: number) =>
-    crm.offers.recordSent(ctx, { opportunityId, title, sentDate: addDays(today, -sentDaysAgo) });
+    crm.offers.recordSent(sentDaysAgo ? then(addDays(today, -sentDaysAgo)) : ctx, {
+      opportunityId,
+      title,
+    });
   offer(adriaDeal.id, 'CRM licence – ponuda', 0);
   offer(feroDeal.id, 'Oprema za skladište – ponuda', 4);
   offer(novaDeal.id, 'Pilot projekt – ponuda', 7);

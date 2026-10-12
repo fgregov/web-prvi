@@ -50,7 +50,11 @@ function offerRow(offer, deal) {
         {},
         offer.status === 'answered'
           ? `Poslana ${sent} · odgovor primljen ${day(offer.answeredAt)}`
-          : `Poslana ${sent}`,
+          : offer.status === 'withdrawn'
+            ? `Povučena ${offer.withdrawnAt ? day(offer.withdrawnAt) : ''}`.trim()
+            : sent
+              ? `Poslana ${sent}`
+              : 'Nacrt, nije poslana',
       ),
     ),
     offer.waitingDays

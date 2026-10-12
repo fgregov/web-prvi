@@ -58,6 +58,7 @@ const CRM_PAGES: Record<string, string> = {
   '/calendar': 'calendar.html',
   '/leads': 'leads.html',
   '/leads/new': 'lead-new.html',
+  '/feedback-overview': 'feedback-overview.html',
   // Primary modules not built yet: navigation shells.
   '/follow-up': 'module.html',
   '/reports': 'module.html',

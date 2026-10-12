@@ -85,8 +85,14 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/customers$/,
+      // ?status=active|inactive|all (default all) and ?q= (search within it)
       handler: ({ ctx, query }) =>
-        ok({ customers: crm.customers.listCustomers(ctx, { q: q(query, 'q') }) }),
+        ok({
+          customers: crm.customers.listCustomers(ctx, {
+            q: q(query, 'q'),
+            status: q(query, 'status'),
+          }),
+        }),
     },
     {
       method: 'POST',
@@ -103,6 +109,19 @@ export function createCrmApi(
       pattern: new RegExp(`^/api/customers/${ID}$`),
       handler: ({ ctx, params, body }) =>
         ok({ customer: crm.customers.updateCustomer(ctx, id(params), body) }),
+    },
+    // Deactivate / reactivate: the same record, nothing else changes.
+    {
+      method: 'POST',
+      pattern: new RegExp(`^/api/customers/${ID}/deactivate$`),
+      handler: ({ ctx, params }) =>
+        ok({ customer: crm.customers.setActive(ctx, id(params), false) }),
+    },
+    {
+      method: 'POST',
+      pattern: new RegExp(`^/api/customers/${ID}/activate$`),
+      handler: ({ ctx, params }) =>
+        ok({ customer: crm.customers.setActive(ctx, id(params), true) }),
     },
     {
       method: 'POST',
@@ -165,6 +184,20 @@ export function createCrmApi(
     },
     reminderRoute('opportunity', 'opportunities'),
     // ---- offers (sent within an opportunity) and the FEEDBACK OVERVIEW
+    {
+      // FEEDBACK OVERVIEW / PONUDE: offers created in a period (?from=&to=&status=)
+      method: 'GET',
+      pattern: /^\/api\/offers$/,
+      handler: ({ ctx, query }) =>
+        ok({
+          overview: crm.offers.overview(
+            ctx,
+            query.get('from'),
+            query.get('to'),
+            query.get('status') || 'all',
+          ),
+        }),
+    },
     {
       method: 'POST',
       pattern: /^\/api\/offers$/,

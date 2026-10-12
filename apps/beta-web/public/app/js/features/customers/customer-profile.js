@@ -2,6 +2,7 @@
 // Creating meetings, opportunities, tasks and contacts opens their dedicated
 // screens with this customer preselected; they return here after saving.
 import { api, ApiError } from '../../core/api.js';
+import { confirmDialog } from '../../ui/confirm.js';
 import { h } from '../../ui/dom.js';
 import { withParams } from '../../ui/navigation.js';
 import { showToast } from '../../ui/toast.js';
@@ -24,6 +25,22 @@ export function customerActions(profile, reload) {
     showToast(message);
     await reload();
   };
+  /** Deactivate / reactivate: one request at a time, then the reloaded profile. */
+  let changing = false;
+  async function setActive(call, done, failed) {
+    if (changing) return;
+    changing = true;
+    try {
+      await call(profile.id);
+    } catch {
+      changing = false;
+      showToast(failed);
+      return;
+    }
+    showToast(done);
+    await reload();
+    changing = false;
+  }
   return {
     meeting: () => go('/tasks/new', { type: 'meeting', calendar: '1' }),
     opportunity: () => go('/opportunities/new'),
@@ -34,6 +51,27 @@ export function customerActions(profile, reload) {
     note: () => openNoteForm({ profile, onSaved: after('Bilješka dodana.') }),
     email: () => openEmailForm({ profile, onSaved: after('E-mail zabilježen u aktivnostima.') }),
     edit: () => openCustomerForm({ profile, onSaved: after('Podaci kupca spremljeni.') }),
+    deactivate: async () => {
+      const confirmed = await confirmDialog({
+        title: 'Deaktivirati kupca?',
+        message:
+          'Kupac će biti premješten među neaktivne kupce. Svi postojeći podaci, kontakti, zadaci, ponude i prodajne prilike ostat će sačuvani.',
+        cancelLabel: 'Odustani',
+        confirmLabel: 'Deaktiviraj',
+      });
+      if (!confirmed) return;
+      await setActive(
+        api.deactivateCustomer,
+        'Kupac je deaktiviran.',
+        'Nije moguće deaktivirati kupca. Pokušajte ponovno.',
+      );
+    },
+    activate: () =>
+      setActive(
+        api.activateCustomer,
+        'Kupac je ponovno aktiviran.',
+        'Nije moguće aktivirati kupca. Pokušajte ponovno.',
+      ),
     deal: opportunityActions(async (message) => {
       showToast(message);
       await reload();

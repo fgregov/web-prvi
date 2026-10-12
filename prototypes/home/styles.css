@@ -408,6 +408,17 @@ a {
   border-bottom: 1px solid var(--divider);
 }
 
+/* A long title and link (PRIORITETNI ZADACI · Pogledaj sve zadatke): on a narrow
+   phone the link moves under the title instead of overlapping it. */
+.module__head--wrap {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.module__head--wrap .module__link {
+  margin-left: auto;
+}
+
 .module__icon {
   width: 34px;
   height: 34px;

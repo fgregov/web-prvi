@@ -23,9 +23,39 @@ import {
   type Body,
 } from './scope.ts';
 import type { TaskService } from './task-service.ts';
-import type { CrmContext, Customer } from './types.ts';
+import type { CrmContext, CrmData, Customer } from './types.ts';
 
 const SEARCH_LIMIT = 50;
+
+/** Customer list filter: Aktivni | Neaktivni | Svi. */
+export const CUSTOMER_LIST_STATUSES = ['active', 'inactive', 'all'] as const;
+export type CustomerListStatus = (typeof CUSTOMER_LIST_STATUSES)[number];
+
+/**
+ * Moves a customer to `active` / `inactive`, stamping when and by whom it was
+ * deactivated and writing the timeline entry. Touches nothing else: contacts,
+ * tasks, opportunities, offers, reminders and leads stay exactly as they are.
+ * Returns false (and writes nothing) when it already is in that state.
+ */
+function applyActivation(data: CrmData, ctx: CrmContext, customer: Customer, active: boolean) {
+  if ((customer.status !== 'inactive') === active) return false;
+  const now = ctx.now.toISOString();
+  customer.status = active ? 'active' : 'inactive';
+  customer.deactivatedAt = active ? null : now;
+  customer.deactivatedBy = active ? null : ctx.user.id;
+  customer.updatedAt = now;
+  addActivity(
+    data,
+    ctx,
+    customer.id,
+    active ? 'customer_reactivated' : 'customer_deactivated',
+    active
+      ? 'Ponovno među aktivnim kupcima.'
+      : 'Premješten među neaktivne kupce. Svi podaci su sačuvani.',
+    customer.id,
+  );
+  return true;
+}
 
 function customerFields(input: Body) {
   return {
@@ -71,10 +101,18 @@ export function createCustomerService(
   }
 
   return {
-    /** Search by name (accent-insensitive) or OIB prefix. */
-    listCustomers(ctx: CrmContext, filter: { q?: string | null } = {}) {
+    /**
+     * Search by name (accent-insensitive) or OIB prefix, within the activation
+     * filter (default `all`: pickers and duplicate checks see every customer).
+     */
+    listCustomers(ctx: CrmContext, filter: { q?: string | null; status?: string | null } = {}) {
       const q = fold(str(filter.q));
+      const status = filter.status || 'all';
+      if (!CUSTOMER_LIST_STATUSES.includes(status as CustomerListStatus)) {
+        throw new CrmValidationError({ status: 'Neispravan filtar kupaca.' });
+      }
       return inOrg(repo.data().customers, ctx)
+        .filter((c) => status === 'all' || (c.status === 'inactive') === (status === 'inactive'))
         .filter((c) => !q || fold(c.companyName).includes(q) || c.oib.startsWith(q))
         .sort((a, b) => a.companyName.localeCompare(b.companyName, 'hr'))
         .slice(0, q ? SEARCH_LIMIT : undefined)
@@ -128,6 +166,10 @@ export function createCustomerService(
         createdAt: now,
         updatedAt: now,
       };
+      if (customer.status === 'inactive') {
+        customer.deactivatedAt = now;
+        customer.deactivatedBy = ctx.user.id;
+      }
       data.customers.push(customer);
       if (contactId) {
         data.contacts.push({
@@ -155,7 +197,13 @@ export function createCustomerService(
       const primary = findInOrg(data.contacts, ctx, customer.primaryContactId);
       validate(ctx, input, id, Boolean(primary));
       const now = ctx.now.toISOString();
-      Object.assign(customer, customerFields(input), { updatedAt: now });
+      const { status, ...fields } = customerFields(input);
+      Object.assign(customer, fields, { updatedAt: now });
+      // Status from the edit form: the same stamps and timeline entry as the action.
+      // A request without a status leaves the activation as it is.
+      if (input.status === 'active' || input.status === 'inactive') {
+        applyActivation(data, ctx, customer, status === 'active');
+      }
       if (!primary && str(input.contactName)) {
         // A customer converted from a company-only lead gets its first contact here.
         const contactId = newId();
@@ -184,6 +232,18 @@ export function createCustomerService(
       }
       addActivity(data, ctx, id, 'customer_updated', 'Osnovni podaci kupca su ažurirani.', id);
       repo.commit();
+      return customer;
+    },
+
+    /**
+     * "Deaktiviraj kupca" / "Aktiviraj kupca": the same record (same id) moves
+     * between the active and inactive list; nothing is deleted or cascaded.
+     * Repeating it changes nothing.
+     */
+    setActive(ctx: CrmContext, id: string, active: boolean): Customer {
+      const data = repo.data();
+      const customer = requireInOrg(data.customers, ctx, id);
+      if (applyActivation(data, ctx, customer, active)) repo.commit();
       return customer;
     },
 

@@ -114,7 +114,7 @@ The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
 - The Sales Calendar is a **view over tasks**: there is no separate calendar
   record. Completed tasks stay in it (green check, "Dovršeno"). Cancelled tasks
   drop out. Nothing is deleted.
-- **Overdue** = open and past its deadline. **Prioriteti** on Home: open HIGH
+- **Overdue** = open and past its deadline. **Prioritetni zadaci** on Home: open HIGH
   first, then overdue, then due today; tasks completed today stay ticked.
 - `FOLLOW_UP` is a task type. There is no follow-up engine yet.
 - Context comes from the query: `/tasks/new?companyId=…&contactId=…&opportunityId=…&type=…&calendar=1&date=YYYY-MM-DD&returnTo=/path`.
@@ -180,6 +180,30 @@ in the organization's timezone, each count by its own event date):
 A past period shows the same widgets as of its end (BUYERS and FEEDBACK "Stanje
 na d.m."). Task priority colours: LOW yellow, MEDIUM red, HIGH black (always
 with the label).
+
+"Svi" on FEEDBACK OVERVIEW opens **FEEDBACK OVERVIEW / PONUDE**
+(`/feedback-overview`, back returns to Home): every offer **created** in Home's
+period, with Sve / Čeka odgovor / Odgovoreno / Nacrt. Where an offer stood is
+taken at the period's end (now, for the running quarter), so an offer created
+in Q3 and sent on 2 October is not waiting in the Q3 view. Only a sent offer
+that is still waiting has a day badge (same bands, counted from sending);
+drafts, answered, withdrawn offers and offers of closed deals show their state
+instead. Waiting offers come first, most urgent first. A row opens the offer on
+its customer's opportunity card (`/customers/{id}?offer={offerId}#prilike`,
+the offer marked), as offers have no page of their own. The task module on
+Home is **PRIORITETNI ZADACI**, its link "Pogledaj sve zadatke" (→ `/tasks`).
+
+### Customer activation
+
+On Customer Detail, **Deaktiviraj kupca** (after the confirmation "Deaktivirati
+kupca?") moves the customer to the inactive customers; **Aktiviraj kupca**
+brings the same record back. Nothing else changes: contacts, tasks,
+opportunities, offers, reminders and leads stay as they are, and reports keep
+counting the customer's history. Activation (`status`: active / inactive, with
+`deactivatedAt` / `deactivatedBy`) is separate from the commercial type
+(customer / prospect). `/customers` shows **Aktivni** by default, with
+**Neaktivni** and **Svi** (`?status=`); search stays within the chosen filter.
+Customer pickers in forms still list every customer.
 
 ### Offers and closing deals
 
@@ -248,6 +272,7 @@ Renvara, Focus) decide how they are shown.
 | Route                                             | Page                                                   |
 | ------------------------------------------------- | ------------------------------------------------------ |
 | `/customers`, `/customers/new`, `/customers/{id}` | List with search, New Customer, Customer Detail        |
+| `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
 | `/contacts/new`                                   | New contact (customer required)                        |
 | `/opportunities`, `/opportunities/new`            | Pipeline with next actions, New opportunity            |
 | `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO        |
@@ -260,7 +285,8 @@ Renvara, Focus) decide how they are shown.
 
 | Endpoint                                                                                                  | Purpose                                         |
 | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `GET/POST /api/customers` (`?q=` name or OIB), `GET/PATCH /api/customers/{id}`                            | Customers, profile                              |
+| `GET/POST /api/customers` (`?q=` name or OIB, `?status=active\|inactive\|all`, default all), `GET/PATCH /api/customers/{id}` | Customers, profile                              |
+| `POST /api/customers/{id}/deactivate`, `POST /api/customers/{id}/activate`                                | Deactivate / reactivate a customer              |
 | `POST /api/customers/{id}/notes`, `POST /api/customers/{id}/emails`                                       | Timeline entries                                |
 | `GET/POST /api/contacts` (`?companyId=`)                                                                  | Contacts                                        |
 | `GET/POST /api/opportunities` (`?companyId=&status=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` | Opportunities, next action, pipeline totals     |
@@ -268,11 +294,12 @@ Renvara, Focus) decide how they are shown.
 | `GET /api/leads/{id}/matches`, `POST /api/leads/{id}/convert`, `POST /api/leads/{id}/lost`                | Possible customers, conversion (WON), LOST      |
 | `GET/POST /api/tasks` (`?status=&type=&priority=&companyId=&contactId=&opportunityId=&leadId=`)           | Tasks                                           |
 | `GET/PATCH /api/tasks/{id}`, `POST /api/tasks/{id}/complete\|reopen\|cancel`                              | One task                                        |
-| `GET /api/tasks/sections`, `GET /api/tasks/priorities`                                                    | Tasks screen, Home "Prioriteti"                 |
+| `GET /api/tasks/sections`, `GET /api/tasks/priorities`                                                    | Tasks screen, Home "Prioritetni zadaci"         |
 | `GET /api/calendar?from=ISO&to=ISO` or `?date=YYYY-MM-DD`                                                 | Sales Calendar (explicit range, up to 400 days) |
 | `GET /api/dashboard/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`                                                | Home: KPIs, pipeline overview, feedback          |
 | `POST /api/opportunities/{id}/close` (`{outcome: won\|lost, wonValue?, lostReason?}`)                     | Close a deal                                    |
 | `POST /api/offers` (`{opportunityId, title, sentDate?}`), `POST /api/offers/{id}/answered`                | Offer sent, answer received                     |
+| `GET /api/offers?from=YYYY-MM-DD&to=YYYY-MM-DD&status=all\|waiting\|answered\|draft`                       | FEEDBACK OVERVIEW / PONUDE                      |
 | `PUT /api/tasks\|leads\|opportunities/{id}/reminder` (`{reminderAt: ISO \| null}`)                         | Set, move or remove a reminder                  |
 | `GET /api/push/status`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe`                      | Push availability, this device on/off           |
 | `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |

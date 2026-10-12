@@ -18,7 +18,7 @@ const shortDate = (iso) => {
 };
 const taskHref = (task) => withParams(`/tasks/${encodeURIComponent(task.id)}`, { returnTo: HOME });
 
-function moduleCard({ id, title, iconName, link, compact = false, children }) {
+function moduleCard({ id, title, iconName, link, compact = false, wrapHead = false, children }) {
   return h(
     'section',
     {
@@ -27,7 +27,7 @@ function moduleCard({ id, title, iconName, link, compact = false, children }) {
     },
     h(
       'div',
-      { class: 'module__head' },
+      { class: `module__head${wrapHead ? ' module__head--wrap' : ''}` },
       h('span', { class: 'module__icon' }, spriteIcon(iconName)),
       h('h2', { class: 'module__title', id }, title),
       link
@@ -142,9 +142,10 @@ function tasksCard(summary) {
   const { tasks } = summary;
   return moduleCard({
     id: 'hist-tasks-title',
-    title: 'Zadaci',
+    title: 'Prioritetni zadaci',
     iconName: 'square-check',
-    link: { label: 'Pogledaj sve', href: '/tasks' },
+    link: { label: 'Pogledaj sve zadatke', href: '/tasks' },
+    wrapHead: true,
     children: [
       summaryLine([
         [true, `${tasks.done} dovršeno`],
@@ -292,7 +293,7 @@ function feedbackCard(summary) {
     id: 'hist-feedback-title',
     title: 'Feedback overview',
     iconName: 'clock',
-    link: { label: 'Kupci', href: '/customers' },
+    link: { label: 'Svi', href: '/feedback-overview' },
     children: [
       h('p', { class: 'hist-caption' }, `Stanje na ${shortDate(summary.feedback.asOf)}`),
       list,

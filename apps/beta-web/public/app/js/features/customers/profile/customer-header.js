@@ -91,6 +91,14 @@ export function customerHeader(profile, actions) {
         actionButton('Pošalji e-mail', 'mail', 'soft', actions.email),
         actionButton('Uredi kupca', 'pencil', 'soft', actions.edit),
       ),
+      // Activation: an inactive customer leaves the default list; nothing is deleted.
+      h(
+        'div',
+        { class: 'rv-profile-actions__lifecycle' },
+        profile.status === 'inactive'
+          ? actionButton('Aktiviraj kupca', 'check', 'soft', actions.activate)
+          : actionButton('Deaktiviraj kupca', 'circle-x', 'ghost', actions.deactivate),
+      ),
     ),
   );
 }

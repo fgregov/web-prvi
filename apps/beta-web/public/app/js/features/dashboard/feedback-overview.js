@@ -1,10 +1,19 @@
 // FEEDBACK OVERVIEW (Home): sent offers still waiting for the customer, most
 // urgent first, with the wait as a day badge: 1–4D yellow, 5–9D red, 10D+ black.
-// A row opens the offer's opportunity (on its customer's profile).
+// A row opens the offer's opportunity (on its customer's profile); "Svi" opens
+// every offer of the period (/feedback-overview).
 import { h } from '../../ui/dom.js';
 import { spriteIcon } from './sprite.js';
 
 const BAND_LABEL = { yellow: 'čeka', red: 'potreban follow-up', black: 'hitan follow-up' };
+
+/**
+ * Where an offer opens: its opportunity on the customer's profile, with the
+ * offer marked (an offer has no page of its own).
+ */
+export function offerHref(item) {
+  return `/customers/${encodeURIComponent(item.companyId)}?offer=${encodeURIComponent(item.offerId)}#prilike`;
+}
 
 function row(item) {
   return h(
@@ -14,7 +23,7 @@ function row(item) {
       'a',
       {
         class: 'waiting waiting--offer',
-        href: `/customers/${encodeURIComponent(item.companyId)}#prilike`,
+        href: offerHref(item),
         'aria-label': `${item.customerName}, ${item.title}: ${item.waitingDays} dana, ${BAND_LABEL[item.band]}`,
         dataset: { offerId: item.offerId, band: item.band },
       },

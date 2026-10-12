@@ -257,6 +257,7 @@ const ROUTES = {
   '/calendar': 'calendar',
   '/leads': 'leads',
   '/leads/new': 'lead-new',
+  '/feedback-overview': 'feedback-overview',
   '/follow-up': 'module',
   '/reports': 'module',
   '/more': 'module',

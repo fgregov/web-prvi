@@ -33,7 +33,23 @@ async function load() {
   window.scrollTo({ top: scroll });
 }
 
-onDataChanged(load);
+/** ?offer={id} (from Feedback overview): the offer row to mark and show. */
+const focusOffer = new URLSearchParams(window.location.search).get('offer');
+function markOffer() {
+  if (!focusOffer) return null;
+  const row = [...document.querySelectorAll('.rv-offer[data-offer-id]')].find(
+    (el) => el.dataset.offerId === focusOffer,
+  );
+  row?.classList.add('is-focused');
+  return row ?? null;
+}
+
+onDataChanged(async () => {
+  await load();
+  markOffer();
+});
 await load();
-if (window.location.hash) document.querySelector(window.location.hash)?.scrollIntoView();
+const offerRow = markOffer();
+if (offerRow) offerRow.scrollIntoView({ block: 'center' });
+else if (window.location.hash) document.querySelector(window.location.hash)?.scrollIntoView();
 consumeFlash();

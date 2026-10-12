@@ -133,6 +133,8 @@ export const LEAD_LOST_REASONS = [
 export const ACTIVITY_META = {
   customer_created: { label: 'Kupac kreiran', icon: 'building', tone: 'red' },
   customer_updated: { label: 'Podaci kupca ažurirani', icon: 'pencil', tone: 'neutral' },
+  customer_deactivated: { label: 'Kupac deaktiviran', icon: 'building', tone: 'neutral' },
+  customer_reactivated: { label: 'Kupac ponovno aktiviran', icon: 'building', tone: 'green' },
   meeting_scheduled: { label: 'Zakazan sastanak', icon: 'calendar', tone: 'green' },
   task_scheduled: { label: 'Dodano u Sales kalendar', icon: 'calendar', tone: 'green' },
   opportunity_created: { label: 'Kreirana prilika', icon: 'target', tone: 'red' },

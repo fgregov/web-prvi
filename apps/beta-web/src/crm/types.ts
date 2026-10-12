@@ -36,7 +36,14 @@ export interface Customer extends TenantRecord {
   email: string;
   phone: string;
   website: string;
+  /**
+   * Activation (companies.is_active): an inactive customer is out of the
+   * default customer list, with all its data kept. Separate from `type`.
+   */
   status: 'active' | 'inactive';
+  /** When and by whom it was deactivated; null while active (absent on older records). */
+  deactivatedAt?: Iso | null;
+  deactivatedBy?: string | null;
   type: 'customer' | 'prospect';
   ownerId: string | null;
   ownerName: string | null;

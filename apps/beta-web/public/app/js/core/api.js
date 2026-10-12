@@ -73,11 +73,17 @@ export function onDataChanged(listener) {
 
 export const api = {
   // customers
-  searchCustomers: (q) => request('GET', `/api/customers${query({ q })}`).then((r) => r.customers),
+  /** status: 'active' | 'inactive' | 'all' (default: every customer, as pickers need). */
+  searchCustomers: (q, status = 'all') =>
+    request('GET', `/api/customers${query({ q, status })}`).then((r) => r.customers),
   getCustomer: (id) => request('GET', `/api/customers/${enc(id)}`).then((r) => r.customer),
   createCustomer: (input) => request('POST', '/api/customers', input).then((r) => r.customer),
   updateCustomer: (id, input) =>
     request('PATCH', `/api/customers/${enc(id)}`, input).then((r) => r.customer),
+  deactivateCustomer: (id) =>
+    request('POST', `/api/customers/${enc(id)}/deactivate`, {}).then((r) => r.customer),
+  activateCustomer: (id) =>
+    request('POST', `/api/customers/${enc(id)}/activate`, {}).then((r) => r.customer),
   addNote: (id, input) => request('POST', `/api/customers/${enc(id)}/notes`, input),
   logEmail: (id, input) => request('POST', `/api/customers/${enc(id)}/emails`, input),
   // contacts
@@ -114,6 +120,9 @@ export const api = {
   setReminder: (kind, id, reminderAt) =>
     request('PUT', `/api/${kind}/${enc(id)}/reminder`, { reminderAt }).then((r) => r.reminder),
   pushStatus: () => request('GET', '/api/push/status'),
+  // FEEDBACK OVERVIEW / PONUDE: offers created in a period, with their standing
+  offersOverview: (from, to, status = 'all') =>
+    request('GET', `/api/offers${query({ from, to, status })}`).then((r) => r.overview),
   subscribePush: (input) => request('POST', '/api/push/subscriptions', input),
   testPush: () => request('POST', '/api/push/test', {}),
   // opportunities: close, offers
