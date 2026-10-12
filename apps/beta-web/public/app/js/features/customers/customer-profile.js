@@ -1,4 +1,4 @@
-// CustomerProfile: composes the header card, PREGLED and the four accordion sections.
+// CustomerProfile: composes the header card and the five accordion sections.
 // Creating meetings, opportunities, tasks and contacts opens their dedicated
 // screens with this customer preselected; they return here after saving.
 import { api, ApiError } from '../../core/api.js';
@@ -93,7 +93,7 @@ export function customerActions(profile, reload) {
 }
 
 /**
- * Header card, PREGLED, then PRILIKE, AKTIVNOSTI, ZADACI and KONTAKTI as
+ * Header card, then PREGLED, PRILIKE, AKTIVNOSTI, ZADACI and KONTAKTI as
  * accordions. `openSections` is the page's set of open accordions (empty on a
  * new visit), kept by the page so a refresh after an action keeps them open.
  */
@@ -102,10 +102,10 @@ export function customerProfile(profile, actions, openSections = new Set()) {
     'div',
     { class: 'rv-profile' },
     customerHeader(profile, actions),
-    customerOverview(profile, actions),
     h(
       'div',
       { class: 'rv-profile-sections' },
+      customerOverview(profile, actions, openSections),
       customerOpportunities(profile, actions, openSections),
       customerActivities(profile, openSections),
       customerTasks(profile, actions, openSections),

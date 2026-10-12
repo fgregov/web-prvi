@@ -4,9 +4,9 @@ import { formatDateTime, formatSchedule } from '../../../core/format.js';
 import { h } from '../../../ui/dom.js';
 import { icon } from '../../../ui/icons.js';
 import { taskTypeIcon } from '../../tasks/task-row.js';
-import { profileSection } from './section.js';
+import { accordionSection } from './section.js';
 
-export function customerOverview(profile, actions) {
+export function customerOverview(profile, actions, open) {
   const row = (label, value) =>
     h('div', { class: 'rv-dl__row' }, h('dt', {}, label), h('dd', {}, value || '—'));
   const upcoming = profile.tasks.filter(
@@ -16,10 +16,11 @@ export function customerOverview(profile, actions) {
       new Date(t.scheduledEndAt ?? t.scheduledStartAt).getTime() >= Date.now() - 60 * 60 * 1000,
   );
 
-  return profileSection({
+  return accordionSection({
     id: 'pregled',
     title: 'Pregled',
     iconName: 'building',
+    open,
     children: [
       h(
         'dl',

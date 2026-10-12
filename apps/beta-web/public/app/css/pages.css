@@ -297,7 +297,7 @@ a {
   justify-content: flex-end;
 }
 
-/* PRILIKE, AKTIVNOSTI, ZADACI, KONTAKTI under PREGLED: accordions, one column. */
+/* PREGLED, PRILIKE, AKTIVNOSTI, ZADACI, KONTAKTI: accordions, one column. */
 .rv-profile-sections {
   display: flex;
   flex-direction: column;
@@ -318,18 +318,6 @@ a {
 }
 
 /* ----------------------------------------------------------- section --- */
-.rv-section {
-  scroll-margin-top: 130px;
-  padding: 18px 20px 20px;
-}
-
-.rv-section__head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
 .rv-section__icon {
   width: 32px;
   height: 32px;

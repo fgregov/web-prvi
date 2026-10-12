@@ -197,12 +197,12 @@ Home is **PRIORITETNI ZADACI**, its link "Pogledaj sve zadatke" (→ `/tasks`).
 
 The header card (identity and all customer actions: Zakaži sastanak, Kreiraj
 priliku, Novi zadatak, Dodaj bilješku, Dodaj kontakt, Pošalji e-mail, Uredi
-kupca, Deaktiviraj kupca), then **PREGLED**, then **PRILIKE**, **AKTIVNOSTI**,
+kupca, Deaktiviraj kupca), then **PREGLED**, **PRILIKE**, **AKTIVNOSTI**,
 **ZADACI** and **KONTAKTI** as accordions: closed on every visit, the whole
-header (icon, title, number of records, chevron) opens and closes one, several
-can be open at once, and they stay open while the profile refreshes after an
-action. A link to a section (`#prilike`, `#kontakti` …, or an offer from
-Feedback overview) opens that one. The sections have no create buttons of
+header (icon, title, number of records — none for PREGLED —, chevron) opens and
+closes one, several can be open at once, and they stay open while the profile
+refreshes after an action. A link to a section (`#pregled`, `#prilike`,
+`#kontakti` …, or an offer from Feedback overview) opens that one. The sections have no create buttons of
 their own; creating stays in the header card.
 
 ### Customer activation

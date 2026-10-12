@@ -12,7 +12,7 @@ const root = document.getElementById('app');
 const focusOffer = new URLSearchParams(window.location.search).get('offer');
 // Accordions: all closed on a new visit, except the one a link points at
 // (#prilike, #zadaci …, or an offer); kept while the page stays open.
-const SECTIONS = ['prilike', 'aktivnosti', 'zadaci', 'kontakti'];
+const SECTIONS = ['pregled', 'prilike', 'aktivnosti', 'zadaci', 'kontakti'];
 const linked = focusOffer ? 'prilike' : window.location.hash.slice(1);
 const openSections = new Set(SECTIONS.includes(linked) ? [linked] : []);
 

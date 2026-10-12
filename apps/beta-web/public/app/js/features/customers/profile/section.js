@@ -1,29 +1,15 @@
-// Card sections of the customer profile: PREGLED is always open (profileSection);
-// PRILIKE, AKTIVNOSTI, ZADACI and KONTAKTI are accordions (accordionSection),
-// closed until the user opens them. Creating records stays in the customer's
-// header actions, so the sections themselves carry no create buttons.
+// Card sections of the customer profile: PREGLED, PRILIKE, AKTIVNOSTI, ZADACI
+// and KONTAKTI are accordions, closed until the user opens them. Creating
+// records stays in the customer's header actions, so the sections themselves
+// carry no create buttons.
 import { h } from '../../../ui/dom.js';
 import { icon } from '../../../ui/icons.js';
-
-export function profileSection({ id, title, iconName, count, children }) {
-  return h(
-    'section',
-    { class: 'rv-card rv-section', id, 'aria-labelledby': `${id}-title` },
-    h(
-      'header',
-      { class: 'rv-section__head' },
-      h('span', { class: 'rv-section__icon' }, icon(iconName)),
-      h('h2', { class: 'rv-section__title', id: `${id}-title` }, title),
-      count !== undefined ? h('span', { class: 'rv-section__count' }, String(count)) : null,
-    ),
-    children,
-  );
-}
 
 /**
  * A section whose whole header (icon, title, count, chevron) is one button
  * that opens and closes its content. `open` is the page's set of open section
  * ids: several can be open at once, and it survives a re-render of the profile.
+ * Without a `count` (PREGLED: data, not a list) the header shows none.
  */
 export function accordionSection({ id, title, iconName, count, open, children }) {
   const isOpen = open.has(id);
@@ -36,12 +22,14 @@ export function accordionSection({ id, title, iconName, count, open, children })
       id: `${id}-title`,
       'aria-expanded': String(isOpen),
       'aria-controls': panelId,
-      'aria-label': `${title} (${count})`,
+      'aria-label': count === undefined ? title : `${title} (${count})`,
       onClick: () => setOpen(!open.has(id)),
     },
     h('span', { class: 'rv-section__icon' }, icon(iconName)),
     h('span', { class: 'rv-section__title' }, title),
-    h('span', { class: 'rv-section__count', 'aria-hidden': 'true' }, String(count)),
+    count === undefined
+      ? null
+      : h('span', { class: 'rv-section__count', 'aria-hidden': 'true' }, String(count)),
     h('span', { class: 'rv-accordion__chevron', 'aria-hidden': 'true' }, icon('chevron-down')),
   );
   const panel = h(
