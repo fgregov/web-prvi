@@ -21,6 +21,7 @@ import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-car
 import { PeriodSelector } from '../features/dashboard/period-selector.js';
 import { renderPipelineOverview } from '../features/dashboard/pipeline-overview.js';
 import { QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
+import { openPushSettings } from '../features/reminders/push-settings.js';
 import { renderTabbar } from '../ui/tabbar.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
@@ -46,6 +47,7 @@ const taskHref = (task) =>
   `/tasks/${encodeURIComponent(task.id)}?returnTo=${encodeURIComponent(HOME)}`;
 
 QuickAddSheet({ trigger: document.querySelector('.fab'), returnTo: HOME });
+document.querySelector('[data-notifications]')?.addEventListener('click', () => openPushSettings());
 renderTabbar(document.querySelector('.tabbar'), 'home');
 
 // A new session starts at the current quarter.

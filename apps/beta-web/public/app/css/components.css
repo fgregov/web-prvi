@@ -1147,6 +1147,10 @@ select.rv-input {
   padding-top: 4px;
 }
 
+.rv-sheet__actions > .rv-btn[hidden] {
+  display: none;
+}
+
 .rv-sheet__actions .rv-btn {
   min-height: 50px;
   border-radius: 14px;
@@ -1178,6 +1182,55 @@ select.rv-input {
   color: var(--rv-green-text);
   font-size: 13px;
   line-height: 1.4;
+}
+
+/* Notification settings sheet (account menu → Obavijesti). */
+.rv-push {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rv-push__intro,
+.rv-push__result {
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.rv-push__result {
+  color: var(--rv-ink);
+}
+
+.rv-push__status {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-field);
+}
+
+.rv-push__status > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.rv-push__status > div + div {
+  border-top: 1px solid var(--rv-border);
+}
+
+.rv-push__status dt {
+  color: var(--rv-text-2);
+  font-size: 13px;
+}
+
+.rv-push__status dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .rv-reminder__note.is-warning {

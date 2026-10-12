@@ -115,6 +115,7 @@ export const api = {
     request('PUT', `/api/${kind}/${enc(id)}/reminder`, { reminderAt }).then((r) => r.reminder),
   pushStatus: () => request('GET', '/api/push/status'),
   subscribePush: (input) => request('POST', '/api/push/subscriptions', input),
+  testPush: () => request('POST', '/api/push/test', {}),
   // opportunities: close, offers
   closeOpportunity: (id, input) =>
     request('POST', `/api/opportunities/${enc(id)}/close`, input).then((r) => r.opportunity),

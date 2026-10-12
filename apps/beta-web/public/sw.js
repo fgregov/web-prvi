@@ -16,8 +16,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title || 'RENVARA', {
       body: data.body || '',
       tag: data.tag,
-      icon: '/brand/renvara-logo.png',
-      badge: '/brand/renvara-logo.png',
+      icon: '/brand/icon-192.png',
+      badge: '/brand/icon-192.png',
       data: { url },
     }),
   );

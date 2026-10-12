@@ -1,10 +1,27 @@
 {
+  "id": "/",
   "name": "Renvara",
   "short_name": "Renvara",
+  "description": "Renvara prodajni CRM: kupci, leadovi, prilike, zadaci i podsjetnici.",
+  "lang": "hr",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "icons": [{ "src": "/brand/renvara-logo.png", "sizes": "222x256", "type": "image/png" }]
+  "icons": [
+    {
+      "src": "/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

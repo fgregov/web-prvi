@@ -26,6 +26,26 @@ describe('loadAuthConfig', () => {
     expect(() => loadAuthConfig(testEnv({ RENVARA_SESSION_SECRET: 'short' }))).toThrow(/32/);
   });
 
+  it('RENVARA_PUBLIC_ORIGIN: only an https address (tunnel or proxy), normalized', () => {
+    expect(loadAuthConfig(testEnv()).publicOrigin).toBeNull();
+    expect(
+      loadAuthConfig(testEnv({ RENVARA_PUBLIC_ORIGIN: ' https://renvara.example.ts.net/ ' }))
+        .publicOrigin,
+    ).toBe('https://renvara.example.ts.net');
+    expect(
+      loadAuthConfig(testEnv({ RENVARA_PUBLIC_ORIGIN: 'http://localhost:3000' })).publicOrigin,
+    ).toBe('http://localhost:3000');
+    for (const bad of [
+      'renvara.example.com',
+      'http://renvara.example.com',
+      'https://renvara.example.com/app',
+      'https://user:pass@renvara.example.com',
+      'https://renvara.example.com/?a=1',
+    ]) {
+      expect(() => loadAuthConfig(testEnv({ RENVARA_PUBLIC_ORIGIN: bad }))).toThrow(ConfigError);
+    }
+  });
+
   it('enables Secure cookies in production and allows an explicit override', () => {
     expect(loadAuthConfig(testEnv()).secureCookies).toBe(false);
     expect(loadAuthConfig(testEnv({ NODE_ENV: 'production' })).secureCookies).toBe(true);

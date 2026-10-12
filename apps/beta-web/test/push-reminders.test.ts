@@ -11,7 +11,11 @@ import { createCrmServices } from '../src/crm/index.ts';
 import { createMemoryRepository, emptyData } from '../src/crm/repository.ts';
 import type { CrmContext } from '../src/crm/types.ts';
 import type { Logger } from '../src/app.ts';
-import { createReminderScheduler } from '../src/notifications/reminder-scheduler.ts';
+import {
+  createReminderScheduler,
+  type PushTestResult,
+} from '../src/notifications/reminder-scheduler.ts';
+import { cookiePair, login, PASSWORD, startTestServer, testEnv, USERNAME } from './helpers.ts';
 import {
   createWebPushSender,
   encryptPayload,
@@ -364,6 +368,32 @@ describe('Reminder scheduling', () => {
     });
   });
 
+  it('a test notification goes to every enabled device now; gone devices are switched off', async () => {
+    const { crm, sent, scheduler, subscribe } = setup(['ok', 'gone']);
+    expect(await scheduler.sendTest(ctx.organizationId, ctx.user.id)).toEqual({
+      status: 'no_device',
+      devices: 0,
+      delivered: 0,
+      error: null,
+    });
+    subscribe(1);
+    subscribe(2);
+    expect(await scheduler.sendTest(ctx.organizationId, ctx.user.id)).toEqual({
+      status: 'sent',
+      devices: 2,
+      delivered: 1,
+      error: 'push_gone',
+    });
+    expect(sent[0]!.payload).toMatchObject({ title: 'RENVARA', url: '/dashboard' });
+    expect(crm.pushSubscriptions.devices(ctx)).toBe(1);
+    const off = createReminderScheduler({
+      services: crm,
+      sender: createWebPushSender(null),
+      logger: silent,
+    });
+    expect((await off.sendTest(ctx.organizationId, ctx.user.id)).status).toBe('not_configured');
+  });
+
   it('an interrupted delivery is picked up again after a restart', async () => {
     const { crm, sent, scheduler, subscribe, at } = setup();
     subscribe(1);
@@ -528,5 +558,70 @@ describe('Delivery over HTTP to a push service', () => {
       tag: expect.any(String),
     });
     expect(crm.repo.data().reminders[0]).toMatchObject({ status: 'sent' });
+  });
+});
+
+describe('Behind an HTTPS tunnel, and the test notification over HTTP', () => {
+  const PUBLIC = 'https://renvara.example.ts.net';
+
+  it('accepts the configured public address (Host differs), refuses other origins', async () => {
+    const calls: CrmContext[] = [];
+    const crm = createCrmServices(createMemoryRepository(emptyData()), { demoContent: false });
+    const server = await startTestServer(testEnv({ RENVARA_PUBLIC_ORIGIN: PUBLIC }), {
+      crm: {
+        services: crm,
+        organizationId: 'org-beta',
+        timeZone: 'Europe/Zagreb',
+        pushTest: async (ctx): Promise<PushTestResult> => {
+          calls.push(ctx);
+          return { status: 'sent', devices: 1, delivered: 1, error: null };
+        },
+      },
+    });
+    try {
+      expect(
+        (await login(server.url, USERNAME, PASSWORD, { Origin: 'https://evil.example' })).status,
+      ).toBe(403);
+      const ok = await login(server.url, USERNAME, PASSWORD, { Origin: PUBLIC });
+      expect(ok.status).toBe(200);
+      const cookie = cookiePair(ok);
+      const test = (headers: Record<string, string>, method = 'POST') =>
+        fetch(`${server.url}/api/push/test`, {
+          method,
+          headers: { 'Content-Type': 'application/json', ...headers },
+          ...(method === 'POST' ? { body: '{}' } : {}),
+        });
+      const sent = await test({ Cookie: cookie, Origin: PUBLIC });
+      expect(sent.status).toBe(200);
+      expect(await sent.json()).toEqual({
+        success: true,
+        status: 'sent',
+        devices: 1,
+        delivered: 1,
+        error: null,
+      });
+      expect(calls.map((c) => c.organizationId)).toEqual(['org-beta']);
+      expect((await test({ Origin: PUBLIC })).status).toBe(401);
+      expect((await test({ Cookie: cookie, Origin: 'https://evil.example' })).status).toBe(403);
+      expect((await test({ Cookie: cookie }, 'GET')).status).toBe(405);
+      expect(calls).toHaveLength(1);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('without the scheduler (no push on this server) the test says so', async () => {
+    const server = await startTestServer();
+    try {
+      const cookie = cookiePair(await login(server.url, USERNAME, PASSWORD));
+      const response = await fetch(`${server.url}/api/push/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: '{}',
+      });
+      expect(await response.json()).toMatchObject({ status: 'not_configured', delivered: 0 });
+    } finally {
+      await server.close();
+    }
   });
 });

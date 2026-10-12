@@ -18,7 +18,7 @@ import { resolveStaticFile, sendFile } from './http/static.ts';
 import { createCrmServices, type CrmServices } from './crm/index.ts';
 import { createMemoryRepository } from './crm/repository.ts';
 import type { PushConfig } from './crm/dispatch.ts';
-import { createCrmRoutes } from './crm/routes.ts';
+import { createCrmRoutes, type CrmRouteOptions } from './crm/routes.ts';
 import { seedDemoData } from './crm/seed.ts';
 import type { CrmContext } from './crm/types.ts';
 import { MESSAGES } from './messages.ts';
@@ -71,10 +71,18 @@ const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
   [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert.html'],
 ];
 
+const BRAND_ICONS = new Set([
+  '/brand/icon-192.png',
+  '/brand/icon-512.png',
+  '/brand/apple-touch-icon.png',
+]);
+
 export interface CrmOptions {
   readonly services: CrmServices;
   /** Push reminders: whether this server can deliver them (VAPID keys set). */
   readonly push?: PushConfig;
+  /** "Pošalji probnu obavijest" (the reminder scheduler of this server). */
+  readonly pushTest?: CrmRouteOptions['pushTest'];
   /** BETA: the single organization of the BETA account. */
   readonly organizationId: string;
   readonly timeZone: string;
@@ -124,12 +132,23 @@ export function parseCredentials(body: unknown): Credentials {
 
 export function createApp(
   auth: AuthService,
-  options: { paths?: AppPaths; logger?: Logger; crm?: CrmOptions } = {},
+  options: {
+    paths?: AppPaths;
+    logger?: Logger;
+    crm?: CrmOptions;
+    /** RENVARA_PUBLIC_ORIGIN: the https address users open behind a tunnel or proxy. */
+    publicOrigin?: string | null;
+  } = {},
 ): RequestListener {
   const paths = options.paths ?? defaultPaths;
   const logger = options.logger ?? consoleLogger;
   const crm = options.crm ?? inMemoryCrm();
-  const crmRoutes = createCrmRoutes(crm.services, crm.push ? { push: crm.push } : {});
+  const publicOrigin = options.publicOrigin ?? null;
+  const crmRoutes = createCrmRoutes(crm.services, {
+    ...(crm.push ? { push: crm.push } : {}),
+    ...(crm.pushTest ? { pushTest: crm.pushTest } : {}),
+    publicOrigin,
+  });
   const now = crm.now ?? (() => new Date());
   const logoFile = resolve(paths.dashboardDir, 'assets/renvara-logo.png');
 
@@ -169,7 +188,7 @@ export function createApp(
   }
 
   async function handleLogin(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (!isSameOrigin(req))
+    if (!isSameOrigin(req, publicOrigin))
       return sendJson(res, 403, { success: false, message: MESSAGES.badRequest });
     if (!isJsonRequest(req))
       return sendJson(res, 415, { success: false, message: MESSAGES.badRequest });
@@ -213,7 +232,7 @@ export function createApp(
   }
 
   function handleLogout(req: IncomingMessage, res: ServerResponse): void {
-    if (!isSameOrigin(req))
+    if (!isSameOrigin(req, publicOrigin))
       return sendJson(res, 403, { success: false, message: MESSAGES.badRequest });
     if (!isJsonRequest(req))
       return sendJson(res, 415, { success: false, message: MESSAGES.badRequest });
@@ -301,6 +320,12 @@ export function createApp(
     }
     if (path === '/brand/renvara-logo.png') {
       return sendFile(res, logoFile, { cacheControl: 'public, max-age=3600' });
+    }
+    // Home Screen and notification icons (square, white background).
+    if (BRAND_ICONS.has(path)) {
+      return sendFile(res, resolve(paths.appDir, '..', path.slice(1)), {
+        cacheControl: 'public, max-age=86400',
+      });
     }
     // Push reminders: the service worker (root scope) and the web app manifest
     // (iOS delivers web push only to apps added to the Home Screen). No data inside.

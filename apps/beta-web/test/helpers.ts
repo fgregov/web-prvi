@@ -47,7 +47,11 @@ export async function startTestServer(
   };
   const auth = createAuthService(config, createBetaAuthProvider(config), clock);
   const server: Server = createServer(
-    createApp(auth, { logger, ...(options.crm ? { crm: options.crm } : {}) }),
+    createApp(auth, {
+      logger,
+      publicOrigin: config.publicOrigin,
+      ...(options.crm ? { crm: options.crm } : {}),
+    }),
   );
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;

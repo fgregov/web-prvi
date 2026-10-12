@@ -54,13 +54,16 @@ const server = createServer(
       organizationId: crmConfig.organizationId,
       timeZone: crmConfig.timeZone,
       push: { configured: sender.configured, publicKey: sender.publicKey },
+      pushTest: (ctx) => scheduler.sendTest(ctx.organizationId, ctx.user.id),
     },
+    publicOrigin: config.publicOrigin,
   }),
 );
 server.listen(port, host, () => {
   console.log(
     `[renvara-beta] Listening on http://${host === '127.0.0.1' ? 'localhost' : host}:${port} ` +
-      `(secure cookies: ${config.secureCookies ? 'on' : 'off'}, push reminders: ${sender.configured ? 'on' : 'off'})`,
+      `(secure cookies: ${config.secureCookies ? 'on' : 'off'}, push reminders: ${sender.configured ? 'on' : 'off'}` +
+      `${config.publicOrigin ? `, public address: ${config.publicOrigin}` : ''})`,
   );
 });
 

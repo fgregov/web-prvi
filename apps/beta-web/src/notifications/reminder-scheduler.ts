@@ -9,6 +9,14 @@ import type { Logger } from '../app.ts';
 import type { CrmServices } from '../crm/index.ts';
 import type { PushSender } from './web-push.ts';
 
+/** Outcome of a test notification ("Pošalji probnu obavijest"). */
+export interface PushTestResult {
+  status: 'sent' | 'not_configured' | 'no_device' | 'failed';
+  devices: number;
+  delivered: number;
+  error: string | null;
+}
+
 export function createReminderScheduler({
   services,
   sender,
@@ -81,8 +89,37 @@ export function createReminderScheduler({
     }
   }
 
+  /** A test notification to every enabled device of one user, now. */
+  async function sendTest(organizationId: string, userId: string): Promise<PushTestResult> {
+    if (!sender.configured)
+      return { status: 'not_configured', devices: 0, delivered: 0, error: null };
+    const devices = services.pushSubscriptions.enabledFor(organizationId, userId);
+    if (!devices.length) return { status: 'no_device', devices: 0, delivered: 0, error: null };
+    const payload = {
+      title: 'RENVARA',
+      body: 'Probna obavijest: obavijesti stižu na ovaj uređaj.',
+      url: '/dashboard',
+      tag: 'renvara-test',
+    };
+    const results = await Promise.all(devices.map((device) => sender.send(device, payload)));
+    results.forEach((result, i) => {
+      if (!result.ok && result.gone)
+        services.pushSubscriptions.disable(devices[i]!.endpoint, now());
+    });
+    const delivered = results.filter((r) => r.ok).length;
+    const failure = results.find((r) => !r.ok);
+    logger.info('push_test', { devices: devices.length, delivered });
+    return {
+      status: delivered ? 'sent' : 'failed',
+      devices: devices.length,
+      delivered,
+      error: failure && !failure.ok ? failure.error : null,
+    };
+  }
+
   return {
     tick,
+    sendTest,
     start() {
       if (timer) return;
       timer = setInterval(() => {

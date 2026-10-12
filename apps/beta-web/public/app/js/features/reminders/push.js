@@ -2,8 +2,31 @@
 // a reminder on (never on load); a refusal never blocks saving the record.
 import { api } from '../../core/api.js';
 
-const supported = () =>
+export const supported = () =>
   'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+/** iPhone/iPad: web push only in the app added to the Home Screen. */
+export const isIos = () =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export const isStandalone = () =>
+  window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+
+// Whether the server can deliver, loaded ahead (when a reminder form or the
+// settings open), so a tap that turns push on can ask for permission at once.
+let known = null;
+let loading = null;
+export function preloadPushStatus({ fresh = false } = {}) {
+  if (fresh) loading = null;
+  loading ??= api
+    .pushStatus()
+    .then((status) => (known = status))
+    .catch(() => {
+      loading = null;
+      return null;
+    });
+  return loading;
+}
 
 /** Why push cannot reach this device, in the user's words. */
 export const PUSH_UNAVAILABLE = {
@@ -29,17 +52,17 @@ const keyBytes = (base64url) => {
  */
 export async function enablePush() {
   if (!supported()) return { ok: false, reason: 'unsupported' };
-  let status;
-  try {
-    status = await api.pushStatus();
-  } catch {
-    return { ok: false, reason: 'server' };
-  }
-  if (!status.configured || !status.publicKey) return { ok: false, reason: 'server' };
-  const permission =
+  // Never ask for a permission the server could not use.
+  if (known && (!known.configured || !known.publicKey)) return { ok: false, reason: 'server' };
+  // iOS shows the permission prompt only directly in the tap: ask before any request.
+  const asked =
     Notification.permission === 'default'
-      ? await Notification.requestPermission()
-      : Notification.permission;
+      ? Notification.requestPermission()
+      : Promise.resolve(Notification.permission);
+  const status = known ?? (await preloadPushStatus());
+  if (!status) return { ok: false, reason: 'server' };
+  if (!status.configured || !status.publicKey) return { ok: false, reason: 'server' };
+  const permission = await asked;
   if (permission !== 'granted') return { ok: false, reason: 'denied' };
   try {
     const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
@@ -55,5 +78,20 @@ export async function enablePush() {
     return { ok: true };
   } catch {
     return { ok: false, reason: 'failed' };
+  }
+}
+
+/**
+ * This device: 'on' (subscribed), 'off', 'denied' (blocked in settings) or
+ * 'unsupported' (on iPhone: not opened from the Home Screen).
+ */
+export async function deviceState() {
+  if (!supported()) return 'unsupported';
+  if (Notification.permission === 'denied') return 'denied';
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/');
+    return (await registration?.pushManager.getSubscription()) ? 'on' : 'off';
+  } catch {
+    return 'off';
   }
 }

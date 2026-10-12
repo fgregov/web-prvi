@@ -37,6 +37,7 @@ default credentials.
 | `RENVARA_COOKIE_SECURE`     | no       | `true`/`false`. Defaults to `true` when `NODE_ENV=production` |
 | `HOST`, `PORT`              | no       | Listen address. Defaults to `127.0.0.1:3000`                  |
 | `RENVARA_VAPID_*` (3)       | no       | Push reminders; all three or none (see **Push reminders**)    |
+| `RENVARA_PUBLIC_ORIGIN`     | no       | The https address users open behind a tunnel or proxy         |
 
 `.env` files are git-ignored. Only `.env.example` (no values) is committed.
 
@@ -219,6 +220,28 @@ turned on.
   page provides `manifest.webmanifest` and `sw.js`). Native app push
   (APNs/FCM) is not part of this BETA; `push_subscriptions` already has
   `platform`/`provider` for it.
+- **Check it:** avatar (Home) → **Obavijesti** shows whether the server sends
+  push and whether this device receives it, turns it on here (the permission
+  prompt comes from that tap, as iOS requires), and **Pošalji probnu
+  obavijest** sends a test notification now (`POST /api/push/test`).
+
+#### One iPhone, no App Store
+
+1. On a computer that stays on: Node 22.18+, pnpm, this repository; in
+   `apps/beta-web/.env` the BETA account, `RENVARA_SESSION_SECRET`,
+   `NODE_ENV=production` and the three `RENVARA_VAPID_*` lines (subject: your
+   own `mailto:` address). Run `pnpm beta` (it listens on 127.0.0.1 only).
+2. Give it an https address the iPhone can open, e.g. Tailscale Funnel
+   (`tailscale funnel 3000`, a fixed `https://<machine>.<tailnet>.ts.net`)
+   or Cloudflare Tunnel. Put that address in `RENVARA_PUBLIC_ORIGIN` and
+   restart. Keep the address fixed: the Home Screen app is bound to it.
+3. iPhone, Safari: open the address → Share → **Add to Home Screen** → open
+   Renvara from the Home Screen → sign in → avatar → **Obavijesti** →
+   **Uključi obavijesti** → Allow → **Pošalji probnu obavijest**.
+
+Reminders arrive only while that computer runs the server (it sends them, at
+most ~30 s late, through Apple's push service). iOS settings (Notifications →
+Renvara, Focus) decide how they are shown.
 
 ### Pages
 

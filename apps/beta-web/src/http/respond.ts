@@ -82,14 +82,19 @@ export function isJsonRequest(req: IncomingMessage): boolean {
  * Sec-Fetch-Site) on POST; anything that is not this same host is refused.
  * Combined with SameSite=Lax cookies and JSON-only bodies (which cross-site
  * forms cannot produce without a CORS preflight we never grant).
+ *
+ * `publicOrigin` (RENVARA_PUBLIC_ORIGIN) is the address users open when the
+ * server runs behind an HTTPS tunnel or proxy that changes the Host header:
+ * that one exact origin is accepted too.
  */
-export function isSameOrigin(req: IncomingMessage): boolean {
+export function isSameOrigin(req: IncomingMessage, publicOrigin: string | null = null): boolean {
   const site = req.headers['sec-fetch-site'];
   if (site && site !== 'same-origin' && site !== 'none') return false;
   const origin = req.headers.origin;
   if (!origin) return true;
   try {
-    return new URL(origin).host === req.headers.host;
+    const url = new URL(origin);
+    return url.host === req.headers.host || (publicOrigin !== null && url.origin === publicOrigin);
   } catch {
     return false;
   }

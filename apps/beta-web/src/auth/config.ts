@@ -12,6 +12,8 @@ export interface AuthConfig {
   readonly sessionSecret: string;
   readonly sessionTtlSeconds: number;
   readonly secureCookies: boolean;
+  /** The https address users open, when it differs from the Host the server sees (tunnel, proxy). */
+  readonly publicOrigin: string | null;
 }
 
 export class ConfigError extends Error {
@@ -65,5 +67,34 @@ export function loadAuthConfig(env: Env): AuthConfig {
     sessionSecret,
     sessionTtlSeconds: SESSION_TTL_SECONDS,
     secureCookies,
+    publicOrigin: parsePublicOrigin(env.RENVARA_PUBLIC_ORIGIN),
   };
+}
+
+/** "https://host[:port]" only (http just for localhost): no path, query or credentials. */
+function parsePublicOrigin(value: string | undefined): string | null {
+  const text = value?.trim();
+  if (!text) return null;
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    throw new ConfigError(
+      'RENVARA_PUBLIC_ORIGIN must be an address like https://renvara.example.com.',
+    );
+  }
+  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (
+    !(url.protocol === 'https:' || (url.protocol === 'http:' && local)) ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
+    throw new ConfigError(
+      'RENVARA_PUBLIC_ORIGIN must be only https:// and the host (no path), e.g. https://renvara.example.com.',
+    );
+  }
+  return url.origin;
 }

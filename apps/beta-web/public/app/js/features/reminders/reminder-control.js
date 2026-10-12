@@ -7,7 +7,7 @@ import { reminderError } from '../../core/validation.js';
 import { h } from '../../ui/dom.js';
 import { CustomField, DatePickerField, SwitchField, TimePickerField } from '../../ui/fields.js';
 import { icon } from '../../ui/icons.js';
-import { enablePush, PUSH_UNAVAILABLE } from './push.js';
+import { enablePush, preloadPushStatus, PUSH_UNAVAILABLE } from './push.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -35,6 +35,7 @@ export const activeReminder = (reminder) =>
  */
 export function ReminderControl({ reminder: shown = null } = {}) {
   const reminder = activeReminder(shown);
+  preloadPushStatus();
   let form = null;
   const note = h('p', { class: 'rv-reminder__note', role: 'status', hidden: true });
   const presets = h(
