@@ -1,12 +1,18 @@
 // Demo test database (demo/database-store.js) against a fake artifact `db`
 // that misbehaves the way the platform may: a call that is never answered,
-// refused bursts (resource_exhausted), a refusal in the middle of a save.
-// These are the conditions behind the Lead → Task "freeze".
+// a slow answer, a write applied but answered `unavailable`, refused bursts
+// (resource_exhausted), a refusal in the middle of a save. These are the
+// conditions behind the Lead → Task "freeze" and the Opportunity → Task
+// (with a reminder) save that failed half way.
 import { describe, expect, it } from 'vitest';
 import { databaseStore, WRITE_ORDER } from '../demo/database-store.js';
 
 type Doc = Record<string, unknown>;
-type Fault = (op: 'set' | 'delete', path: string) => 'hang' | { code: string } | null;
+type Fault = (
+  op: 'set' | 'delete',
+  path: string,
+) => 'hang' | { code: string } | { lateMs: number } | { appliedThen: string } | null;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fakeDb(initial: Record<string, Doc> = {}) {
   const docs = new Map<string, string>(
@@ -16,16 +22,28 @@ function fakeDb(initial: Record<string, Doc> = {}) {
   let fault: Fault = () => null;
   const run = (op: 'set' | 'delete', path: string, apply: () => void) => {
     const f = fault(op, path);
+    const done = () => {
+      apply();
+      log.push(`${op} ${path}`);
+    };
     if (f === 'hang') return new Promise<void>(() => {});
+    if (f && 'lateMs' in f) return sleep(f.lateMs).then(done); // applied when answered
+    if (f && 'appliedThen' in f) {
+      done();
+      return Promise.reject({ code: f.appliedThen }); // landed, but answered with an error
+    }
     if (f) return Promise.reject(f);
-    apply();
-    log.push(`${op} ${path}`);
+    done();
     return Promise.resolve();
   };
   const db = {
     doc: (path: string) => ({
       set: (data: Doc) => run('set', path, () => docs.set(path, JSON.stringify(data))),
       delete: () => run('delete', path, () => docs.delete(path)),
+      get: async () => ({
+        exists: docs.has(path),
+        data: () => (docs.has(path) ? (JSON.parse(docs.get(path)!) as Doc) : undefined),
+      }),
     }),
     collection: (name: string) => ({
       limit: () => ({
@@ -59,8 +77,15 @@ const empty = () => ({
   activities: [] as Doc[],
   leads: [] as Doc[],
 });
-const open = (fake: ReturnType<typeof fakeDb>) =>
-  databaseStore(fake.db, { collections, empty, limitMs: 40, retryDelayMs: () => 5 });
+const open = (fake: ReturnType<typeof fakeDb>, options: Record<string, unknown> = {}) =>
+  databaseStore(fake.db, {
+    collections,
+    empty,
+    limitMs: 40,
+    slowAfterMs: 10,
+    retryDelayMs: () => 5,
+    ...options,
+  });
 
 const lead = { id: 'l1', name: 'Termotechnik', stage: 'qualified' };
 
@@ -137,6 +162,57 @@ describe('Demo test database', () => {
     expect(fake.doc('leads/l1')).toEqual(lead); // could not be undone
     expect(store.current().leads).toEqual([lead]); // so the page keeps it too
     expect(store.current().activities).toEqual([]);
+  });
+
+  it('a slow database is waited for: no failure, no second write, the page is told', async () => {
+    const fake = fakeDb();
+    const slow: boolean[] = [];
+    const store = databaseStore(fake.db, {
+      collections: [...collections, 'reminders'],
+      empty: () => ({ ...empty(), reminders: [] as Doc[] }),
+      limitMs: 300,
+      slowAfterMs: 10,
+      retryDelayMs: () => 5,
+      onSlow: (s: boolean) => slow.push(s),
+    });
+    const data = await store.load();
+    // Opportunity → new meeting task with a reminder: task, reminder, history entry.
+    data.tasks.push({ id: 't1', title: 'Sastanak u OŠ - Bakar', opportunityId: 'o1' });
+    data.reminders.push({ id: 'r1', taskId: 't1' });
+    data.activities.push({ id: 'a1', type: 'meeting_scheduled', seq: 1 });
+    fake.fail(() => ({ lateMs: 60 })); // each write answered after 60 ms
+    await store.save(data);
+    expect(fake.log).toEqual(['set tasks/t1', 'set reminders/r1', 'set activities/a1']);
+    expect(slow).toEqual([true, false, true, false, true, false]);
+  });
+
+  it('a write that landed but was answered `unavailable` counts as saved (no retry, no undo)', async () => {
+    const fake = fakeDb();
+    const store = open(fake);
+    const data = await store.load();
+    data.tasks.push({ id: 't1', title: 'X' });
+    data.activities.push({ id: 'a1', type: 'task_created', seq: 1 });
+    fake.fail((op, path) => (path === 'tasks/t1' ? { appliedThen: 'unavailable' } : null));
+    await store.save(data);
+    expect(fake.log).toEqual(['set tasks/t1', 'set activities/a1']);
+    expect(store.current().tasks).toEqual([{ id: 't1', title: 'X' }]);
+  });
+
+  it('a write answered after the save gave up is never raced, and is recorded when it lands', async () => {
+    const fake = fakeDb();
+    let late = 0;
+    const store = open(fake, { onLate: () => late++ });
+    const data = await store.load();
+    data.tasks.push({ id: 't1', title: 'X' });
+    data.activities.push({ id: 'a1', type: 'task_created', seq: 1 });
+    fake.fail((op, path) => (path === 'tasks/t1' ? { lateMs: 120 } : null));
+    await expect(store.save(data)).rejects.toMatchObject({ code: 'unavailable' });
+    expect(fake.log).toEqual([]); // no second write, no undo racing the first
+    expect(store.current().tasks).toEqual([]);
+    await sleep(150);
+    expect(fake.log).toEqual(['set tasks/t1']); // written once, when it landed
+    expect(late).toBe(1);
+    expect(store.current().tasks).toEqual([{ id: 't1', title: 'X' }]); // the page can show it
   });
 
   it('deletes records that are gone, after everything else', async () => {

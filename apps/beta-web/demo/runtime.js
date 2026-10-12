@@ -107,11 +107,41 @@ function browserStore() {
   };
 }
 
+/** "Saving takes longer than usual": shown while the test database answers slowly. */
+const slowNote = document.createElement('p');
+slowNote.dataset.rvKeep = '';
+slowNote.setAttribute('role', 'status');
+slowNote.hidden = true;
+slowNote.textContent = 'Testna baza odgovara sporo. Spremanje je u tijeku, ne zatvarajte stranicu.';
+slowNote.setAttribute(
+  'style',
+  'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);' +
+    'z-index:2147483000;max-width:calc(100% - 32px);box-sizing:border-box;margin:0;padding:10px 14px;' +
+    'border-radius:12px;background:#111;color:#fff;font:600 13px/1.35 -apple-system,BlinkMacSystemFont,sans-serif;' +
+    'box-shadow:0 8px 24px rgba(0,0,0,.2);text-align:center',
+);
+function showSlow(slow) {
+  if (!slowNote.isConnected) document.body.append(slowNote);
+  slowNote.hidden = !slow;
+}
+
 async function openStore() {
   const use = window.claude?.use;
   if (typeof use !== 'function') return browserStore();
   const db = await use.call(window.claude, 'db').catch(() => null);
-  return db ? databaseStore(db, { collections: COLLECTIONS, empty: emptyData }) : browserStore();
+  if (!db) return browserStore();
+  return databaseStore(db, {
+    collections: COLLECTIONS,
+    empty: emptyData,
+    onSlow: showSlow,
+    // A write the save had given up on landed after all: continue from the
+    // database (between requests, never during one).
+    onLate: () => {
+      writes = writes.then(() => {
+        data = store.current();
+      });
+    },
+  });
 }
 
 // ----------------------------------------------------- server, in page ---
@@ -401,8 +431,8 @@ async function render() {
   }
   pageListeners = [];
   for (const node of [...document.body.children]) {
-    if (node !== root && !['SCRIPT', 'STYLE', 'TITLE', 'META'].includes(node.tagName))
-      node.remove();
+    if (node === root || 'rvKeep' in node.dataset) continue;
+    if (!['SCRIPT', 'STYLE', 'TITLE', 'META'].includes(node.tagName)) node.remove();
   }
   document.documentElement.classList.remove('rv-scroll-lock');
 
