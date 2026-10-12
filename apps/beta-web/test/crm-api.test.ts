@@ -140,7 +140,10 @@ describe('access', () => {
 describe('tasks', () => {
   it('creates, reads, updates, completes and cancels a task', async () => {
     const created = await json(
-      await api('/api/tasks', { method: 'POST', body: { title: 'Samostalni', type: 'call' } }),
+      await api('/api/tasks', {
+        method: 'POST',
+        body: { title: 'Samostalni', type: 'call', dueDate: '2026-10-08' },
+      }),
     );
     expect(created.status).toBe(201);
     expect(created.body.task).toMatchObject({
@@ -187,7 +190,7 @@ describe('tasks', () => {
     const mismatch = await json(
       await api('/api/tasks', {
         method: 'POST',
-        body: { title: 'X', companyId: adria, contactId: feroContact },
+        body: { title: 'X', companyId: adria, contactId: feroContact, dueDate: '2026-10-08' },
       }),
     );
     expect(mismatch).toMatchObject({
@@ -196,17 +199,28 @@ describe('tasks', () => {
     });
 
     const crossOrg = await json(
-      await api('/api/tasks', { method: 'POST', body: { title: 'X', companyId: foreign } }),
+      await api('/api/tasks', {
+        method: 'POST',
+        body: { title: 'X', companyId: foreign, dueDate: '2026-10-08' },
+      }),
     );
     expect(crossOrg).toMatchObject({
       status: 422,
       body: { message: MESSAGES.unavailable, errors: { companyId: MESSAGES.unavailable } },
     });
 
-    const title = await json(await api('/api/tasks', { method: 'POST', body: { title: '' } }));
+    const title = await json(
+      await api('/api/tasks', { method: 'POST', body: { title: '', dueDate: '2026-10-08' } }),
+    );
     expect(title.body).toMatchObject({
       message: MESSAGES.taskTitleRequired,
       errors: { title: MESSAGES.taskTitleRequired },
+    });
+    // Every task has a date (in the Sales Calendar or as its date).
+    const undated = await json(await api('/api/tasks', { method: 'POST', body: { title: 'X' } }));
+    expect(undated).toMatchObject({
+      status: 422,
+      body: { errors: { date: MESSAGES.taskDateRequired } },
     });
     expect(crm.repo.data().tasks.filter((t) => t.title === 'X')).toHaveLength(0);
   });
@@ -235,7 +249,7 @@ describe('tasks', () => {
 
   it('serves sections, priorities and filters', async () => {
     const sections = (await json(await api('/api/tasks/sections'))).body.sections;
-    expect(Object.keys(sections)).toEqual(['today', 'upcoming', 'unscheduled', 'completed']);
+    expect(Object.keys(sections)).toEqual(['today', 'upcoming', 'completed']);
     const priorities = (await json(await api('/api/tasks/priorities'))).body.tasks;
     expect(priorities[0]).toMatchObject({ title: 'Poslati ponudu za Adria Tech', reason: 'high' });
     const meetings = (await json(await api('/api/tasks?type=meeting&status=open'))).body.tasks;
@@ -335,7 +349,10 @@ describe('leads', () => {
     const all = (await json(await api('/api/leads'))).body.leads as Body[];
     expect(all.every((l) => l.organizationId === ORG)).toBe(true);
     const task = await json(
-      await api('/api/tasks', { method: 'POST', body: { title: 'X', leadId: foreign.id } }),
+      await api('/api/tasks', {
+        method: 'POST',
+        body: { title: 'X', leadId: foreign.id, dueDate: '2026-10-08' },
+      }),
     );
     expect(task).toMatchObject({ status: 422, body: { errors: { leadId: MESSAGES.unavailable } } });
   });
@@ -352,7 +369,12 @@ describe('leads', () => {
     const task = await json(
       await api('/api/tasks', {
         method: 'POST',
-        body: { title: 'Follow-up Marko', type: 'follow_up', leadId: lead.id },
+        body: {
+          title: 'Follow-up Marko',
+          type: 'follow_up',
+          leadId: lead.id,
+          dueDate: '2026-10-08',
+        },
       }),
     );
     expect(task).toMatchObject({

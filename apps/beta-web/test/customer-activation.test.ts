@@ -39,7 +39,11 @@ function setup() {
     crm.repo.data().customers.find((c) => c.organizationId === org && c.companyName === name)!;
   const nova = byName('Nova d.o.o.');
   // A reminder on one of the customer's tasks, to show it is left alone too.
-  const task = crm.tasks.createTask(ctx, { title: 'Nazvati Novu', companyId: nova.id });
+  const task = crm.tasks.createTask(ctx, {
+    title: 'Nazvati Novu',
+    companyId: nova.id,
+    dueDate: '2026-12-31',
+  });
   crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-20T08:00:00.000Z');
   return { crm, byName, nova };
 }

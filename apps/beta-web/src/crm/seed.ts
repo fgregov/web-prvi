@@ -266,7 +266,12 @@ export function seedDemoData(ctx: CrmContext): CrmData {
     { kind: 'opportunity', id: adriaDeal.id },
     at(addDays(today, 3), '09:00'),
   );
-  task({ title: 'Ažurirati cjenik za 2027.', type: 'general', priority: 'low' });
+  task({
+    title: 'Ažurirati cjenik za 2027.',
+    type: 'general',
+    priority: 'low',
+    dueDate: addDays(today, 14),
+  });
 
   // ---- The previous quarter: what was held, closed and left undone back then.
   const pastTask = (on: string, time: string, input: Record<string, unknown>) =>

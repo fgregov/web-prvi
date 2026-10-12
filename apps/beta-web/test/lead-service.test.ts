@@ -198,12 +198,18 @@ describe('LeadService · tasks on a lead', () => {
 
   it('rejects a lead of another organization', () => {
     const foreign = crm.leads.createLead(ctxB, { name: 'Tuđi lead' });
-    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', leadId: foreign.id }), {
-      leadId: MESSAGES.unavailable,
-    });
-    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', leadId: 'not an id' }), {
-      leadId: MESSAGES.unavailable,
-    });
+    rejects(
+      () => crm.tasks.createTask(ctxA, { title: 'X', leadId: foreign.id, dueDate: '2026-12-31' }),
+      {
+        leadId: MESSAGES.unavailable,
+      },
+    );
+    rejects(
+      () => crm.tasks.createTask(ctxA, { title: 'X', leadId: 'not an id', dueDate: '2026-12-31' }),
+      {
+        leadId: MESSAGES.unavailable,
+      },
+    );
   });
 });
 
@@ -217,7 +223,11 @@ describe('LeadService · conversion', () => {
 
   it('creates a new customer with a contact, keeps the lead and marks it WON', () => {
     const lead = marko();
-    const task = crm.tasks.createTask(ctxA, { title: 'Follow-up Marko', leadId: lead.id });
+    const task = crm.tasks.createTask(ctxA, {
+      title: 'Follow-up Marko',
+      leadId: lead.id,
+      dueDate: '2026-12-31',
+    });
     const result = crm.leads.convertLead(ctxA, lead.id, toNewCustomer);
     const customer = crm.customers.getCustomer(ctxA, result.customerId);
     expect(customer.companyName).toBe('ABC d.o.o.');
@@ -469,7 +479,10 @@ describe('Lead → Task regression (the "freeze" report)', () => {
   const tomorrow10 = '2026-10-06T08:00:00.000Z'; // 10:00 in Zagreb
 
   it('A–C: standalone, customer and opportunity tasks still work', () => {
-    const standalone = crm.tasks.createTask(ctxA, { title: 'Pripremiti prezentaciju' });
+    const standalone = crm.tasks.createTask(ctxA, {
+      title: 'Pripremiti prezentaciju',
+      dueDate: '2026-12-31',
+    });
     expect(standalone).toMatchObject({ companyId: null, leadId: null, opportunityId: null });
     const customer = crm.customers.createCustomer(ctxA, {
       companyName: 'FERO-TERM',
@@ -477,28 +490,37 @@ describe('Lead → Task regression (the "freeze" report)', () => {
       city: 'Osijek',
       contactName: 'Marko',
     });
-    expect(crm.tasks.createTask(ctxA, { title: 'Poziv', companyId: customer.id }).companyId).toBe(
-      customer.id,
-    );
+    expect(
+      crm.tasks.createTask(ctxA, { title: 'Poziv', companyId: customer.id, dueDate: '2026-12-31' })
+        .companyId,
+    ).toBe(customer.id);
     const { opportunity } = crm.opportunities.createOpportunity(ctxA, {
       companyId: customer.id,
       title: 'Vending',
     });
     expect(
-      crm.tasks.createTask(ctxA, { title: 'Follow-up', opportunityId: opportunity.id }),
+      crm.tasks.createTask(ctxA, {
+        title: 'Follow-up',
+        opportunityId: opportunity.id,
+        dueDate: '2026-12-31',
+      }),
     ).toMatchObject({ opportunityId: opportunity.id, companyId: customer.id });
   });
 
   it('D–F: a lead task needs no customer, with or without a calendar slot', () => {
     const lead = marko();
-    const undated = crm.tasks.createTask(ctxA, { title: 'Nazvati', leadId: lead.id });
+    const dated = crm.tasks.createTask(ctxA, {
+      title: 'Nazvati',
+      leadId: lead.id,
+      dueDate: '2026-12-31',
+    });
     const scheduled = crm.tasks.createTask(ctxA, {
       title: 'Follow-up Marko',
       type: 'follow_up',
       leadId: lead.id,
       scheduledStartAt: tomorrow10,
     });
-    for (const task of [undated, scheduled]) {
+    for (const task of [dated, scheduled]) {
       expect(task).toMatchObject({ leadId: lead.id, companyId: null, contactId: null });
     }
     expect(
@@ -506,14 +528,17 @@ describe('Lead → Task regression (the "freeze" report)', () => {
         .getLead(ctxA, lead.id)
         .tasks.map((t) => t.id)
         .sort(),
-    ).toEqual([undated.id, scheduled.id].sort());
+    ).toEqual([dated.id, scheduled.id].sort());
   });
 
   it('G: a lead of another organization is refused', () => {
     const foreign = crm.leads.createLead(ctxB, { name: 'Tuđi' });
-    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', leadId: foreign.id }), {
-      leadId: MESSAGES.unavailable,
-    });
+    rejects(
+      () => crm.tasks.createTask(ctxA, { title: 'X', leadId: foreign.id, dueDate: '2026-12-31' }),
+      {
+        leadId: MESSAGES.unavailable,
+      },
+    );
   });
 
   it('J: a scheduled lead task is in the Sales Calendar of its day', () => {

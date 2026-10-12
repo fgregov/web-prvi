@@ -39,7 +39,8 @@ export const taskTypeIcon = (type) =>
 export function taskMeta(task, { withCustomer = true } = {}) {
   return [
     labelOf(TASK_TYPES, task.type),
-    formatSchedule(task) || formatDue(task),
+    // An older task saved before every task had a date: say so, it needs one.
+    formatSchedule(task) || formatDue(task) || 'Datum nije unesen',
     withCustomer ? (task.customerName ?? (task.leadName ? `Lead: ${task.leadName}` : null)) : null,
     task.contactName,
   ]

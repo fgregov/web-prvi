@@ -108,9 +108,12 @@ The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
 - A **task** stands on its own. Customer, contact and opportunity are optional
   links. The server checks that each link exists in the organization and that
   the contact and opportunity belong to the chosen customer.
-- **Zakazano** (`scheduledStartAt`/`scheduledEndAt`, or `allDay` + date) puts a
-  task in the **Sales Calendar**. **Rok** (`dueDate` xor `dueAt`) is the
-  deadline. The two are independent.
+- Every task has a **date** (required, also on the server). "Dodaj u Sales
+  Kalendar" puts the task in the **Sales Calendar** on that date
+  (`allDay` + date, or `scheduledStartAt`/`scheduledEndAt`); otherwise the date,
+  with an optional time, is the task's date (`dueDate` xor `dueAt`). A next
+  action entered with a new opportunity needs its date too. An older task saved
+  without a date is shown in DANAS as "Datum nije unesen" until it gets one.
 - The Sales Calendar is a **view over tasks**: there is no separate calendar
   record. Completed tasks stay in it (green check, "Dovršeno"). Cancelled tasks
   drop out. Nothing is deleted.
@@ -205,8 +208,8 @@ refreshes after an action. A link to a section (`#pregled`, `#prilike`,
 `#kontakti` …, or an offer from Feedback overview) opens that one. The sections have no create buttons of
 their own; creating stays in the header card.
 
-**Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE, BEZ DATUMA and
-DOVRŠENO are accordions with their number of tasks, closed on every visit and
+**Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
+accordions with their number of tasks, closed on every visit and
 open while the page stays open. "Novi zadatak" stays at the top of the page.
 On both pages, coming Back (e.g. from a task) shows the sections that were
 open; the open sections are kept in that history entry (`ui/accordion.js`), so
@@ -294,7 +297,7 @@ Renvara, Focus) decide how they are shown.
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
 | `/contacts/new`                                   | New contact (customer required)                        |
 | `/opportunities`, `/opportunities/new`            | Pipeline with next actions, New opportunity            |
-| `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO (accordions) |
+| `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO (accordions)       |
 | `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
 | `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |

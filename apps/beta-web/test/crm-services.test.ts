@@ -57,8 +57,14 @@ beforeEach(() => {
 });
 
 describe('TaskService · independent tasks and scheduling', () => {
-  it('creates a task without customer, contact, opportunity or date (TEST A)', () => {
-    const task = crm.tasks.createTask(ctxA, { title: 'Pripremiti kvartalni izvještaj' });
+  it('a task needs a date; customer, contact and opportunity stay optional (TEST A)', () => {
+    rejects(() => crm.tasks.createTask(ctxA, { title: 'Pripremiti kvartalni izvještaj' }), {
+      date: MESSAGES.taskDateRequired,
+    });
+    const task = crm.tasks.createTask(ctxA, {
+      title: 'Pripremiti kvartalni izvještaj',
+      dueDate: '2026-12-31',
+    });
     expect(task).toMatchObject({
       companyId: null,
       contactId: null,
@@ -68,17 +74,21 @@ describe('TaskService · independent tasks and scheduling', () => {
       status: 'open',
       source: 'user',
       scheduledStartAt: null,
-      dueDate: null,
+      dueDate: '2026-12-31',
       dueAt: null,
       organizationId: 'org-a',
       assignedUserId: 'user-a',
     });
-    expect(crm.tasks.sections(ctxA).unscheduled.map((t) => t.id)).toEqual([task.id]);
+    expect(crm.tasks.sections(ctxA).upcoming.map((t) => t.id)).toEqual([task.id]);
     expect(crm.calendar.getDay(ctxA, TODAY)).toEqual([]);
+    // Editing cannot take the date away either.
+    rejects(() => crm.tasks.updateTask(ctxA, task.id, { title: 'Bez datuma' }), {
+      date: MESSAGES.taskDateRequired,
+    });
   });
 
   it('putting the same task in the calendar today at 16:00 shows it there (TEST B)', () => {
-    const task = crm.tasks.createTask(ctxA, { title: 'Samostalni zadatak' });
+    const task = crm.tasks.createTask(ctxA, { title: 'Samostalni zadatak', dueDate: '2026-12-31' });
     crm.tasks.updateTask(ctxA, task.id, {
       title: 'Samostalni zadatak',
       scheduledStartAt: at('16:00'),
@@ -121,7 +131,7 @@ describe('TaskService · independent tasks and scheduling', () => {
 
   it('validates with the specified Croatian messages', () => {
     rejects(
-      () => crm.tasks.createTask(ctxA, { title: '   ' }),
+      () => crm.tasks.createTask(ctxA, { title: '   ', dueDate: '2026-12-31' }),
       { title: MESSAGES.taskTitleRequired },
       MESSAGES.taskTitleRequired,
     );
@@ -134,39 +144,62 @@ describe('TaskService · independent tasks and scheduling', () => {
         }),
       { scheduledEndAt: MESSAGES.endBeforeStart },
     );
-    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', scheduledEndAt: at('15:00') }), {
-      scheduledStartAt: 'Unesite vrijeme početka.',
-    });
+    rejects(
+      () =>
+        crm.tasks.createTask(ctxA, {
+          title: 'X',
+          scheduledEndAt: at('15:00'),
+          dueDate: '2026-12-31',
+        }),
+      {
+        scheduledStartAt: 'Unesite vrijeme početka.',
+      },
+    );
     rejects(() => crm.tasks.createTask(ctxA, { title: 'X', dueDate: TODAY, dueAt: at('12:00') }), {
       dueDate: 'Rok je datum ili točno vrijeme, ne oboje.',
     });
-    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', type: 'kanban' }), {
-      type: 'Odaberite vrstu zadatka.',
-    });
+    rejects(
+      () => crm.tasks.createTask(ctxA, { title: 'X', type: 'kanban', dueDate: '2026-12-31' }),
+      {
+        type: 'Odaberite vrstu zadatka.',
+      },
+    );
   });
 });
 
 describe('TaskService · relations (TEST G)', () => {
   it('derives the customer from the opportunity or the contact', () => {
-    expect(crm.tasks.createTask(ctxA, { title: 'X', opportunityId: fero.oppId }).companyId).toBe(
-      fero.id,
-    );
-    expect(crm.tasks.createTask(ctxA, { title: 'X', contactId: adria.contactId }).companyId).toBe(
-      adria.id,
-    );
+    expect(
+      crm.tasks.createTask(ctxA, { title: 'X', opportunityId: fero.oppId, dueDate: '2026-12-31' })
+        .companyId,
+    ).toBe(fero.id);
+    expect(
+      crm.tasks.createTask(ctxA, { title: 'X', contactId: adria.contactId, dueDate: '2026-12-31' })
+        .companyId,
+    ).toBe(adria.id);
   });
 
   it('rejects a contact or opportunity of a different customer', () => {
     rejects(
       () =>
-        crm.tasks.createTask(ctxA, { title: 'X', companyId: adria.id, contactId: fero.contactId }),
+        crm.tasks.createTask(ctxA, {
+          title: 'X',
+          companyId: adria.id,
+          contactId: fero.contactId,
+          dueDate: '2026-12-31',
+        }),
       {
         contactId: MESSAGES.contactNotOfCustomer,
       },
     );
     rejects(
       () =>
-        crm.tasks.createTask(ctxA, { title: 'X', companyId: adria.id, opportunityId: fero.oppId }),
+        crm.tasks.createTask(ctxA, {
+          title: 'X',
+          companyId: adria.id,
+          opportunityId: fero.oppId,
+          dueDate: '2026-12-31',
+        }),
       {
         opportunityId: MESSAGES.opportunityNotOfCustomer,
       },
@@ -177,6 +210,7 @@ describe('TaskService · relations (TEST G)', () => {
           title: 'X',
           opportunityId: fero.oppId,
           contactId: adria.contactId,
+          dueDate: '2026-12-31',
         }),
       { contactId: MESSAGES.contactNotOfCustomer },
     );
@@ -196,11 +230,18 @@ describe('TaskService · relations (TEST G)', () => {
       { contactId: other.primaryContactId },
       { opportunityId: 'nope' },
     ]) {
-      rejects(() => crm.tasks.createTask(ctxA, { title: 'X', ...input }), {}, MESSAGES.unavailable);
+      rejects(
+        () => crm.tasks.createTask(ctxA, { title: 'X', ...input, dueDate: '2026-12-31' }),
+        {},
+        MESSAGES.unavailable,
+      );
     }
-    rejects(() => crm.tasks.createTask(ctxA, { title: 'X', companyId: '../etc' }), {
-      companyId: MESSAGES.unavailable,
-    });
+    rejects(
+      () => crm.tasks.createTask(ctxA, { title: 'X', companyId: '../etc', dueDate: '2026-12-31' }),
+      {
+        companyId: MESSAGES.unavailable,
+      },
+    );
   });
 
   it('isolates organizations on every read and write', () => {
@@ -263,7 +304,11 @@ describe('Priorities and sections', () => {
   it('orders open HIGH first, then overdue, then due today; completed today last', () => {
     const today = crm.tasks.createTask(ctxA, { title: 'Danas', dueDate: TODAY });
     const overdue = crm.tasks.createTask(ctxA, { title: 'Kasni', dueDate: '2026-10-02' });
-    const high = crm.tasks.createTask(ctxA, { title: 'Visoko', priority: 'high' });
+    const high = crm.tasks.createTask(ctxA, {
+      title: 'Visoko',
+      priority: 'high',
+      dueDate: '2026-12-31',
+    });
     const done = crm.tasks.createTask(ctxA, { title: 'Gotovo', dueDate: TODAY });
     crm.tasks.completeTask(ctxA, done.id);
     crm.tasks.createTask(ctxA, { title: 'Kasnije', dueDate: '2026-10-20' });
@@ -276,15 +321,20 @@ describe('Priorities and sections', () => {
     ]);
   });
 
-  it('sorts the Tasks screen into DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO', () => {
+  it('sorts the Tasks screen into DANAS, NADOLAZEĆE, DOVRŠENO (no "Bez datuma")', () => {
     crm.tasks.createTask(ctxA, { title: 'Jučer', scheduledStartAt: at('10:00', '2026-10-04') });
     crm.tasks.createTask(ctxA, { title: 'Danas 15', scheduledStartAt: at('15:00') });
     crm.tasks.createTask(ctxA, { title: 'Sutra', dueDate: '2026-10-06' });
-    crm.tasks.createTask(ctxA, { title: 'Bez datuma' });
+    // An older task saved before every task had a date: shown last in DANAS.
+    const old = crm.tasks.createTask(ctxA, { title: 'Stari bez datuma', dueDate: '2026-12-31' });
+    Object.assign(
+      crm.repo.data().tasks.find((t) => t.id === old.id)!,
+      { dueDate: null },
+    );
     const s = crm.tasks.sections(ctxA);
-    expect(s.today.map((t) => t.title)).toEqual(['Jučer', 'Danas 15']);
+    expect(Object.keys(s)).toEqual(['today', 'upcoming', 'completed']);
+    expect(s.today.map((t) => t.title)).toEqual(['Jučer', 'Danas 15', 'Stari bez datuma']);
     expect(s.upcoming.map((t) => t.title)).toEqual(['Sutra']);
-    expect(s.unscheduled.map((t) => t.title)).toEqual(['Bez datuma']);
   });
 });
 
@@ -347,6 +397,21 @@ describe('ContactService (TEST D) and OpportunityService (TEST E)', () => {
     );
   });
 
+  it('a next action entered with a new opportunity needs a date (it is a task)', () => {
+    rejects(
+      () =>
+        crm.opportunities.createOpportunity(ctxA, {
+          companyId: fero.id,
+          title: 'Bez datuma akcije',
+          nextActionTitle: 'Nazvati',
+        }),
+      { nextActionDueDate: 'Odaberite datum sljedeće akcije.' },
+    );
+    expect(
+      crm.opportunities.listOpportunities(ctxA).some((o) => o.title === 'Bez datuma akcije'),
+    ).toBe(false);
+  });
+
   it('flags a new opportunity without a next action, and accepts one in the same request', () => {
     const bare = crm.opportunities.createOpportunity(ctxA, {
       companyId: fero.id,
@@ -365,6 +430,7 @@ describe('ContactService (TEST D) and OpportunityService (TEST E)', () => {
     const task = crm.tasks.createTask(ctxA, {
       title: 'Poslati ponudu',
       opportunityId: bare.opportunity.id,
+      dueDate: '2026-12-31',
     });
     expect(crm.opportunities.getOpportunity(ctxA, bare.opportunity.id).nextAction?.id).toBe(
       task.id,
@@ -419,7 +485,11 @@ describe('ContactService (TEST D) and OpportunityService (TEST E)', () => {
       scheduledStartAt: at('16:00'),
     });
     crm.tasks.createTask(ctxA, { title: 'Ranije', opportunityId: fero.oppId, dueAt: at('12:00') });
-    crm.tasks.createTask(ctxA, { title: 'Bez datuma', opportunityId: fero.oppId });
+    crm.tasks.createTask(ctxA, {
+      title: 'Bez datuma',
+      opportunityId: fero.oppId,
+      dueDate: '2026-12-31',
+    });
     expect(crm.opportunities.getOpportunity(ctxA, fero.oppId).nextAction?.title).toBe('Ranije');
   });
 });

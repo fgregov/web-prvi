@@ -66,7 +66,9 @@ const form = createForm(
           maxlength: 300,
           hint: 'Svaka aktivna prilika treba poznatu sljedeću akciju. Sprema se kao zadatak.',
         }),
-        DatePickerField('nextActionDueDate', 'Rok sljedeće akcije'),
+        DatePickerField('nextActionDueDate', 'Datum sljedeće akcije', {
+          hint: 'Obavezno uz sljedeći korak: svaki zadatak ima datum.',
+        }),
       ],
     },
     reminder.section,

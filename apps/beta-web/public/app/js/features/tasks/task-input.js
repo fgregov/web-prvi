@@ -1,11 +1,15 @@
 // Task form values (local date and time fields) ⇄ API wire format (UTC instants).
+// Every task has a date ("Datum", required). "Dodaj u Sales Kalendar" puts the
+// task in the calendar on that date (all day, or with a start and end time);
+// otherwise the date (with an optional time) is the task's date (dueDate / dueAt).
 import { dayKey, timeKey, toInstant } from '../../core/format.js';
-import { validateTask } from '../../core/validation.js';
+import { MESSAGES, validateTask } from '../../core/validation.js';
 
 /** API field → form field, for showing server/shared validation errors next to the input. */
 const FIELD_OF = {
   scheduledEndAt: 'endTime',
-  dueAt: 'dueDate',
+  dueDate: 'date',
+  dueAt: 'date',
   description: 'description',
 };
 
@@ -31,9 +35,10 @@ export function taskInputFromForm(v) {
     dueAt: null,
   };
 
-  if (v.inCalendar) {
-    if (!v.date) errors.date = 'Odaberite datum.';
-    else if (!v.startTime) {
+  if (!v.date) {
+    errors.date = MESSAGES.taskDateRequired;
+  } else if (v.inCalendar) {
+    if (!v.startTime) {
       if (v.endTime) errors.startTime = 'Unesite vrijeme početka.';
       else {
         input.allDay = true; // date only
@@ -43,13 +48,10 @@ export function taskInputFromForm(v) {
       input.scheduledStartAt = toInstant(v.date, v.startTime);
       if (v.endTime) input.scheduledEndAt = toInstant(v.date, v.endTime);
     }
-  }
-
-  if (v.dueDate) {
-    if (v.dueTime) input.dueAt = toInstant(v.dueDate, v.dueTime);
-    else input.dueDate = v.dueDate;
   } else if (v.dueTime) {
-    errors.dueDate = 'Odaberite datum roka.';
+    input.dueAt = toInstant(v.date, v.dueTime);
+  } else {
+    input.dueDate = v.date;
   }
 
   return { input, errors: { ...mapTaskErrors(validateTask(input), input), ...errors } };
@@ -70,19 +72,19 @@ export function mapTaskErrors(errors, input = {}) {
   return out;
 }
 
-/** Form values for editing an existing task. */
+/** Form values for editing an existing task (one without a date gets none prefilled). */
 export function formValuesFromTask(task) {
   const start = task.scheduledStartAt;
+  const due = task.dueDate ?? (task.dueAt ? dayKey(new Date(task.dueAt)) : '');
   return {
     title: task.title,
     type: task.type,
     priority: task.priority,
     description: task.description ?? '',
     inCalendar: Boolean(start),
-    date: start ? (task.allDay ? task.scheduledDate : dayKey(new Date(start))) : '',
+    date: start ? (task.allDay ? task.scheduledDate : dayKey(new Date(start))) : due,
     startTime: start && !task.allDay ? timeKey(start) : '',
     endTime: task.scheduledEndAt ? timeKey(task.scheduledEndAt) : '',
-    dueDate: task.dueDate ?? (task.dueAt ? dayKey(new Date(task.dueAt)) : ''),
-    dueTime: task.dueAt ? timeKey(task.dueAt) : '',
+    dueTime: !start && task.dueAt ? timeKey(task.dueAt) : '',
   };
 }

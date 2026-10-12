@@ -1,8 +1,9 @@
 // /tasks/new and /tasks/{id}/edit · New / edit task screen.
 //
 // A task stands on its own; customer, contact and opportunity are optional
-// links. "Dodaj u Sales Kalendar" gives it a calendar slot (date only, a start
-// time, or a time range); "Rok" is the separate deadline. Context comes from
+// links. Its date is required; "Dodaj u Sales Kalendar" puts it in the
+// calendar on that date (all day, a start time, or a time range), otherwise an
+// optional time can go with the date. Context comes from
 // the query: ?companyId= ?contactId= ?opportunityId= ?leadId= ?type= ?calendar=1 ?date= ?returnTo=
 // A task opened from a lead ("Dodaj zadatak") keeps that lead as its context.
 import { api, ApiError } from '../core/api.js';
@@ -95,26 +96,19 @@ const form = createForm(
       ],
     },
     {
-      title: 'Sales Kalendar',
+      title: 'Datum',
       fields: [
+        DatePickerField('date', 'Datum', { required: true, hint: 'Obavezno.' }),
+        TimePickerField('dueTime', 'Vrijeme', { hint: 'Neobavezno.' }),
         SwitchField('inCalendar', 'Dodaj u Sales Kalendar', {
+          hint: 'Zadatak se prikazuje u Sales Kalendaru na odabrani datum.',
           onChange: (on) => showCalendar(on, { prefill: true }),
         }),
-        DatePickerField('date', 'Datum', { required: true, hidden: true }),
         TimePickerField('startTime', 'Vrijeme početka', {
           hidden: true,
           hint: 'Bez vremena: cijeli dan.',
         }),
         TimePickerField('endTime', 'Vrijeme završetka', { hidden: true, hint: 'Neobavezno.' }),
-      ],
-    },
-    {
-      title: 'Rok',
-      fields: [
-        DatePickerField('dueDate', 'Rok', {
-          hint: 'Zakazano je kada radite na zadatku (Sales Kalendar). Rok je do kada mora biti gotov.',
-        }),
-        TimePickerField('dueTime', 'Vrijeme roka', { hint: 'Neobavezno.' }),
       ],
     },
     {
@@ -133,11 +127,14 @@ const form = createForm(
 );
 reminder.attach(form);
 
+/** In the calendar: start and end time; otherwise one optional time for the date. */
 function showCalendar(on, { prefill = false } = {}) {
-  for (const name of ['date', 'startTime', 'endTime']) form.setVisible(name, on);
+  for (const name of ['startTime', 'endTime']) form.setVisible(name, on);
+  form.setVisible('dueTime', !on);
   if (!on || !prefill) return;
   const v = form.values();
   if (!v.date) form.setValue('date', slot.date);
+  if (v.dueTime && !v.startTime) form.setValue('startTime', v.dueTime);
   if (v.type === 'meeting' && !v.startTime) {
     form.setValue('startTime', slot.time);
     const [hh, mm] = slot.time.split(':').map(Number);
@@ -166,9 +163,12 @@ async function customerById(id) {
 }
 
 /** Fills the form from the task being edited, or from the query context. */
+let editing = null; // the task as loaded, when editing
+
 async function prefill() {
   if (editId) {
     const task = await api.getTask(editId);
+    editing = task;
     const values = formValuesFromTask(task);
     for (const [name, value] of Object.entries(values)) form.setValue(name, value);
     showCalendar(values.inCalendar);
@@ -244,6 +244,11 @@ async function save() {
     return;
   }
   input.reminderAt = push.reminderAt;
+  // An older task with a calendar slot and a separate deadline keeps that deadline.
+  if (editing && (input.allDay || input.scheduledStartAt) && (editing.dueDate || editing.dueAt)) {
+    input.dueDate = editing.dueDate ?? null;
+    input.dueAt = editing.dueAt ?? null;
+  }
   screen.setSaving(true);
   try {
     const task = editId ? await api.updateTask(editId, input) : await api.createTask(input);

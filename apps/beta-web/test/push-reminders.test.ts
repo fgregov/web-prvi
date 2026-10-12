@@ -221,7 +221,7 @@ describe('Reminder scheduling', () => {
     const { crm, sent, scheduler, subscribe, at } = setup();
     subscribe(1);
     subscribe(2);
-    const task = crm.tasks.createTask(ctx, { title: 'Poslati ponudu' });
+    const task = crm.tasks.createTask(ctx, { title: 'Poslati ponudu', dueDate: '2026-12-31' });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
     expect(await scheduler.tick()).toBe(0); // not due yet
     at('2026-10-10T07:00:20Z');
@@ -273,7 +273,7 @@ describe('Reminder scheduling', () => {
   it('moving a reminder means the old time no longer fires; removing it stops it', async () => {
     const { crm, sent, scheduler, subscribe, at } = setup();
     subscribe(1);
-    const task = crm.tasks.createTask(ctx, { title: 'A' });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
     const target = { kind: 'task' as const, id: task.id };
     crm.reminders.setReminder(ctx, target, '2026-10-10T07:00:00Z');
     crm.reminders.setReminder(ctx, target, '2026-10-12T07:00:00Z'); // moved
@@ -291,7 +291,7 @@ describe('Reminder scheduling', () => {
   it('completing a task cancels its reminder', async () => {
     const { crm, sent, scheduler, subscribe, at } = setup();
     subscribe(1);
-    const task = crm.tasks.createTask(ctx, { title: 'A' });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
     crm.tasks.completeTask(ctx, task.id);
     at('2026-10-11T00:00:00Z');
@@ -302,7 +302,7 @@ describe('Reminder scheduling', () => {
   it('retries a transient failure, then gives up after 3 attempts', async () => {
     const { crm, scheduler, subscribe, at } = setup(['retry', 'retry', 'retry']);
     subscribe(1);
-    const task = crm.tasks.createTask(ctx, { title: 'A' });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
     at('2026-10-10T07:00:00Z');
     await scheduler.tick();
@@ -324,7 +324,7 @@ describe('Reminder scheduling', () => {
     const { crm, scheduler, subscribe, at } = setup(['gone', 'ok']);
     subscribe(1);
     subscribe(2);
-    const task = crm.tasks.createTask(ctx, { title: 'A' });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
     at('2026-10-10T07:00:00Z');
     await scheduler.tick();
@@ -334,7 +334,7 @@ describe('Reminder scheduling', () => {
 
   it('without a device or without push keys the reminder fails visibly, never silently "sent"', async () => {
     const { crm, scheduler, at } = setup();
-    const task = crm.tasks.createTask(ctx, { title: 'A' });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
     at('2026-10-10T07:00:00Z');
     await scheduler.tick();
@@ -397,7 +397,7 @@ describe('Reminder scheduling', () => {
   it('an interrupted delivery is picked up again after a restart', async () => {
     const { crm, sent, scheduler, subscribe, at } = setup();
     subscribe(1);
-    const task = crm.tasks.createTask(ctx, { title: 'A' });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
     crm.reminders.claimDue(new Date('2026-10-10T07:00:00Z')); // claimed, then the process died
     at('2026-10-10T07:02:00Z');
@@ -432,15 +432,21 @@ describe('Reminder API', () => {
     const { crm, call } = api();
     const created = call('POST', '/api/tasks', {
       title: 'Poslati ponudu',
+      dueDate: '2026-10-12',
       reminderAt: '2026-10-10T07:00:00.000Z',
     });
     expect(created.status).toBe(201);
+    // The reminder is separate: it changes neither the task's date nor the calendar.
     expect(created.body.task).toMatchObject({
       reminder: { remindAt: '2026-10-10T07:00:00.000Z', status: 'pending' },
       scheduledStartAt: null,
-      dueDate: null,
+      dueDate: '2026-10-12',
     });
-    const past = call('POST', '/api/tasks', { title: 'X', reminderAt: '2026-10-09T09:00:00.000Z' });
+    const past = call('POST', '/api/tasks', {
+      title: 'X',
+      dueDate: '2026-10-12',
+      reminderAt: '2026-10-09T09:00:00.000Z',
+    });
     expect(past.status).toBe(422);
     expect(past.body.errors).toEqual({ reminderAt: 'Odaberite datum i vrijeme u budućnosti.' });
     expect(crm.repo.data().tasks).toHaveLength(1);
@@ -541,7 +547,10 @@ describe('Delivery over HTTP to a push service', () => {
       endpoint: `http://127.0.0.1:${port}/push/phone`,
       keys: { p256dh: d.p256dh, auth: d.auth },
     });
-    const task = crm.tasks.createTask(ctx, { title: 'Poslati ponudu za FERO-TERM' });
+    const task = crm.tasks.createTask(ctx, {
+      title: 'Poslati ponudu za FERO-TERM',
+      dueDate: '2026-12-31',
+    });
     crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-09T10:05:00Z');
 
     const keys = { ...generateVapidKeys(), subject: 'mailto:ops@renvara.test' };

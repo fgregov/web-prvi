@@ -21,6 +21,7 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 /** Messages the product specification fixes word for word. */
 export const MESSAGES = Object.freeze({
   taskTitleRequired: 'Unesite naziv zadatka.',
+  taskDateRequired: 'Odaberite datum zadatka.',
   endBeforeStart: 'Vrijeme završetka ne može biti prije vremena početka.',
   unavailable: 'Odabrani podatak nije dostupan.',
   taskSaveFailed: 'Nije moguće spremiti zadatak. Pokušajte ponovno.',
@@ -128,8 +129,9 @@ export function validateContact(input) {
 }
 
 /**
- * New opportunity. `nextActionTitle` / `nextActionDueDate` optionally create the
- * first open task in the same request, so the opportunity starts with a next action.
+ * New opportunity. `nextActionTitle` + `nextActionDueDate` (both, or neither)
+ * create the first open task in the same request, so the opportunity starts
+ * with a next action.
  */
 export function validateOpportunity(input) {
   const errors = {};
@@ -157,6 +159,9 @@ export function validateOpportunity(input) {
     if (!isCalendarDate(input.nextActionDueDate)) errors.nextActionDueDate = 'Neispravan datum.';
     else if (!text(input.nextActionTitle))
       errors.nextActionTitle = 'Unesite naziv sljedeće akcije.';
+  } else if (text(input.nextActionTitle)) {
+    // The next action is a task, and every task has a date.
+    errors.nextActionDueDate = 'Odaberite datum sljedeće akcije.';
   }
   maxLength(errors, input, 'nextActionTitle', 300);
   return errors;
@@ -165,7 +170,8 @@ export function validateOpportunity(input) {
 /**
  * Task in API (wire) format. Instants are UTC ISO strings; dates are YYYY-MM-DD.
  *   scheduledStartAt / scheduledEndAt / allDay → the Sales Calendar ("Zakazano")
- *   dueDate xor dueAt                          → the deadline ("Rok")
+ *   dueDate xor dueAt                          → the task's date when it is not in the calendar
+ * Every task has a date: in the Sales Calendar, or as its date (dueDate / dueAt).
  */
 export function validateTask(input) {
   const errors = {};
@@ -206,6 +212,12 @@ export function validateTask(input) {
     errors.dueDate = 'Neispravan datum.';
   } else if (!blank(input.dueAt) && !isInstant(input.dueAt)) {
     errors.dueDate = 'Neispravan datum ili vrijeme.';
+  }
+
+  const scheduled = input.allDay === true ? !blank(input.scheduledDate) : !blank(start);
+  const due = !blank(input.dueDate) || !blank(input.dueAt);
+  if (!scheduled && !due && !errors.scheduledStartAt && !errors.dueDate) {
+    errors.date = MESSAGES.taskDateRequired;
   }
   return errors;
 }

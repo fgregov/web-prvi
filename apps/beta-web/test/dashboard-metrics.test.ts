@@ -190,6 +190,7 @@ describe('Pipeline overview', () => {
     // A generic task completed in Q3 is not a negotiation.
     const general = crm.tasks.createTask(on('2026-07-01T09:00:00Z'), {
       title: 'Pripremiti prezentaciju',
+      dueDate: '2026-07-01',
     });
     crm.tasks.completeTask(on('2026-07-02T09:00:00Z'), general.id);
     expect(summary(crm, Q3).pipelineOverview.negotiations).toBe(0);
@@ -199,6 +200,7 @@ describe('Pipeline overview', () => {
         title: 'Follow-up ponude FERO-TERM',
         type: 'follow_up',
         opportunityId: o.id,
+        dueDate: `2026-07-${day}`,
       });
       crm.tasks.completeTask(on(`2026-07-${day}T09:00:00Z`), t.id);
     }

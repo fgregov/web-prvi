@@ -54,10 +54,13 @@ export interface TaskFilter {
   priority?: string | null;
 }
 
+/**
+ * Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO. Every task has a date; an older open
+ * task without one is listed in DANAS (last), so it is seen and given a date.
+ */
 export interface TaskSections {
   today: TaskView[];
   upcoming: TaskView[];
-  unscheduled: TaskView[];
   completed: TaskView[];
 }
 
@@ -305,10 +308,10 @@ export function createTaskService(repo: CrmRepository) {
       const tomorrowStart = dayRange(today, ctx.timeZone).end.getTime();
       const tasks = inOrg(data.tasks, ctx).sort(byTime(ctx.timeZone));
       const open = tasks.filter((t) => t.status === 'open');
-      const result: TaskSections = { today: [], upcoming: [], unscheduled: [], completed: [] };
+      const result: TaskSections = { today: [], upcoming: [], completed: [] };
       for (const task of open) {
         const at = effectiveTime(task, ctx.timeZone);
-        const bucket = at === null ? 'unscheduled' : at < tomorrowStart ? 'today' : 'upcoming';
+        const bucket = at === null || at < tomorrowStart ? 'today' : 'upcoming';
         result[bucket].push(view(data, ctx, task));
       }
       result.completed = tasks

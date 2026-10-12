@@ -160,9 +160,12 @@ A future obligation with an assignee, type, priority and status
 
 * `due_date` (date): "by Friday", evaluated in the assignee's timezone;
 * `due_at` (timestamptz): "call at 14:00", an exact instant;
-* neither: undated.
+* neither: undated in the schema, which the application no longer allows.
 
-The two are mutually exclusive (CHECK). Tasks may have no subject at all,
+The two are mutually exclusive (CHECK). The application requires every task
+to have a date: a Sales Calendar slot (`scheduled_*`) or `due_date` / `due_at`.
+The schema does not enforce it, so rows saved before the rule stay valid; the
+Tasks screen lists such a task in DANAS until it is given a date. Tasks may have no subject at all,
 which allows personal reminders. A task may concern a lead (`lead_id`, same
 organization) before that lead is a customer.
 

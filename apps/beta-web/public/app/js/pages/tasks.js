@@ -1,5 +1,5 @@
-// /tasks · Zadaci: DANAS, NADOLAZEĆE, BEZ DATUMA, DOVRŠENO as accordions (the
-// Customer Detail principle). Completed tasks stay as history.
+// /tasks · Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO as accordions (the Customer
+// Detail principle). Every task has a date; completed tasks stay as history.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { taskRow } from '../features/tasks/task-row.js';
 import { accordionSection, openSectionsState } from '../ui/accordion.js';
@@ -14,7 +14,6 @@ const root = document.getElementById('app');
 const SECTIONS = [
   ['today', 'Danas', 'calendar', 'Nema zadataka za danas.'],
   ['upcoming', 'Nadolazeće', 'clock', 'Nema nadolazećih zadataka.'],
-  ['unscheduled', 'Bez datuma', 'check-square', 'Svi zadaci imaju datum.'],
   ['completed', 'Dovršeno', 'check', 'Još nema dovršenih zadataka.'],
 ];
 // Accordions: all closed on a new visit (except the one a link points at,
@@ -41,7 +40,7 @@ async function toggle(task) {
 }
 
 function render(sections) {
-  const open = sections.today.length + sections.upcoming.length + sections.unscheduled.length;
+  const open = sections.today.length + sections.upcoming.length;
   root.replaceChildren(
     h(
       'div',
