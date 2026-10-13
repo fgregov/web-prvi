@@ -47,7 +47,7 @@ select plan(22);
 select has_table('public', 'offer_documents', 'offer_documents table exists');
 select has_table('public', 'offer_share_links', 'offer_share_links table exists');
 select has_table('public', 'offer_engagement_events', 'offer_engagement_events table exists');
-select col_not_null('public', 'offers', 'company_id', 'an offer always has its customer');
+select col_is_null('public', 'offers', 'company_id', 'the customer is optional only within a lead''s deal (ADR-0009, test 10)');
 select col_is_null('public', 'offers', 'opportunity_id', 'the opportunity is optional');
 select is((select public from storage.buckets where id = 'offer-documents'), false,
   'the offer-documents bucket is private');

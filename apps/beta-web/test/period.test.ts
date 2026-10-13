@@ -112,9 +112,10 @@ describe('DashboardService · period summary', () => {
     const q3 = services.dashboard.getPeriodSummary(ctx, '2026-07-01', '2026-09-30');
     expect(q3.period).toMatchObject({ type: 'QUARTER', year: 2026, quarter: 3, isCurrent: false });
     expect(q3.previous).toEqual({ startDate: '2026-04-01', endDate: '2026-06-30' });
-    // Baseline 9 won / €31.800 + the seeded "Servisni ugovor 2026" won in Q3 (€8.400).
-    expect(q3.kpis.won.value).toBe(10);
-    expect(q3.kpis.revenue.value).toBe(40200);
+    // Baseline 9 won / €31.800 + the seeded "Servisni ugovor 2026" won in Q3 (€8.400)
+    // + the Nova lead's deal "Licence za prodajni tim" won in Q3 (€3.600, ADR-0009).
+    expect(q3.kpis.won.value).toBe(11);
+    expect(q3.kpis.revenue.value).toBe(43800);
     expect(q3.tasks.items.map((t) => t.title)).toContain('Sastanak s Adria Tech');
     expect(q3.tasks.items.find((t) => t.title === 'Kontaktirati Initium – reference')?.status).toBe(
       'cancelled',
@@ -127,10 +128,11 @@ describe('DashboardService · period summary', () => {
     const services = crm();
     const buyers = (from: string, to: string) =>
       services.dashboard.getPeriodSummary(ctx, from, to).pipelineOverview;
-    // Demo buyers Q1 4 + Q2 5 + Q3 6, plus Adria Tech (won in Q3).
-    expect(buyers('2026-07-01', '2026-09-30')).toMatchObject({ buyers: 16, buyersYear: 2026 });
-    // + 2 demo buyers this quarter; Adria Tech won again in Q4 is still one customer.
-    expect(buyers('2026-10-01', '2026-12-31').buyers).toBe(18);
+    // Demo buyers Q1 4 + Q2 5 + Q3 6, plus Adria Tech and Nova d.o.o. (its lead's deal) won in Q3.
+    expect(buyers('2026-07-01', '2026-09-30')).toMatchObject({ buyers: 17, buyersYear: 2026 });
+    // + 2 demo buyers this quarter + FERO-TERM (its lead's deal won in Q4); Adria Tech won
+    // again in Q4 is still one customer.
+    expect(buyers('2026-10-01', '2026-12-31').buyers).toBe(20);
     expect(buyers('2025-10-01', '2025-12-31')).toMatchObject({ buyers: 3, buyersYear: 2025 });
   });
 

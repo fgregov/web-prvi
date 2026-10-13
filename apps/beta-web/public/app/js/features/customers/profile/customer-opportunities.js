@@ -81,6 +81,149 @@ function offerRow(offer, deal) {
   );
 }
 
+/**
+ * One opportunity with its stage, next action, offers and actions — the same
+ * card on the customer's profile and on the lead's detail (ADR-0009).
+ * `show.lead` names the lead a customer's deal came from; `show.customer`
+ * names the customer a lead's deal belongs to once the lead is converted.
+ */
+export function opportunityCard(o, actions, show = {}) {
+  const enc = encodeURIComponent;
+  const origin =
+    show.lead && o.leadId && o.leadName
+      ? h(
+          'a',
+          { class: 'rv-opp__origin', href: `/leads/${enc(o.leadId)}` },
+          icon('user-search', 'rv-icon rv-icon--sm'),
+          `Iz leada: ${o.leadName}`,
+        )
+      : show.customer && o.companyId && o.customerName
+        ? h(
+            'a',
+            { class: 'rv-opp__origin', href: `/customers/${enc(o.companyId)}` },
+            icon('building', 'rv-icon rv-icon--sm'),
+            `Kupac: ${o.customerName}`,
+          )
+        : null;
+  // A won deal of a lead that is already a customer, not yet linked to it: explicit link.
+  const linkable =
+    o.status === 'won' && o.leadId && !o.companyId && o.leadCustomerId && actions.linkCustomer;
+  return h(
+    'li',
+    { class: 'rv-opp', dataset: { opportunityId: o.id } },
+    h(
+      'div',
+      { class: 'rv-opp__top' },
+      h('strong', { class: 'rv-opp__title' }, o.title),
+      h(
+        'span',
+        { class: 'rv-opp__value' },
+        // A won deal shows its final amount when it differs from the estimate.
+        formatMoney(o.status === 'won' ? (o.wonValue ?? o.value) : o.value, o.currency),
+      ),
+    ),
+    h(
+      'div',
+      { class: 'rv-opp__meta' },
+      h('span', { class: 'rv-badge rv-badge--red' }, labelOf(STAGES, o.stage)),
+      o.status !== 'active'
+        ? h(
+            'span',
+            { class: `rv-badge rv-badge--${o.status === 'won' ? 'green' : 'neutral'}` },
+            labelOf(OPPORTUNITY_STATUSES, o.status),
+          )
+        : null,
+      o.contactName ? h('span', {}, o.contactName) : null,
+      o.expectedCloseDate ? h('span', {}, `Zatvaranje: ${formatDay(o.expectedCloseDate)}`) : null,
+    ),
+    origin,
+    nextActionLine(o, actions.nextActionFor(o.id)),
+    o.offers?.length
+      ? h(
+          'ul',
+          { class: 'rv-offers', role: 'list' },
+          o.offers.map((offer) => offerRow(offer, actions.deal)),
+        )
+      : null,
+    o.reminder
+      ? h(
+          'p',
+          {
+            class: `rv-opp__reminder${o.reminder.status === 'failed' ? ' is-failed' : ''}`,
+          },
+          icon('clock', 'rv-icon rv-icon--sm'),
+          `Podsjetnik: ${reminderLabel(o.reminder)}`,
+        )
+      : null,
+    o.status === 'active'
+      ? h(
+          'div',
+          { class: 'rv-opp__actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-btn rv-btn--sm rv-btn--secondary',
+              onClick: () => actions.deal.offerSent(o),
+            },
+            'Ponuda poslana',
+          ),
+          h(
+            'a',
+            {
+              class: 'rv-btn rv-btn--sm rv-btn--secondary',
+              href: `/follow-up/new?opportunityId=${enc(o.id)}`,
+            },
+            'Priloži PDF ponude',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-btn rv-btn--sm rv-btn--secondary',
+              onClick: () => actions.deal.won(o),
+            },
+            'Dobiveno',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-btn rv-btn--sm rv-btn--secondary',
+              onClick: () => actions.deal.lost(o),
+            },
+            'Izgubljeno',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-btn rv-btn--sm rv-btn--ghost',
+              onClick: () => actions.deal.reminder(o),
+            },
+            activeReminder(o.reminder) ? 'Promijeni podsjetnik' : 'Podsjetnik',
+          ),
+        )
+      : null,
+    linkable
+      ? h(
+          'div',
+          { class: 'rv-opp__actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-btn rv-btn--sm rv-btn--secondary',
+              onClick: () => actions.linkCustomer(o),
+            },
+            `Poveži s kupcem ${o.leadCustomerName}`,
+          ),
+        )
+      : null,
+    o.notes ? h('p', { class: 'rv-opp__notes' }, o.notes) : null,
+  );
+}
+
 export function customerOpportunities(profile, actions, open) {
   const active = profile.opportunities.filter((o) => o.status === 'active');
   const total = active.reduce((sum, o) => sum + (o.value ?? 0), 0);
@@ -100,108 +243,7 @@ export function customerOpportunities(profile, actions, open) {
           h(
             'ul',
             { class: 'rv-opps', role: 'list' },
-            profile.opportunities.map((o) =>
-              h(
-                'li',
-                { class: 'rv-opp' },
-                h(
-                  'div',
-                  { class: 'rv-opp__top' },
-                  h('strong', { class: 'rv-opp__title' }, o.title),
-                  h(
-                    'span',
-                    { class: 'rv-opp__value' },
-                    // A won deal shows its final amount when it differs from the estimate.
-                    formatMoney(o.status === 'won' ? (o.wonValue ?? o.value) : o.value, o.currency),
-                  ),
-                ),
-                h(
-                  'div',
-                  { class: 'rv-opp__meta' },
-                  h('span', { class: 'rv-badge rv-badge--red' }, labelOf(STAGES, o.stage)),
-                  o.status !== 'active'
-                    ? h(
-                        'span',
-                        { class: `rv-badge rv-badge--${o.status === 'won' ? 'green' : 'neutral'}` },
-                        labelOf(OPPORTUNITY_STATUSES, o.status),
-                      )
-                    : null,
-                  o.contactName ? h('span', {}, o.contactName) : null,
-                  o.expectedCloseDate
-                    ? h('span', {}, `Zatvaranje: ${formatDay(o.expectedCloseDate)}`)
-                    : null,
-                ),
-                nextActionLine(o, actions.nextActionFor(o.id)),
-                o.offers?.length
-                  ? h(
-                      'ul',
-                      { class: 'rv-offers', role: 'list' },
-                      o.offers.map((offer) => offerRow(offer, actions.deal)),
-                    )
-                  : null,
-                o.reminder
-                  ? h(
-                      'p',
-                      {
-                        class: `rv-opp__reminder${o.reminder.status === 'failed' ? ' is-failed' : ''}`,
-                      },
-                      icon('clock', 'rv-icon rv-icon--sm'),
-                      `Podsjetnik: ${reminderLabel(o.reminder)}`,
-                    )
-                  : null,
-                o.status === 'active'
-                  ? h(
-                      'div',
-                      { class: 'rv-opp__actions' },
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'rv-btn rv-btn--sm rv-btn--secondary',
-                          onClick: () => actions.deal.offerSent(o),
-                        },
-                        'Ponuda poslana',
-                      ),
-                      h(
-                        'a',
-                        {
-                          class: 'rv-btn rv-btn--sm rv-btn--secondary',
-                          href: `/follow-up/new?opportunityId=${encodeURIComponent(o.id)}`,
-                        },
-                        'Priloži PDF ponude',
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'rv-btn rv-btn--sm rv-btn--secondary',
-                          onClick: () => actions.deal.won(o),
-                        },
-                        'Dobiveno',
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'rv-btn rv-btn--sm rv-btn--secondary',
-                          onClick: () => actions.deal.lost(o),
-                        },
-                        'Izgubljeno',
-                      ),
-                      h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: 'rv-btn rv-btn--sm rv-btn--ghost',
-                          onClick: () => actions.deal.reminder(o),
-                        },
-                        activeReminder(o.reminder) ? 'Promijeni podsjetnik' : 'Podsjetnik',
-                      ),
-                    )
-                  : null,
-                o.notes ? h('p', { class: 'rv-opp__notes' }, o.notes) : null,
-              ),
-            ),
+            profile.opportunities.map((o) => opportunityCard(o, actions, { lead: true })),
           ),
         ]
       : emptyState('Nema evidentiranih prilika.'),

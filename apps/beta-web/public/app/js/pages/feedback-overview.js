@@ -14,7 +14,7 @@ import {
   setDashboardPeriod,
 } from '../core/dashboard-period.js';
 import { PeriodSelector } from '../features/dashboard/period-selector.js';
-import { offerHref } from '../features/dashboard/feedback-overview.js';
+import { offerHref, offerParty } from '../features/dashboard/feedback-overview.js';
 import { accordionSection, openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -145,7 +145,7 @@ function row(item, isCurrent) {
       ? `Danas: ${item.standingNow === 'waiting' ? 'čeka odgovor' : STANDING[item.standingNow].toLowerCase()}`
       : null;
   const label = [
-    item.customerName,
+    offerParty(item),
     item.title,
     item.standing === 'waiting' ? `${item.waitingDays} dana čeka odgovor` : STANDING[item.standing],
   ].join(', ');
@@ -166,7 +166,7 @@ function row(item, isCurrent) {
         h(
           'strong',
           { class: 'rv-offer-row__customer' },
-          item.customerName || 'Kupac nije dostupan',
+          offerParty(item),
           item.customerActive ? null : h('span', { class: 'rv-offer-row__inactive' }, 'Neaktivan'),
         ),
         h('span', { class: 'rv-offer-row__title' }, item.title),

@@ -11,7 +11,7 @@
 import { createCrmApi } from '../server/crm/dispatch.js';
 import { createFollowUpApi, VIEWER_PAGE } from '../server/crm/follow-up-api.js';
 import { createCrmServices } from '../server/crm/index.js';
-import { emptyData } from '../server/crm/repository.js';
+import { emptyData, normalizeData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
 import { deriveShareKey } from '../server/crm/share-token.js';
 import { DEMO_CONTENT } from '../app/js/core/edition.js';
@@ -144,7 +144,7 @@ async function openStore() {
     // database (between requests, never during one).
     onLate: () => {
       writes = writes.then(() => {
-        data = store.current();
+        data = normalizeData(store.current());
       });
     },
   });
@@ -221,7 +221,7 @@ async function answer(method, path, query, body) {
       await store.save(data);
     } catch (error) {
       console.error('Test database write failed', error);
-      data = store.current ? store.current() : JSON.parse(before);
+      data = store.current ? normalizeData(store.current()) : JSON.parse(before);
       return [503, { success: false, message: SAVE_FAILED }];
     }
   }
@@ -235,7 +235,7 @@ async function persist(before) {
     return null;
   } catch (error) {
     console.error('Test database write failed', error);
-    data = store.current ? store.current() : JSON.parse(before);
+    data = store.current ? normalizeData(store.current()) : JSON.parse(before);
     return [503, { success: false, message: SAVE_FAILED }];
   }
 }
@@ -594,11 +594,11 @@ async function render() {
 async function start() {
   store = await openStore();
   try {
-    data = await store.load();
+    data = normalizeData(await store.load());
   } catch (error) {
     console.error('Test database read failed; using browser storage', error);
     store = browserStore();
-    data = await store.load();
+    data = normalizeData(await store.load());
   }
   if (store.kind === 'browser') await store.save(data); // keep the seeded ids stable across reloads
   // Back from the background: other tabs or devices may have written meanwhile.
@@ -607,7 +607,7 @@ async function start() {
     if (document.visibilityState !== 'visible' || store.kind !== 'database') return;
     writes = writes.then(async () => {
       try {
-        data = await store.load();
+        data = normalizeData(await store.load());
       } catch (error) {
         console.error('Test database refresh failed', error);
       }

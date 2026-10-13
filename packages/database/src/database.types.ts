@@ -365,6 +365,8 @@ export type Database = {
           status: Database['public']['Enums']['lead_status'];
           updated_at: string;
           updated_by: string | null;
+          won_at: string | null;
+          won_basis: Database['public']['Enums']['lead_won_basis'] | null;
         };
         Insert: {
           company_name?: string | null;
@@ -393,6 +395,8 @@ export type Database = {
           status?: Database['public']['Enums']['lead_status'];
           updated_at?: string;
           updated_by?: string | null;
+          won_at?: string | null;
+          won_basis?: Database['public']['Enums']['lead_won_basis'] | null;
         };
         Update: {
           company_name?: string | null;
@@ -421,6 +425,8 @@ export type Database = {
           status?: Database['public']['Enums']['lead_status'];
           updated_at?: string;
           updated_by?: string | null;
+          won_at?: string | null;
+          won_basis?: Database['public']['Enums']['lead_won_basis'] | null;
         };
         Relationships: [
           {
@@ -719,7 +725,7 @@ export type Database = {
       offers: {
         Row: {
           answered_at: string | null;
-          company_id: string;
+          company_id: string | null;
           contact_id: string | null;
           created_at: string;
           created_by: string | null;
@@ -736,7 +742,7 @@ export type Database = {
         };
         Insert: {
           answered_at?: string | null;
-          company_id: string;
+          company_id?: string | null;
           contact_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -753,7 +759,7 @@ export type Database = {
         };
         Update: {
           answered_at?: string | null;
-          company_id?: string;
+          company_id?: string | null;
           contact_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -823,7 +829,7 @@ export type Database = {
       opportunities: {
         Row: {
           closed_at: string | null;
-          company_id: string;
+          company_id: string | null;
           created_at: string;
           created_by: string | null;
           currency: string | null;
@@ -832,6 +838,7 @@ export type Database = {
           expected_close_date: string | null;
           id: string;
           interest_level: Database['public']['Enums']['interest_level'] | null;
+          lead_id: string | null;
           lost_reason: string | null;
           manual_probability: number | null;
           organization_id: string;
@@ -846,7 +853,7 @@ export type Database = {
         };
         Insert: {
           closed_at?: string | null;
-          company_id: string;
+          company_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           currency?: string | null;
@@ -855,6 +862,7 @@ export type Database = {
           expected_close_date?: string | null;
           id?: string;
           interest_level?: Database['public']['Enums']['interest_level'] | null;
+          lead_id?: string | null;
           lost_reason?: string | null;
           manual_probability?: number | null;
           organization_id: string;
@@ -869,7 +877,7 @@ export type Database = {
         };
         Update: {
           closed_at?: string | null;
-          company_id?: string;
+          company_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           currency?: string | null;
@@ -878,6 +886,7 @@ export type Database = {
           expected_close_date?: string | null;
           id?: string;
           interest_level?: Database['public']['Enums']['interest_level'] | null;
+          lead_id?: string | null;
           lost_reason?: string | null;
           manual_probability?: number | null;
           organization_id?: string;
@@ -904,6 +913,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'opportunities_lead_fk';
+            columns: ['organization_id', 'lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['organization_id', 'id'];
           },
           {
             foreignKeyName: 'opportunities_organization_id_fkey';
@@ -1429,6 +1445,7 @@ export type Database = {
           id: string | null;
           interest_level: Database['public']['Enums']['interest_level'] | null;
           last_activity_at: string | null;
+          lead_id: string | null;
           lost_reason: string | null;
           manual_probability: number | null;
           needs_next_action: boolean | null;
@@ -1446,6 +1463,7 @@ export type Database = {
           title: string | null;
           updated_at: string | null;
           updated_by: string | null;
+          won_value: number | null;
         };
         Relationships: [
           {
@@ -1461,6 +1479,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'opportunities_lead_fk';
+            columns: ['organization_id', 'lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['organization_id', 'id'];
           },
           {
             foreignKeyName: 'opportunities_organization_id_fkey';
@@ -1494,6 +1519,16 @@ export type Database = {
       };
     };
     Functions: {
+      convert_won_lead: {
+        Args: {
+          p_customer?: Json;
+          p_customer_id?: string;
+          p_lead_id: string;
+          p_opportunity_id?: string;
+          p_reactivate?: boolean;
+        };
+        Returns: string;
+      };
       create_organization: {
         Args: {
           p_country_code?: string;
@@ -1559,6 +1594,7 @@ export type Database = {
         | 'other';
       lead_stage: 'new' | 'contacted' | 'qualified';
       lead_status: 'active' | 'won' | 'lost';
+      lead_won_basis: 'opportunity' | 'conversion';
       member_role: 'owner' | 'admin' | 'manager' | 'sales';
       member_status: 'active' | 'suspended' | 'removed';
       offer_event_type: 'link_access' | 'document_view';
@@ -1726,6 +1762,7 @@ export const Constants = {
       ],
       lead_stage: ['new', 'contacted', 'qualified'],
       lead_status: ['active', 'won', 'lost'],
+      lead_won_basis: ['opportunity', 'conversion'],
       member_role: ['owner', 'admin', 'manager', 'sales'],
       member_status: ['active', 'suspended', 'removed'],
       offer_event_type: ['link_access', 'document_view'],

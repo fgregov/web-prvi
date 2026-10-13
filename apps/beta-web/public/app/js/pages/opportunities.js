@@ -93,10 +93,17 @@ function stageContent(items, demo) {
                 'a',
                 {
                   class: 'rv-board__link',
-                  href: `/customers/${encodeURIComponent(o.companyId)}#prilike`,
+                  // A lead's deal (no customer yet, ADR-0009) lives on the lead.
+                  href: o.companyId
+                    ? `/customers/${encodeURIComponent(o.companyId)}#prilike`
+                    : `/leads/${encodeURIComponent(o.leadId)}#prilike`,
                 },
                 h('strong', {}, o.title),
-                h('span', { class: 'rv-board__customer' }, o.customerName),
+                h(
+                  'span',
+                  { class: 'rv-board__customer' },
+                  o.customerName || (o.leadName ? `Lead · ${o.leadName}` : ''),
+                ),
                 h(
                   'span',
                   { class: 'rv-board__meta' },
@@ -112,6 +119,7 @@ function stageContent(items, demo) {
                 o,
                 withParams('/tasks/new', {
                   opportunityId: o.id,
+                  leadId: o.companyId ? null : o.leadId,
                   type: 'follow_up',
                   returnTo: '/opportunities',
                 }),

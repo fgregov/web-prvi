@@ -9,9 +9,13 @@ import { h } from '../../../ui/dom.js';
 import { DatePickerField, FormField, TextAreaField } from '../../../ui/fields.js';
 import { createForm } from '../../../ui/form.js';
 import { openSheet } from '../../../ui/sheet.js';
+import { offerConversion } from '../../leads/won-conversion.js';
 import { openReminderSheet } from '../../reminders/reminder-sheet.js';
 
-/** A small form in a bottom sheet: validate, save, close; errors stay on the form. */
+/**
+ * A small form in a bottom sheet: validate, save, close; errors stay on the
+ * form. `save` may return a step to run once the sheet is closed.
+ */
 function formSheet({ title, fields, submitLabel, validate, save }) {
   const form = createForm([{ fields }], { single: true });
   const error = h('p', { class: 'rv-screen__error', role: 'alert', hidden: true });
@@ -34,8 +38,9 @@ function formSheet({ title, fields, submitLabel, validate, save }) {
     if (form.setErrors(validate(values))) return;
     submit.disabled = true;
     cancel.disabled = true;
+    let next;
     try {
-      await save(values);
+      next = await save(values);
       sheet.close();
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 422) form.setErrors(failure.errors);
@@ -43,14 +48,17 @@ function formSheet({ title, fields, submitLabel, validate, save }) {
       error.hidden = false;
       submit.disabled = false;
       cancel.disabled = false;
+      return;
     }
+    if (typeof next === 'function') await next();
   });
 }
 
 /**
- * @param {(message: string) => Promise<void>} done  toast + reload of the profile
+ * @param {(message: string) => Promise<void>} done  toast + reload of the page
+ * @param {{ returnTo?: string }} [options]  where the conversion screen returns to
  */
-export function opportunityActions(done) {
+export function opportunityActions(done, { returnTo } = {}) {
   return {
     /** "Ponuda poslana": the offer starts waiting for feedback (day 1 = the sending day). */
     offerSent(o) {
@@ -103,8 +111,17 @@ export function opportunityActions(done) {
         ],
         validate: (values) => validateOpportunityClose({ outcome: 'won', ...values }),
         save: async (values) => {
-          await api.closeOpportunity(o.id, { outcome: 'won', ...values });
+          const won = await api.closeOpportunity(o.id, { outcome: 'won', ...values });
           await done('Prilika je označena kao dobivena.');
+          // A lead's deal: the lead is WON now; offer its conversion (never automatic).
+          return async () => {
+            const outcome = await offerConversion(won, { returnTo });
+            if (outcome === 'later') {
+              await done('Lead je osvojen. Pretvaranje u kupca čeka na leadu.');
+            } else if (outcome === 'linked') {
+              await done(`Prilika je povezana s kupcem ${won.leadCustomerName}.`);
+            }
+          };
         },
       });
     },

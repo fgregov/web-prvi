@@ -390,6 +390,34 @@ describe('leads', () => {
       conversionMode: 'CREATE_CUSTOMER',
       customer: { companyName: 'FERO-TERM Rijeka', oib: '12345678903', city: 'Rijeka' },
     };
+    // Lead-first (ADR-0009): not converted while active; a deal of the lead, no customer, is won first.
+    const early = await json(
+      await api(`/api/leads/${lead.id}/convert`, { method: 'POST', body: conversion }),
+    );
+    expect(early).toMatchObject({ status: 422, body: { message: MESSAGES.leadNotWon } });
+    const deal = await json(
+      await api('/api/opportunities', {
+        method: 'POST',
+        body: { leadId: lead.id, title: 'Vending aparat', value: '5000' },
+      }),
+    );
+    expect(deal).toMatchObject({
+      status: 201,
+      body: {
+        opportunity: { leadId: lead.id, companyId: null, leadName: 'Marko Horvat · FERO-TERM' },
+      },
+    });
+    const dealId = deal.body.opportunity.id as string;
+    const listed = (await json(await api(`/api/opportunities?leadId=${lead.id}`))).body
+      .opportunities as Body[];
+    expect(listed.map((o) => o.id)).toEqual([dealId]);
+    const won = await json(
+      await api(`/api/opportunities/${dealId}/close`, { method: 'POST', body: { outcome: 'won' } }),
+    );
+    expect(won).toMatchObject({
+      status: 200,
+      body: { opportunity: { status: 'won', leadStatus: 'won', leadCustomerId: null } },
+    });
     const conflict = await json(
       await api(`/api/leads/${lead.id}/convert`, { method: 'POST', body: conversion }),
     );
@@ -407,8 +435,14 @@ describe('leads', () => {
     );
     expect(linked).toMatchObject({
       status: 200,
-      body: { lead: { status: 'won' }, customerId: customerId(ORG, 'FERO') },
+      body: {
+        lead: { status: 'won', conversionPending: false },
+        customerId: customerId(ORG, 'FERO'),
+        opportunityId: dealId,
+      },
     });
+    const converted = (await json(await api(`/api/opportunities/${dealId}`))).body.opportunity;
+    expect(converted).toMatchObject({ leadId: lead.id, companyId: customerId(ORG, 'FERO') });
     const again = await json(await api(`/api/leads/${lead.id}/lost`, { method: 'POST', body: {} }));
     expect(again).toMatchObject({ status: 422, body: { errors: { status: MESSAGES.leadClosed } } });
 

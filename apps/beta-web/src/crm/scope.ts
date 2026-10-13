@@ -69,6 +69,24 @@ export function addActivity(
   return activity;
 }
 
+/**
+ * Timeline entry of a customer and/or a lead (ADR-0009: a lead's deal and its
+ * offers have no customer until the lead is converted). At least one is set.
+ */
+export function addRecordActivity(
+  data: CrmData,
+  ctx: CrmContext,
+  subject: { companyId: string | null; leadId?: string | null | undefined },
+  type: string,
+  description: string,
+  relatedId: string | null = null,
+): Activity {
+  const activity = addActivity(data, ctx, subject.companyId ?? '', type, description, relatedId);
+  activity.companyId = subject.companyId ?? null;
+  if (subject.leadId) activity.leadId = subject.leadId;
+  return activity;
+}
+
 /** Timeline entry of a lead (optionally also on the customer it became). */
 export function addLeadActivity(
   data: CrmData,
@@ -83,6 +101,10 @@ export function addLeadActivity(
   activity.leadId = leadId;
   return activity;
 }
+
+/** "Marko Lukač · FERO-TERM" */
+export const leadLabel = (lead: { name: string; companyName: string }) =>
+  [lead.name, lead.companyName].filter(Boolean).join(' · ');
 
 export const contactName = (c: { firstName: string; lastName: string }) =>
   [c.firstName, c.lastName].filter(Boolean).join(' ');

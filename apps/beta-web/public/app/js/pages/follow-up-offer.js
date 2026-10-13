@@ -15,6 +15,7 @@ import {
   sizeLabel,
   standingBadge,
 } from '../features/follow-up/format.js';
+import { offerParty } from '../features/dashboard/feedback-overview.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -249,12 +250,7 @@ function successCard(o) {
       icon('check'),
       'Ponuda uspješno dodana',
     ),
-    h(
-      'dl',
-      { class: 'rv-dl' },
-      row('Kupac', o.customerName),
-      row('Dokument', o.document?.fileName),
-    ),
+    h('dl', { class: 'rv-dl' }, row('Kupac', offerParty(o)), row('Dokument', o.document?.fileName)),
     box ?? h('p', { class: 'rv-field__error' }, MESSAGES.linkFailed),
     box ? demoLinkNote(o.shareUrl) : null,
     h(
@@ -284,7 +280,7 @@ function summaryCard(o) {
   return h(
     'section',
     { class: 'rv-card fu-card', 'aria-labelledby': 'fu-offer-title' },
-    h('p', { class: 'fu-summary__customer' }, o.customerName || 'Kupac nije dostupan'),
+    h('p', { class: 'fu-summary__customer' }, offerParty(o)),
     h('h2', { class: 'fu-summary__title', id: 'fu-offer-title' }, o.title),
     h(
       'div',
@@ -299,14 +295,24 @@ function summaryCard(o) {
         'Kupac',
         o.customerName
           ? h('a', { href: `/customers/${encodeURIComponent(o.companyId)}` }, o.customerName)
-          : null,
+          : o.leadName
+            ? 'Još nije kupac (lead)'
+            : null,
+      ),
+      row(
+        'Lead',
+        o.leadName ? h('a', { href: `/leads/${encodeURIComponent(o.leadId)}` }, o.leadName) : null,
       ),
       row(
         'Prilika',
         o.opportunityTitle
           ? h(
               'a',
-              { href: `/customers/${encodeURIComponent(o.companyId)}#prilike` },
+              {
+                href: o.companyId
+                  ? `/customers/${encodeURIComponent(o.companyId)}#prilike`
+                  : `/leads/${encodeURIComponent(o.leadId)}#prilike`,
+              },
               o.opportunityTitle,
             )
           : 'Bez prilike',

@@ -102,6 +102,8 @@ opened:
 | Novi lead    | `/leads/new`         |
 
 The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
+**Nova prilika** asks first "Poveži priliku s: Lead | Kupac" (ADR-0009): a
+lead's deal needs no customer.
 
 ### Tasks and the Sales Calendar
 
@@ -132,22 +134,53 @@ server sets organization, owner (the current user), stage `new` and status
 - **Stage** (how far it got): Novi lead → Kontaktiran → Kvalificiran.
   **Status** (how it ended): Aktivan, **Won** or **Lost**. Lead won/lost is
   independent of opportunity won/lost.
-- **Won** = converted into a customer (new or existing), optionally with a
-  contact person and an opportunity (`/leads/{id}/convert`). One transaction
-  that reuses the customer, contact and opportunity services. A new customer
-  that looks like an existing one (OIB, similar name, company e-mail domain)
-  returns `409` with the matches until the user links the existing one or
-  confirms ("Ipak kreiraj novog").
+**Lead-first sales (ADR-0009):** LEAD → PRILIKA (no customer) → WON / LOST →
+conversion → new or existing customer (ACTIVE). No customer is ever created
+automatically.
+
+- **Kreiraj priliku** on Lead Detail opens the New opportunity form linked to
+  the lead (`/opportunities/new?leadId=…`); no customer is needed. A lead can
+  have several opportunities, each with its own outcome; Lead Detail lists
+  them (`#prilike`) with the same card and actions as a customer's
+  (offers, PDF offers, tasks, Dobiveno / Izgubljeno). Lost leads get no new
+  deals.
+- **Won** = one of the lead's opportunities was won: the lead becomes WON
+  (`wonAt`, `wonBasis: "opportunity"`; a later win keeps the first date). A
+  lost opportunity never changes the lead. A lead with active opportunities
+  cannot be closed as lost.
+- After a won lead deal: **PRILIKA JE OSVOJENA!** "Želite li sada pretvoriti
+  ovaj lead u kupca?" — KREIRAJ KUPCA / POVEŽI S POSTOJEĆIM KUPCEM / KASNIJE.
+  KASNIJE leaves the lead WON with "Čeka pretvaranje u kupca" and
+  **PRETVORI U KUPCA** on Lead Detail ("Čeka kupca" in the list).
+- **Conversion** (`/leads/{id}/convert`, "Pretvori lead u kupca"): only a WON
+  lead; a NEW customer (prefilled from the lead, created ACTIVE, so it is in
+  Aktivni and Svi) or an EXISTING one (an inactive customer only after
+  "Ponovno aktiviraj"). One idempotent transaction: a repeated call returns
+  the customer already linked, never a second one. The won opportunity keeps
+  its id, values, offers, tasks and history, gets the customer and keeps the
+  lead. The lead's other opportunities stay the lead's; "Poveži s kupcem" on
+  such a card links one explicitly (only to the lead's customer). A new
+  customer that looks like an existing one (OIB, similar name, company e-mail
+  domain) returns `409` with the matches until the user links the existing one
+  or confirms ("Ipak kreiraj novog").
 - **Lost** = closed explicitly, with an optional reason and note.
-- Leads are never deleted or merged: a won lead keeps `convertedAt` and points
-  at what it became; a lost lead keeps `lostAt` and its reason.
-- Tasks may carry `leadId` (no customer needed; "Dodaj zadatak" on a lead). On
-  conversion, the lead's tasks without a customer get the new customer too.
+- Leads are never deleted or merged: a converted lead keeps `convertedAt` and
+  points at what it became; a lost lead keeps `lostAt` and its reason. Leads
+  WON before this change (WON then meant converted) keep their state with
+  `wonAt = convertedAt` and `wonBasis: "conversion"`.
+- Tasks may carry `leadId` (no customer needed; "Dodaj zadatak" on a lead or a
+  lead's deal; they are in the Sales Calendar as usual). On conversion, the
+  lead's tasks without a customer get the new customer too.
 - **Reporting by each outcome's own date:** new leads by `createdAt`,
-  qualified by `qualifiedAt`, won by `convertedAt`, lost by `lostAt`. A lead
-  created in Q3 and won in Q4 is a new lead of Q3 and a won lead of Q4.
+  qualified by `qualifiedAt`, won by `wonAt`, converted by `convertedAt`
+  (reported separately, with the WON leads still waiting for conversion), lost
+  by `lostAt`. A lead created in Q3 and won in Q4 is a new lead of Q3 and a won
+  lead of Q4, and it is counted once however many deals it has.
   `leadOutcomeMetrics` (`@renvara/domain`): win rate = won ÷ (won + lost),
   W/L = won ÷ lost, conversion = won ÷ created; active leads count as neither.
+  Opportunity KPIs (potential, won value, NEGOTIATIONS, won/lost, rates)
+  include lead deals; BUYERS counts the customer, or the lead before
+  conversion, once.
 
 ### Home periods
 
@@ -247,7 +280,8 @@ Customer pickers in forms still list every customer.
 
 ### Offers and closing deals
 
-On a customer's opportunity card (`/customers/{id}#prilike`): **Ponuda
+On an opportunity card (`/customers/{id}#prilike`, or a lead's deal on
+`/leads/{id}#prilike`): **Ponuda
 poslana** (title, sending date) records an offer; **Odgovor primljen** marks
 it answered (it leaves the feedback list, the record stays); **Dobiveno**
 closes the deal as won with its final amount (`wonValue`, when it differs from
@@ -267,8 +301,9 @@ resets the wait). Design and security decisions: ADR-0008.
    20 MB, checked in the browser and again on the server: type, size, `%PDF-`
    header, parsed with pdf.js, password-protected PDFs refused). It uploads at
    once with progress ("Učitavanje dokumenta... 68%") into private storage.
-   Name, customer (required), opportunity and contact (optional, same
-   customer), internal note.
+   Name, "Poveži s: Kupac | Lead" (a customer, with an optional opportunity
+   and contact of that customer; or a lead and one of its opportunities, no
+   customer needed), internal note.
 2. **Spremi i generiraj link** creates the offer (a draft), its document and a
    secret link in one transaction: **PONUDA USPJEŠNO DODANA** with **Kopiraj
    link**, **Pregledaj ponudu**, **Označi kao poslano**. Renvara sends no
@@ -366,12 +401,12 @@ Renvara, Focus) decide how they are shown.
 | `/customers`, `/customers/new`, `/customers/{id}` | List with search, New Customer, Customer Detail        |
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
 | `/contacts/new`                                   | New contact (customer required)                        |
-| `/opportunities`, `/opportunities/new`            | Pipeline (stages as accordions, Home's period) with next actions, New opportunity |
+| `/opportunities`, `/opportunities/new` (`?companyId=` or `?leadId=`) | Pipeline (stages as accordions, Home's period) with next actions, New opportunity (Lead \| Kupac) |
 | `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO (accordions)       |
 | `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
 | `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |
-| `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` | New lead, Lead Detail, Pretvori u kupca                |
+| `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` (`?mode=existing&opportunityId=`) | New lead, Lead Detail (with its opportunities), Pretvori lead u kupca (WON leads) |
 | `/follow-up?filter=all\|waiting\|viewed\|resolved`  | FOLLOW-UP ENGINE (offer overview)                      |
 | `/follow-up/new`, `/follow-up/{id}`, `/follow-up/{id}/preview` | Attach new document, offer detail (`?new=1`: success), own preview (not counted) |
 | `/o/{token}` (public, no session)                 | The customer's offer viewer                            |
@@ -384,9 +419,10 @@ Renvara, Focus) decide how they are shown.
 | `POST /api/customers/{id}/deactivate`, `POST /api/customers/{id}/activate`                                | Deactivate / reactivate a customer              |
 | `POST /api/customers/{id}/notes`, `POST /api/customers/{id}/emails`                                       | Timeline entries                                |
 | `GET/POST /api/contacts` (`?companyId=`)                                                                  | Contacts                                        |
-| `GET/POST /api/opportunities` (`?companyId=&status=&from=&to=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` (`?from=&to=`) | Opportunities, next action, pipeline totals (`from`/`to`: created in that period; 422 for an invalid range) |
-| `GET/POST /api/leads` (`?status=&q=`), `GET/PATCH /api/leads/{id}`                                        | Leads, Lead Detail (with tasks and history)     |
-| `GET /api/leads/{id}/matches`, `POST /api/leads/{id}/convert`, `POST /api/leads/{id}/lost`                | Possible customers, conversion (WON), LOST      |
+| `GET/POST /api/opportunities` (`?companyId=&leadId=&status=&from=&to=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` (`?from=&to=`) | Opportunities (`companyId` and/or `leadId`, at least one), next action, pipeline totals (`from`/`to`: created in that period; 422 for an invalid range) |
+| `POST /api/opportunities/{id}/link-customer`                                                              | Link a lead's other deal to the customer the lead was converted into |
+| `GET/POST /api/leads` (`?status=&q=`), `GET/PATCH /api/leads/{id}`                                        | Leads, Lead Detail (with opportunities, tasks and history) |
+| `GET /api/leads/{id}/matches`, `POST /api/leads/{id}/convert` (`{conversionMode: NEW_CUSTOMER\|EXISTING_CUSTOMER, customerId? \| customer, createContact?, contact?, opportunityId?, reactivate?, ignoreMatches?}`), `POST /api/leads/{id}/lost` | Possible customers, conversion of a WON lead (idempotent), LOST |
 | `GET/POST /api/tasks` (`?status=&type=&priority=&companyId=&contactId=&opportunityId=&leadId=`)           | Tasks                                           |
 | `GET/PATCH /api/tasks/{id}`, `POST /api/tasks/{id}/complete\|reopen\|cancel`                              | One task                                        |
 | `GET /api/tasks/sections`, `GET /api/tasks/priorities`                                                    | Tasks screen, Home "Prioritetni zadaci"         |
@@ -409,7 +445,9 @@ the record and its reminder are saved together or not at all.
 
 Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan."}`,
 `422 {message, errors: {field: message}}` for invalid input or relations,
-`409 {message, matches}` for a conversion into a customer that may already exist.
+`409 {message, matches}` for a conversion into a customer that may already exist,
+`409 {message, customerInactive}` for a conversion into an inactive customer
+without `reactivate`.
 
 ### Code
 
@@ -580,6 +618,11 @@ no real credential is stored in the repository.
   View counts are signals: a scanner that runs a full browser can look like a
   person, and a person who blocks scripts is not counted. The privacy text in
   the viewer and the retention period need review for your GDPR obligations.
+- Lead-first sales: a lead's deal shows no customer until the lead is
+  converted; the lead's other deals are linked to the customer one by one
+  ("Poveži s kupcem"), never automatically. Opportunities created by
+  conversions before ADR-0009 have no `leadId` (their lead still points at
+  them through `convertedOpportunityId`); no history was reinterpreted.
 
 ## Migration to Supabase Auth
 

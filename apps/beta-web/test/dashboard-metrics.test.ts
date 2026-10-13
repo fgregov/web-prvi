@@ -40,9 +40,16 @@ function setup() {
 }
 
 describe('KPI · LEADS', () => {
-  it('counts leads by creation date: created in Q2 and converted in Q3 is a Q2 lead only', () => {
+  it('counts leads by creation date: created in Q2, its deal won and converted in Q3 is a Q2 lead only', () => {
     const { crm, summary } = setup();
     const lead = crm.leads.createLead(on('2026-05-10T09:00:00Z'), { name: 'ABC d.o.o.' });
+    const { opportunity } = crm.opportunities.createOpportunity(on('2026-05-20T09:00:00Z'), {
+      leadId: lead.id,
+      title: 'Vending aparat',
+    });
+    crm.opportunities.closeOpportunity(on('2026-08-05T09:00:00Z'), opportunity.id, {
+      outcome: 'won',
+    });
     crm.leads.convertLead(on('2026-08-10T09:00:00Z'), lead.id, {
       conversionMode: 'CREATE_CUSTOMER',
       customer: { companyName: 'ABC d.o.o.', oib: '12345678903', city: 'Zagreb' },
@@ -233,14 +240,24 @@ describe('Pipeline overview', () => {
     });
   });
 
-  it('a converted lead is a customer, not a buyer', () => {
+  it("a lead's won deals are one buyer, before and after the lead's conversion (ADR-0009)", () => {
     const { crm, summary } = setup();
     const lead = crm.leads.createLead(ctx, { name: 'ABC' });
+    const deal = (title: string) =>
+      crm.opportunities.createOpportunity(ctx, { leadId: lead.id, title }).opportunity;
+    const a = deal('Vending aparat');
+    const b = deal('Snack aparat');
+    expect(summary(crm, Q4).pipelineOverview.buyers).toBe(0); // open deals buy nothing
+    crm.opportunities.closeOpportunity(ctx, a.id, { outcome: 'won' });
+    crm.opportunities.closeOpportunity(ctx, b.id, { outcome: 'won' });
+    expect(summary(crm, Q4).pipelineOverview.buyers).toBe(1); // no customer record needed
     crm.leads.convertLead(ctx, lead.id, {
       conversionMode: 'CREATE_CUSTOMER',
       customer: { companyName: 'ABC d.o.o.', oib: '12345678903', city: 'Zagreb' },
     });
-    expect(summary(crm, Q4).pipelineOverview.buyers).toBe(0);
+    // a → the customer, b still only the lead's: the same buyer, counted once.
+    expect(summary(crm, Q4).pipelineOverview.buyers).toBe(1);
+    expect(summary(crm, Q4).kpis.won.value).toBe(2);
   });
 });
 

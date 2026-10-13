@@ -112,16 +112,18 @@ export function createTaskService(repo: CrmRepository) {
    * Checks every link against the organization and against each other:
    *   unknown id or another organization's id → "Odabrani podatak nije dostupan."
    *   contact / opportunity of a different customer → rejected
-   * A missing customer is derived from the opportunity, then from the contact
-   * (same rule as private.derive_subject_links in the database). A lead link
-   * only has to exist in the organization; a lead task needs no customer.
+   * A missing customer is derived from the opportunity, then from the contact;
+   * a missing lead from the opportunity (same rules as
+   * private.derive_subject_links in the database). A lead link only has to
+   * exist in the organization; a lead task — also one of a lead's deal before
+   * the lead is a customer (ADR-0009) — needs no customer.
    */
   function resolveLinks(data: CrmData, ctx: CrmContext, input: Body) {
     const errors: FieldErrors = {};
     let companyId = opt(input.companyId);
     const contactId = opt(input.contactId);
     const opportunityId = opt(input.opportunityId);
-    const leadId = opt(input.leadId);
+    let leadId = opt(input.leadId);
 
     if (leadId && !findInOrg(data.leads, ctx, leadId)) errors.leadId = MESSAGES.unavailable;
     if (companyId && !findInOrg(data.customers, ctx, companyId)) {
@@ -132,7 +134,12 @@ export function createTaskService(repo: CrmRepository) {
       if (!opportunity) errors.opportunityId = MESSAGES.unavailable;
       else if (companyId && opportunity.companyId !== companyId)
         errors.opportunityId = MESSAGES.opportunityNotOfCustomer;
-      else companyId = opportunity.companyId;
+      else if (leadId && opportunity.leadId && opportunity.leadId !== leadId)
+        errors.opportunityId = MESSAGES.opportunityNotOfLead;
+      else {
+        companyId = opportunity.companyId;
+        leadId ??= opportunity.leadId;
+      }
     }
     if (contactId) {
       const contact = findInOrg(data.contacts, ctx, contactId);

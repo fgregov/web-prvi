@@ -13,13 +13,15 @@ erDiagram
   ORGANIZATIONS ||--o{ ACTIVITIES : owns
   ORGANIZATIONS ||--o{ TASKS : owns
   COMPANIES ||--o{ CONTACTS : employs
-  COMPANIES ||--o{ OPPORTUNITIES : "has deals"
+  COMPANIES |o--o{ OPPORTUNITIES : "has deals"
   CONTACTS |o--o{ OPPORTUNITIES : "primary contact"
   OPPORTUNITIES |o--o{ ACTIVITIES : timeline
   COMPANIES |o--o{ ACTIVITIES : timeline
   CONTACTS |o--o{ ACTIVITIES : timeline
   OPPORTUNITIES |o--o{ TASKS : "next actions"
-  COMPANIES ||--o{ OFFERS : "offers"
+  LEADS |o--o{ OPPORTUNITIES : "deals before conversion"
+  LEADS |o--o| COMPANIES : "converted into"
+  COMPANIES |o--o{ OFFERS : "offers"
   OPPORTUNITIES |o--o{ OFFERS : "within a deal"
   CONTACTS |o--o{ OFFERS : "addressed to"
   OFFERS ||--o{ OFFER_DOCUMENTS : "PDF versions"
@@ -97,7 +99,14 @@ many-to-many contact-company role table can be added without changing contact
 identity.
 
 ### Opportunity
-A deal with exactly one company. It has two orthogonal dimensions (ADR-0003):
+A deal of a lead, of a customer, or of both (ADR-0009). `lead_id` and
+`company_id` are both optional, but at least one is set
+(`opportunities_has_origin`): a lead's deal has no customer until the lead is
+converted; a customer's deal (Path B) has no lead; after the lead's conversion
+its originating deal carries both, and then the customer must be the one the
+lead was converted into (trigger `opportunities_relations`). A contact
+requires the opportunity's customer. It has two orthogonal dimensions
+(ADR-0003):
 
 | field | values | meaning |
 |---|---|---|
@@ -131,16 +140,26 @@ required. Two orthogonal dimensions, like an opportunity:
 | `stage` | new → contacted → qualified | how far it got, retained after closing |
 | `status` | active · won · lost | outcome, independent of opportunity won/lost |
 
-**Won** means converted into a company (new or existing), optionally with a
-contact and an opportunity, in one transaction; the lead keeps
-`converted_at` and the `converted_*_id` references (same organization, composite
-FKs). **Lost** is an explicit close with `lost_at` and an optional
-`lost_reason`. Leads are never deleted or merged. Each lifecycle moment has its
-own timestamp (`created_at`, `qualified_at`, `converted_at`, `lost_at`), set by
-a trigger and enforced by CHECKs, so "created in Q3" and "won in Q4" are
-different, correct queries and nothing resets at a period boundary. Win rate =
-won ÷ (won + lost), W/L = won ÷ lost, conversion = won ÷ created
-(`leadOutcomeMetrics` in `@renvara/domain`).
+A lead can have any number of opportunities, each with its own outcome
+(ADR-0009). **Won** is the commercial outcome: a lead is WON when one of its
+opportunities is won (`won_at`, `won_basis = 'opportunity'`; a later win keeps
+the first date). A lost opportunity never changes the lead, and a lead with
+active opportunities cannot be closed as lost. **Conversion** into a customer
+(new, created active, or existing) is a separate, later step of a WON lead
+(`public.convert_won_lead()`, one idempotent transaction): the lead keeps
+`converted_at` and the `converted_*_id` references (same organization,
+composite FKs), and its originating won opportunity gets the customer while
+keeping `lead_id`. WON without `converted_at` is "waiting for conversion"
+(derived, not a status). Leads won before ADR-0009 (when WON meant converted)
+have `won_at = converted_at` and `won_basis = 'conversion'`. **Lost** is an
+explicit close with `lost_at` and an optional `lost_reason`. Leads are never
+deleted or merged. Each lifecycle moment has its own timestamp (`created_at`,
+`qualified_at`, `won_at`, `converted_at`, `lost_at`), set by a trigger and
+enforced by CHECKs, so "created in Q3" and "won in Q4" are different, correct
+queries and nothing resets at a period boundary. Win rate = won ÷ (won +
+lost), W/L = won ÷ lost, conversion = won ÷ created (`leadOutcomeMetrics` in
+`@renvara/domain`); converted-to-customer is reported separately by
+`converted_at`.
 
 ### Activity: "what happened"
 A historical fact: call, email, meeting, note, offer sent, follow-up, status

@@ -37,6 +37,19 @@ export const MESSAGES = Object.freeze({
   reminderInvalid: 'Odaberite datum i vrijeme podsjetnika.',
   opportunityClosed: 'Prilika je već zatvorena (dobivena ili izgubljena).',
   offerNotWaiting: 'Ponuda ne čeka odgovor.',
+  // Lead-first sales (ADR-0009)
+  originRequired: 'Povežite priliku s leadom ili kupcem.',
+  leadRequired: 'Odaberite lead.',
+  opportunityNotOfLead: 'Odabrana prilika ne pripada odabranom leadu.',
+  leadLostNoOpportunity: 'Lead je zatvoren kao izgubljen. Za njega se ne otvaraju nove prilike.',
+  leadHasActiveOpportunities:
+    'Lead ima aktivne prilike. Zatvorite ih (dobiveno ili izgubljeno) prije zatvaranja leada.',
+  leadNotWon: 'Lead još nije osvojen. U kupca se pretvara nakon osvojene prilike.',
+  leadAlreadyConverted: 'Lead je već pretvoren u kupca.',
+  leadCustomerMismatch: 'Prilika leada može pripadati samo kupcu u kojeg je lead pretvoren.',
+  leadNotConverted: 'Lead još nije pretvoren u kupca.',
+  customerInactive: 'Odabrani kupac je neaktivan.',
+  opportunityNeedsCustomerForContact: 'Kontakt se može odabrati samo uz kupca.',
   // Follow-up Engine: offer documents and share links
   documentRequired: 'Odaberite PDF dokument.',
   documentUnsupported: 'Trenutno je podržano učitavanje PDF dokumenata.',
@@ -164,9 +177,17 @@ export function validateOpportunity(input) {
   const errors = {};
   if (!text(input.title)) errors.title = REQUIRED;
   maxLength(errors, input, 'title', 300);
-  if (blank(input.companyId)) errors.companyId = MESSAGES.customerRequired;
-  else if (badId(input.companyId)) errors.companyId = MESSAGES.unavailable;
+  // A lead or a customer (ADR-0009): the form says which one it links to.
+  if (blank(input.companyId) && blank(input.leadId)) {
+    if (input.linkTo === 'lead') errors.leadId = MESSAGES.leadRequired;
+    else if (input.linkTo === 'customer') errors.companyId = MESSAGES.customerRequired;
+    else errors.companyId = MESSAGES.originRequired;
+  }
+  if (badId(input.companyId)) errors.companyId = MESSAGES.unavailable;
+  if (badId(input.leadId)) errors.leadId = MESSAGES.unavailable;
   if (badId(input.contactId)) errors.contactId = MESSAGES.unavailable;
+  else if (!blank(input.contactId) && blank(input.companyId))
+    errors.contactId = MESSAGES.opportunityNeedsCustomerForContact;
 
   const value = text(String(input.value ?? ''));
   if (value && !(/^\d+([.,]\d{1,2})?$/.test(value) && Number(value.replace(',', '.')) >= 0)) {
@@ -334,17 +355,8 @@ export function validateLeadConversion(input, { existing = [] } = {}) {
         errors[`contact.${name}`] = `Najviše ${limit} znakova.`;
     }
   }
-  if (input.createOpportunity === true) {
-    const o = input.opportunity ?? {};
-    if (!text(o.title)) errors['opportunity.title'] = REQUIRED;
-    else if (text(o.title).length > 300) errors['opportunity.title'] = 'Najviše 300 znakova.';
-    const value = amountError(o.value);
-    if (value) errors['opportunity.value'] = value;
-    if (!blank(o.stage) && !allowed(STAGES, o.stage))
-      errors['opportunity.stage'] = 'Odaberite fazu.';
-    if (!blank(o.currency) && !allowed(CURRENCIES, o.currency))
-      errors['opportunity.currency'] = 'Odaberite valutu.';
-  }
+  // The won opportunity the conversion comes from (default: the lead's first won one).
+  if (badId(input.opportunityId)) errors.opportunityId = MESSAGES.unavailable;
   return errors;
 }
 
@@ -404,9 +416,14 @@ export function validateFollowUpOffer(input) {
   else if (badId(input.uploadId)) errors.document = MESSAGES.documentUploadFailed;
   if (!text(input.title)) errors.title = REQUIRED;
   maxLength(errors, input, 'title', 300);
-  if (blank(input.companyId)) errors.companyId = MESSAGES.customerRequired;
-  else if (badId(input.companyId)) errors.companyId = MESSAGES.unavailable;
-  for (const key of ['opportunityId', 'contactId']) {
+  // A customer's offer, or (ADR-0009) an offer within a lead's opportunity.
+  if (blank(input.companyId) && blank(input.leadId)) {
+    errors[input.linkTo === 'lead' ? 'leadId' : 'companyId'] =
+      input.linkTo === 'lead' ? MESSAGES.leadRequired : MESSAGES.customerRequired;
+  } else if (blank(input.companyId) && blank(input.opportunityId)) {
+    errors.opportunityId = 'Odaberite priliku leada.';
+  }
+  for (const key of ['companyId', 'leadId', 'opportunityId', 'contactId']) {
     if (badId(input[key])) errors[key] = MESSAGES.unavailable;
   }
   maxLength(errors, input, 'note', 5000);

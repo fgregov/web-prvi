@@ -1,16 +1,18 @@
-// /leads/{id}/convert · Pretvori lead u kupca.
+// /leads/{id}/convert · PRETVORI LEAD U KUPCA (ADR-0009), for a WON lead.
 //
-// Into a NEW customer or an EXISTING one, optionally with a contact person and a
-// sales opportunity, in one atomic step on the server. Customers that look like
-// this lead are shown first ("Mogući postojeći kupac"); creating a new one
-// anyway needs a confirmation. The lead itself is kept and marked WON.
+// Into a NEW customer (created ACTIVE) or an EXISTING one (an inactive one only
+// after confirming its reactivation), optionally with a contact person, in one
+// atomic step on the server. The won deal (?opportunityId=, else the lead's
+// first won one) gets the customer; no deal is created or replaced. Customers
+// that look like this lead are shown first ("Mogući postojeći kupac");
+// creating a new one anyway needs a confirmation. The lead stays, WON, and
+// records what it became. ?mode=existing opens "Poveži s postojećim".
 import { api, ApiError } from '../core/api.js';
-import { STAGES } from '../core/constants.js';
 import { hasErrors, MESSAGES, validateLeadConversion } from '../core/validation.js';
 import { CustomerPicker } from '../features/pickers/customer-picker.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { h } from '../ui/dom.js';
-import { CustomField, FormField, SegmentedField, SelectField, SwitchField } from '../ui/fields.js';
+import { CustomField, FormField, SegmentedField, SwitchField } from '../ui/fields.js';
 import { createForm } from '../ui/form.js';
 import { icon } from '../ui/icons.js';
 import { createFormScreen } from '../ui/screen.js';
@@ -26,12 +28,13 @@ const MODES = [
 ];
 const CUSTOMER_FIELDS = ['companyName', 'oib', 'address', 'postalCode', 'city', 'email', 'phone'];
 const CONTACT_FIELDS = ['fullName', 'role', 'email', 'phone'];
-const OPPORTUNITY_FIELDS = ['title', 'value', 'stage'];
+const startMode = params.get('mode') === 'existing' ? 'EXISTING_CUSTOMER' : 'CREATE_CUSTOMER';
+let wonDeal = null; // the won deal the conversion comes from
 const REASON_LABELS = { oib: 'isti OIB', name: 'sličan naziv', email_domain: 'ista e-mail domena' };
 
 const screen = createFormScreen({
   root: document.getElementById('screen'),
-  title: 'Pretvori u kupca',
+  title: 'Pretvori lead u kupca',
   submitLabel: 'Pretvori u kupca',
   fallback: leadHref,
   discardMessage: 'Lead neće biti pretvoren u kupca.',
@@ -51,7 +54,7 @@ const form = createForm(
       fields: [
         SegmentedField('conversionMode', 'Kupac', {
           options: MODES,
-          value: 'CREATE_CUSTOMER',
+          value: startMode,
           onChange: showMode,
         }),
         FormField('customer.companyName', 'Naziv kupca', {
@@ -91,28 +94,6 @@ const form = createForm(
         FormField('contact.phone', 'Telefon', { type: 'tel', hidden: true, maxlength: 50 }),
       ],
     },
-    {
-      title: 'Prodajna prilika',
-      fields: [
-        SwitchField('createOpportunity', 'Kreiraj prodajnu priliku', { onChange: showOpportunity }),
-        FormField('opportunity.title', 'Naziv prilike', {
-          required: true,
-          hidden: true,
-          maxlength: 300,
-          placeholder: 'npr. Grijanje poslovnog prostora',
-        }),
-        FormField('opportunity.value', 'Vrijednost (€)', {
-          inputmode: 'decimal',
-          hidden: true,
-          placeholder: 'npr. 12000',
-        }),
-        SelectField('opportunity.stage', 'Faza (stage)', {
-          options: STAGES,
-          value: 'new',
-          hidden: true,
-        }),
-      ],
-    },
   ],
   { single: true },
 );
@@ -127,9 +108,6 @@ function showMode(mode) {
 }
 function showContact(on) {
   for (const name of CONTACT_FIELDS) form.setVisible(`contact.${name}`, on);
-}
-function showOpportunity(on) {
-  for (const name of OPPORTUNITY_FIELDS) form.setVisible(`opportunity.${name}`, on);
 }
 
 function useExisting(match) {
@@ -192,6 +170,14 @@ function renderMatches() {
 
 /** Prefill from the lead: a company-only lead becomes the customer, a person its contact. */
 function prefill(lead) {
+  const won = (lead.opportunities ?? [])
+    .filter((o) => o.status === 'won')
+    .sort((a, b) => (a.closedAt ?? '').localeCompare(b.closedAt ?? ''));
+  wonDeal =
+    won.find((o) => o.id === params.get('opportunityId')) ??
+    won.find((o) => !o.companyId) ??
+    won[0] ??
+    null;
   summary.replaceChildren(
     icon('user-search'),
     h(
@@ -199,6 +185,9 @@ function prefill(lead) {
       {},
       'Lead: ',
       h('strong', {}, [lead.name, lead.companyName].filter(Boolean).join(' · ')),
+      wonDeal
+        ? h('span', { class: 'lead-convert__deal' }, ` · Osvojena prilika: ${wonDeal.title}`)
+        : null,
     ),
   );
   form.setValue('customer.companyName', lead.companyName || lead.name);
@@ -213,20 +202,37 @@ function prefill(lead) {
   form.setValue('contact.email', lead.email);
   form.setValue('contact.phone', lead.phone);
   showContact(person);
-  const withOpportunity = params.get('opportunity') === '1';
-  form.setValue('createOpportunity', withOpportunity);
-  if (lead.estimatedValue !== null) form.setValue('opportunity.value', String(lead.estimatedValue));
-  showOpportunity(withOpportunity);
+  showMode(startMode);
 }
 
 try {
   const lead = await api.getLead(leadId);
-  if (lead.status !== 'active') {
+  // Only a WON lead not yet linked to a customer is converted (ADR-0009).
+  if (lead.status !== 'won' || !lead.conversionPending) {
+    const converted = lead.status === 'won' && lead.convertedCustomerId;
     screen.setContent(
       h(
         'div',
         { class: 'rv-card rv-empty' },
-        h('p', {}, MESSAGES.leadClosed),
+        h(
+          'p',
+          {},
+          lead.status === 'won'
+            ? MESSAGES.leadAlreadyConverted
+            : lead.status === 'lost'
+              ? MESSAGES.leadClosed
+              : MESSAGES.leadNotWon,
+        ),
+        converted
+          ? h(
+              'a',
+              {
+                class: 'rv-btn rv-btn--primary',
+                href: `/customers/${encodeURIComponent(lead.convertedCustomerId)}`,
+              },
+              'Otvori kupca',
+            )
+          : null,
         h('a', { class: 'rv-btn rv-btn--secondary', href: leadHref }, 'Natrag na lead'),
       ),
     );
@@ -249,7 +255,7 @@ try {
 }
 
 /** Form values → POST /api/leads/{id}/convert body. */
-function conversionInput(v, ignoreMatches) {
+function conversionInput(v, { ignoreMatches, reactivate }) {
   const pick = (prefix, names) =>
     Object.fromEntries(names.map((name) => [name, v[`${prefix}.${name}`]]));
   const create = v.conversionMode === 'CREATE_CUSTOMER';
@@ -258,14 +264,14 @@ function conversionInput(v, ignoreMatches) {
     ...(create ? { customer: pick('customer', CUSTOMER_FIELDS) } : { customerId: v.customerId }),
     createContact: v.createContact,
     ...(v.createContact ? { contact: pick('contact', CONTACT_FIELDS) } : {}),
-    createOpportunity: v.createOpportunity,
-    ...(v.createOpportunity ? { opportunity: pick('opportunity', OPPORTUNITY_FIELDS) } : {}),
+    ...(wonDeal ? { opportunityId: wonDeal.id } : {}),
     ...(ignoreMatches ? { ignoreMatches: true } : {}),
+    ...(reactivate ? { reactivate: true } : {}),
   };
 }
 
-async function save({ ignoreMatches = false } = {}) {
-  const input = conversionInput(form.values(), ignoreMatches);
+async function save({ ignoreMatches = false, reactivate = false } = {}) {
+  const input = conversionInput(form.values(), { ignoreMatches, reactivate });
   const errors = validateLeadConversion(input); // duplicate OIB is checked by the server
   if (hasErrors(errors)) {
     form.setErrors(errors);
@@ -277,7 +283,16 @@ async function save({ ignoreMatches = false } = {}) {
     result = await api.convertLead(leadId, input);
   } catch (error) {
     screen.setSaving(false);
-    if (error instanceof ApiError && error.status === 409) {
+    if (error instanceof ApiError && error.status === 409 && error.details.customerInactive) {
+      // Never reactivated silently: the user confirms it (the existing reactivation).
+      const yes = await confirmDialog({
+        title: 'Kupac je neaktivan',
+        message: `${error.details.customerName ?? 'Odabrani kupac'} je neaktivan. Ponovno ga aktivirati i povezati s ovim leadom?`,
+        cancelLabel: 'Natrag',
+        confirmLabel: 'Aktiviraj i poveži',
+      });
+      if (yes) await save({ ignoreMatches, reactivate: true });
+    } else if (error instanceof ApiError && error.status === 409) {
       matches = error.details.matches ?? [];
       renderMatches();
       const createAnyway = await confirmDialog({
@@ -286,11 +301,18 @@ async function save({ ignoreMatches = false } = {}) {
         cancelLabel: 'Natrag',
         confirmLabel: 'Ipak kreiraj novog',
       });
-      if (createAnyway) await save({ ignoreMatches: true });
+      if (createAnyway) await save({ ignoreMatches: true, reactivate });
       else matchesBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
     } else if (error instanceof ApiError && error.status === 422) {
       form.setErrors(error.errors);
-      if (error.message === MESSAGES.unavailable || error.message === MESSAGES.leadClosed)
+      if (
+        [
+          MESSAGES.unavailable,
+          MESSAGES.leadClosed,
+          MESSAGES.leadNotWon,
+          MESSAGES.leadAlreadyConverted,
+        ].includes(error.message)
+      )
         screen.showError(error.message);
     } else {
       screen.showError('Nije moguće pretvoriti lead. Pokušajte ponovno.');
@@ -299,9 +321,9 @@ async function save({ ignoreMatches = false } = {}) {
   }
   screen.allowLeave();
   setFlash(
-    result.opportunityId
-      ? 'Lead je pretvoren u kupca i prilika je kreirana.'
-      : 'Lead je pretvoren u kupca.',
+    result.alreadyConverted
+      ? 'Lead je već bio pretvoren u ovog kupca.'
+      : 'Lead je pretvoren u aktivnog kupca.',
   );
   // replace(): Back from the customer returns to the lead, not to this form.
   window.location.replace(`/customers/${encodeURIComponent(result.customerId)}`);

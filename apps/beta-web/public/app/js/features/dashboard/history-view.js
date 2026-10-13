@@ -136,7 +136,11 @@ function calendarCard(summary, period) {
                     h(
                       'span',
                       { class: 'event__sub' },
-                      [labelOf(TASK_TYPES, task.type), task.customerName, statusText(task)]
+                      [
+                        labelOf(TASK_TYPES, task.type),
+                        task.customerName ?? (task.leadName ? `Lead: ${task.leadName}` : null),
+                        statusText(task),
+                      ]
                         .filter(Boolean)
                         .join(' · '),
                     ),
@@ -250,10 +254,19 @@ function leadsCard(summary, period) {
           'ul',
           { class: 'hist-bars', role: 'list' },
           bar('Kvalificirano', kpis.qualified.value, 'red'),
-          bar('Pretvoreno', leads.won, 'green'),
+          // WON = a deal of the lead won; becoming a customer is a later step (ADR-0009).
+          bar('Osvojeno', leads.won, 'green'),
+          bar('Pretvoreno u kupca', leads.converted ?? leads.won, 'green'),
           bar('Izgubljeno', leads.lost, 'gray'),
         ),
         leadRatios(leads),
+        leads.conversionPending
+          ? h(
+              'p',
+              { class: 'hist-caption' },
+              `Čeka pretvaranje u kupca: ${leads.conversionPending}`,
+            )
+          : null,
       ),
       h(
         'a',

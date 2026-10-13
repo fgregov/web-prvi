@@ -1,10 +1,14 @@
-// LeadService: leads are their own records, separate from customers. A lead
-// is never deleted: converting it (WON) or closing it (LOST) only changes its
-// status, stamps the date of that outcome and, for WON, records what it became.
+// LeadService: leads are their own records, separate from customers, and
+// never deleted (ADR-0009, lead-first sales):
 //
-// Conversion reuses the customer, contact and opportunity services and runs as
-// one transaction: either the customer (+ contact, + opportunity) exist AND the
-// lead is WON, or nothing changed.
+//   ACTIVE → opportunities of the lead (no customer needed) → one is won →
+//   WON (OpportunityService marks it) → conversion into a customer, offered
+//   then and possible any time later → the lead records what it became.
+//
+// WON is the commercial outcome; conversion is a separate step (convertedAt).
+// A WON lead without a customer is "conversion pending". Conversion runs as one
+// transaction and is idempotent: a repeated request returns the customer the
+// lead already became.
 import type { LeadLostReason, LeadSource, LeadStage } from '@renvara/domain';
 import { labelOf, LEAD_LOST_REASONS, LEAD_STAGES } from '../../public/app/js/core/constants.js';
 import {
@@ -17,7 +21,7 @@ import {
 import type { ContactService } from './contact-service.ts';
 import type { CustomerService } from './customer-service.ts';
 import { CrmConflictError, CrmValidationError } from './errors.ts';
-import type { OpportunityService } from './opportunity-service.ts';
+import { linkDealToCustomer, type OpportunityService } from './opportunity-service.ts';
 import type { CrmRepository } from './repository.ts';
 import {
   addLeadActivity,
@@ -33,7 +37,7 @@ import {
 } from './scope.ts';
 import { cancelReminders, reminderView, shownReminder } from './reminders.ts';
 import type { TaskService } from './task-service.ts';
-import type { CrmContext, CrmData, Customer, Lead } from './types.ts';
+import type { CrmContext, CrmData, Customer, Lead, Opportunity } from './types.ts';
 
 /** Mail providers whose domain says nothing about the company. */
 const FREE_MAIL = new Set([
@@ -156,6 +160,8 @@ export function createLeadService(
       ...lead,
       /** A Prospect is a qualified lead: qualifiedAt is when it first became one. */
       isProspect: lead.qualifiedAt !== null,
+      /** WON, not yet linked to a customer: "Čeka pretvaranje u kupca". */
+      conversionPending: lead.status === 'won' && !lead.convertedAt,
       reminder: reminder ? reminderView(reminder) : null,
       convertedCustomerName: customer?.companyName ?? null,
       convertedContactName: contact ? contactName(contact) : null,
@@ -181,6 +187,8 @@ export function createLeadService(
         stage: 'new',
         status: 'active',
         qualifiedAt: null,
+        wonAt: null,
+        wonBasis: null,
         convertedAt: null,
         lostAt: null,
         lostReason: null,
@@ -225,6 +233,8 @@ export function createLeadService(
       const lead = requireInOrg(data.leads, ctx, id);
       return {
         ...view(data, ctx, lead),
+        /** The lead's deals, each with its own status (ADR-0009). */
+        opportunities: deps.opportunities.listOpportunities(ctx, { leadId: id }),
         tasks: deps.tasks.listTasks(ctx, { leadId: id }).filter((t) => t.status !== 'cancelled'),
         activities: inOrg(data.activities, ctx)
           .filter((a) => a.leadId === id)
@@ -267,6 +277,15 @@ export function createLeadService(
       const data = repo.data();
       const lead = requireInOrg(data.leads, ctx, id);
       requireActive(lead);
+      // Open deals are closed one by one (won or lost) first; a lost deal never closes its lead.
+      if (
+        inOrg(data.opportunities, ctx).some((o) => o.leadId === lead.id && o.status === 'active')
+      ) {
+        throw new CrmValidationError(
+          { status: MESSAGES.leadHasActiveOpportunities },
+          MESSAGES.leadHasActiveOpportunities,
+        );
+      }
       const now = ctx.now.toISOString();
       cancelReminders(data, ctx, 'leadId', lead.id);
       Object.assign(lead, {
@@ -298,14 +317,40 @@ export function createLeadService(
     },
 
     /**
-     * Convert into a NEW or an EXISTING customer, optionally with a contact and
-     * an opportunity. Atomic. A new customer that looks like an existing one is
-     * refused (409, with the matches) unless `ignoreMatches` confirms it.
+     * PRETVORI LEAD U KUPCA, for a WON lead: into a NEW customer (created
+     * ACTIVE) or an EXISTING one (an inactive one only with `reactivate: true`,
+     * never silently), optionally with a contact person. Links the lead and
+     * its originating won deal — `opportunityId`, else the first won one — with
+     * that deal's offers and tasks; the lead and the deal keep their ids,
+     * dates and history, and the lead's other deals stay as they are. One
+     * transaction. A new customer that looks like an existing one is refused
+     * (409, with the matches) unless `ignoreMatches` confirms it. Repeating a
+     * conversion returns the customer the lead already became.
      */
     convertLead(ctx: CrmContext, id: string, input: Body) {
       const data = repo.data();
       const lead = requireInOrg(data.leads, ctx, id);
-      requireActive(lead);
+      if (lead.convertedAt) {
+        const same =
+          input.conversionMode !== 'EXISTING_CUSTOMER' ||
+          input.customerId === lead.convertedCustomerId;
+        if (lead.convertedCustomerId && same) {
+          return {
+            lead: view(data, ctx, lead),
+            customerId: lead.convertedCustomerId,
+            contactId: lead.convertedContactId,
+            opportunityId: lead.convertedOpportunityId,
+            alreadyConverted: true,
+          };
+        }
+        throw new CrmValidationError(
+          { status: MESSAGES.leadAlreadyConverted },
+          MESSAGES.leadAlreadyConverted,
+        );
+      }
+      if (lead.status !== 'won') {
+        throw new CrmValidationError({ status: MESSAGES.leadNotWon }, MESSAGES.leadNotWon);
+      }
       const errors = validateLeadConversion(input, { existing: inOrg(data.customers, ctx) });
       if (hasErrors(errors)) {
         const unavailable = errors.customerId === MESSAGES.unavailable;
@@ -313,14 +358,34 @@ export function createLeadService(
       }
       const customerInput = (input.customer ?? {}) as Body;
       const contactInput = input.createContact === true ? ((input.contact ?? {}) as Body) : null;
-      const opportunityInput =
-        input.createOpportunity === true ? ((input.opportunity ?? {}) as Body) : null;
+
+      // The won deal the conversion comes from.
+      const wonDeals = inOrg(data.opportunities, ctx)
+        .filter((o) => o.leadId === lead.id && o.status === 'won')
+        .sort((a, b) => (a.closedAt ?? '').localeCompare(b.closedAt ?? ''));
+      let deal: Opportunity | undefined;
+      if (opt(input.opportunityId)) {
+        deal = wonDeals.find((o) => o.id === input.opportunityId);
+        if (!deal) {
+          throw new CrmValidationError({
+            opportunityId: 'Odabrana prilika nije osvojena prilika ovog leada.',
+          });
+        }
+      } else {
+        deal = wonDeals.find((o) => !o.companyId) ?? wonDeals[0];
+      }
 
       let existing: Customer | undefined;
       if (input.conversionMode === 'EXISTING_CUSTOMER') {
         existing = findInOrg(data.customers, ctx, input.customerId);
         if (!existing) {
           throw new CrmValidationError({ customerId: MESSAGES.unavailable }, MESSAGES.unavailable);
+        }
+        if (existing.status === 'inactive' && input.reactivate !== true) {
+          throw new CrmConflictError(MESSAGES.customerInactive, {
+            customerInactive: true,
+            customerName: existing.companyName,
+          });
         }
       } else if (input.ignoreMatches !== true) {
         const matches = findMatches(data, ctx, {
@@ -337,6 +402,9 @@ export function createLeadService(
         let contactId: string | null = null;
         if (existing) {
           customerId = existing.id;
+          // Reactivation was confirmed by the user (the existing workflow, its timeline entry).
+          if (existing.status === 'inactive') deps.customers.setActive(ctx, existing.id, true);
+          if (existing.type === 'prospect') existing.type = 'customer'; // it has a won deal now
           if (contactInput) {
             contactId = deps.contacts.createContact(ctx, {
               companyId: customerId,
@@ -352,6 +420,9 @@ export function createLeadService(
             ctx,
             {
               ...customerInput,
+              // A customer from a won lead is an ACTIVE customer.
+              status: 'active',
+              type: 'customer',
               notes: str(customerInput.notes) || lead.notes,
               contactName: contactInput?.fullName ?? '',
               contactRole: contactInput?.role ?? '',
@@ -364,33 +435,25 @@ export function createLeadService(
           contactId = customer.primaryContactId;
         }
 
-        let opportunityId: string | null = null;
-        if (opportunityInput) {
-          opportunityId = deps.opportunities.createOpportunity(ctx, {
-            companyId: customerId,
-            contactId,
-            title: opportunityInput.title,
-            value: opportunityInput.value,
-            currency: opportunityInput.currency ?? lead.currency ?? 'EUR',
-            stage: opportunityInput.stage,
-            notes: `Iz leada: ${lead.name}`,
-          }).opportunity.id;
-        }
-
         const now = ctx.now.toISOString();
-        setStage(ctx, lead, 'qualified'); // a converted lead was qualified, at the latest now
         Object.assign(lead, {
-          status: 'won',
           convertedAt: now,
           convertedCustomerId: customerId,
           convertedContactId: contactId,
-          convertedOpportunityId: opportunityId,
+          convertedOpportunityId: deal?.id ?? null,
           updatedAt: now,
         });
+        // The same deal now also has the customer (its id, dates, offers and history stay).
+        if (deal && !deal.companyId) {
+          linkDealToCustomer(data, ctx, deal, customerId, now);
+          if (contactId && !deal.contactId) deal.contactId = contactId;
+        }
         cancelReminders(data, ctx, 'leadId', lead.id);
-        // The lead's own tasks without a customer now belong to it too (nothing is moved or lost).
+        // The lead's own tasks without a customer now concern the customer too.
         for (const task of inOrg(data.tasks, ctx)) {
-          if (task.leadId === lead.id && !task.companyId) task.companyId = customerId;
+          if (task.leadId === lead.id && !task.companyId && !task.opportunityId) {
+            task.companyId = customerId;
+          }
         }
         const customerName = findInOrg(data.customers, ctx, customerId)?.companyName ?? '';
         addLeadActivity(
@@ -398,12 +461,14 @@ export function createLeadService(
           ctx,
           lead.id,
           'lead_converted',
-          `${lead.name} → ${customerName}`,
+          [`${lead.name} → ${customerName}`, deal ? `prilika: ${deal.title}` : null]
+            .filter(Boolean)
+            .join(' · '),
           customerId,
         );
-        return { customerId, contactId, opportunityId };
+        return { customerId, contactId, opportunityId: deal?.id ?? null };
       }); // saved by the transaction
-      return { lead: view(data, ctx, lead), ...result };
+      return { lead: view(data, ctx, lead), ...result, alreadyConverted: false };
     },
   };
 }

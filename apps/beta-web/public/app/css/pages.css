@@ -632,6 +632,21 @@ a {
   color: var(--rv-muted);
 }
 
+.rv-opp__origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--rv-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rv-opp__origin:hover {
+  color: var(--rv-red-text);
+}
+
 .rv-opp__reminder {
   display: flex;
   align-items: center;

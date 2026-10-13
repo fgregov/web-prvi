@@ -1,10 +1,12 @@
 // LeadService: leads are their own records (not customers), scoped to one
-// organization, never deleted. Conversion (WON) is atomic and reuses the
-// customer, contact and opportunity services; LOST is an explicit close.
-// Period reporting counts each outcome by its own date.
+// organization, never deleted. Lead-first (ADR-0009): a lead has deals without
+// being a customer; a won deal makes it WON; conversion into a customer comes
+// after, atomic and idempotent; LOST is an explicit close. Period reporting
+// counts each outcome by its own date.
 import { leadOutcomeMetrics } from '@renvara/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../public/app/js/core/validation.js';
+import { taskInputFromForm } from '../public/app/js/features/tasks/task-input.js';
 import { CrmConflictError, CrmNotFoundError, CrmValidationError } from '../src/crm/errors.ts';
 import { createCrmServices, type CrmServices } from '../src/crm/index.ts';
 import { createMemoryRepository, emptyData } from '../src/crm/repository.ts';
@@ -213,7 +215,24 @@ describe('LeadService · tasks on a lead', () => {
   });
 });
 
-describe('LeadService · conversion', () => {
+/** A lead with a deal that was won (ADR-0009: the lead is WON, no customer yet). */
+function wonLead(name = 'Marko Horvat', companyName = 'ABC d.o.o.') {
+  const lead = crm.leads.createLead(ctxA, {
+    name,
+    companyName,
+    phone: '091 234 5678',
+    source: 'referral',
+  });
+  const { opportunity: deal } = crm.opportunities.createOpportunity(ctxA, {
+    leadId: lead.id,
+    title: 'Vending aparat',
+    value: '5000',
+  });
+  crm.opportunities.closeOpportunity(ctxA, deal.id, { outcome: 'won' });
+  return { lead, deal };
+}
+
+describe('LeadService · conversion (after WON)', () => {
   const toNewCustomer = {
     conversionMode: 'CREATE_CUSTOMER',
     customer: { companyName: 'ABC d.o.o.', oib: '12345678903', city: 'Zagreb' },
@@ -221,8 +240,16 @@ describe('LeadService · conversion', () => {
     contact: { fullName: 'Marko Horvat', phone: '091 234 5678', role: 'Direktor' },
   };
 
-  it('creates a new customer with a contact, keeps the lead and marks it WON', () => {
+  it('an active lead is not converted: the deal is won first', () => {
     const lead = marko();
+    rejects(() => crm.leads.convertLead(ctxA, lead.id, toNewCustomer), {
+      status: MESSAGES.leadNotWon,
+    });
+    expect(crm.repo.data().customers).toHaveLength(0);
+  });
+
+  it('KREIRAJ KUPCA: an ACTIVE customer with a contact; the lead stays WON and records it', () => {
+    const { lead, deal } = wonLead();
     const task = crm.tasks.createTask(ctxA, {
       title: 'Follow-up Marko',
       leadId: lead.id,
@@ -230,20 +257,28 @@ describe('LeadService · conversion', () => {
     });
     const result = crm.leads.convertLead(ctxA, lead.id, toNewCustomer);
     const customer = crm.customers.getCustomer(ctxA, result.customerId);
-    expect(customer.companyName).toBe('ABC d.o.o.');
+    expect(customer).toMatchObject({
+      companyName: 'ABC d.o.o.',
+      status: 'active',
+      type: 'customer',
+    });
     expect(customer.primaryContactId).toBe(result.contactId);
-    expect(result.opportunityId).toBeNull();
+    expect(crm.customers.listCustomers(ctxA, { status: 'active' }).map((c) => c.id)).toContain(
+      result.customerId,
+    );
+    expect(result).toMatchObject({ opportunityId: deal.id, alreadyConverted: false });
     expect(result.lead).toMatchObject({
       status: 'won',
-      stage: 'qualified',
+      wonBasis: 'opportunity',
+      conversionPending: false,
       convertedAt: ctxA.now.toISOString(),
-      qualifiedAt: ctxA.now.toISOString(),
       convertedCustomerId: result.customerId,
       convertedContactId: result.contactId,
+      convertedOpportunityId: deal.id,
       convertedCustomerName: 'ABC d.o.o.',
-      convertedContactName: 'Marko Horvat',
+      convertedOpportunityTitle: 'Vending aparat',
     });
-    // Lead and its history stay; its task now also belongs to the customer.
+    // The lead and its history stay; its own task now also concerns the customer.
     expect(crm.repo.data().leads).toHaveLength(1);
     expect(crm.tasks.getTask(ctxA, task.id)).toMatchObject({
       leadId: lead.id,
@@ -255,28 +290,52 @@ describe('LeadService · conversion', () => {
     });
   });
 
-  it('can add an opportunity in the same step', () => {
-    const lead = marko();
+  it('the won deal is the same record: id, lead, dates, values and offers kept, customer added', () => {
+    const lead = crm.leads.createLead(ctxA, { name: 'FERO-TERM' });
+    const { opportunity: deal } = crm.opportunities.createOpportunity(ctxA, {
+      leadId: lead.id,
+      title: 'Vending aparat',
+      value: '5000',
+      nextActionTitle: 'Poslati ponudu',
+      nextActionDueDate: '2026-10-15',
+    });
+    const offer = crm.offers.recordSent(ctxA, { opportunityId: deal.id, title: 'Ponuda vending' });
+    expect(offer.companyId).toBeNull();
+    const won = crm.opportunities.closeOpportunity(ctxA, deal.id, {
+      outcome: 'won',
+      wonValue: '5500',
+    });
+    const before = structuredClone(crm.repo.data().opportunities.find((o) => o.id === deal.id)!);
     const result = crm.leads.convertLead(ctxA, lead.id, {
-      ...toNewCustomer,
-      createOpportunity: true,
-      opportunity: { title: 'Grijanje ureda', value: '8000', stage: 'in_progress' },
+      conversionMode: 'CREATE_CUSTOMER',
+      customer: { companyName: 'FERO-TERM d.o.o.', oib: '60417283915', city: 'Osijek' },
     });
-    const opportunity = crm.repo.data().opportunities.find((o) => o.id === result.opportunityId)!;
-    expect(opportunity).toMatchObject({
-      organizationId: 'org-a',
+    const after = crm.repo.data().opportunities.find((o) => o.id === deal.id)!;
+    expect(crm.repo.data().opportunities).toHaveLength(1); // no replacement deal
+    expect(after).toMatchObject({
+      ...before,
       companyId: result.customerId,
-      contactId: result.contactId,
-      title: 'Grijanje ureda',
-      value: 8000,
-      stage: 'in_progress',
-      status: 'active',
+      leadId: lead.id,
+      updatedAt: expect.any(String),
     });
-    expect(result.lead.convertedOpportunityTitle).toBe('Grijanje ureda');
+    expect(after.closedAt).toBe(won.closedAt);
+    expect(after.wonValue).toBe(5500);
+    expect(crm.repo.data().offers.find((o) => o.id === offer.id)?.companyId).toBe(
+      result.customerId,
+    );
+    expect(crm.tasks.listTasks(ctxA, { opportunityId: deal.id })[0]).toMatchObject({
+      leadId: lead.id,
+      companyId: result.customerId,
+    });
+    // On the customer's profile now, and still on the lead.
+    expect(
+      crm.customers.getProfile(ctxA, result.customerId).opportunities.map((o) => o.id),
+    ).toEqual([deal.id]);
+    expect(crm.leads.getLead(ctxA, lead.id).opportunities.map((o) => o.id)).toEqual([deal.id]);
   });
 
   it('a company-only conversion needs no contact', () => {
-    const lead = crm.leads.createLead(ctxA, { name: 'Hotel Lavanda' });
+    const { lead } = wonLead('Hotel Lavanda', '');
     const result = crm.leads.convertLead(ctxA, lead.id, {
       conversionMode: 'CREATE_CUSTOMER',
       customer: { companyName: 'Hotel Lavanda', oib: '11111111111', city: 'Poreč' },
@@ -285,14 +344,15 @@ describe('LeadService · conversion', () => {
     expect(crm.customers.getCustomer(ctxA, result.customerId).primaryContactId).toBeNull();
   });
 
-  it('links to an existing customer without creating a duplicate', () => {
+  it('POVEŽI S POSTOJEĆIM KUPCEM: no duplicate customer', () => {
     const abc = crm.customers.createCustomer(ctxA, {
       companyName: 'ABC d.o.o.',
       oib: '12345678903',
       city: 'Zagreb',
       contactName: 'Ivana',
+      type: 'prospect',
     });
-    const lead = marko();
+    const { lead, deal } = wonLead();
     expect(crm.leads.customerMatches(ctxA, lead.id)).toEqual([
       expect.objectContaining({ id: abc.id, reasons: ['name'] }),
     ]);
@@ -304,10 +364,42 @@ describe('LeadService · conversion', () => {
     });
     expect(result.customerId).toBe(abc.id);
     expect(crm.customers.listCustomers(ctxA)).toHaveLength(1);
+    expect(crm.customers.getCustomer(ctxA, abc.id).type).toBe('customer'); // it has a won deal now
     expect(
       crm.contacts.listContacts(ctxA, { companyId: abc.id }).map((c) => c.firstName),
     ).toContain('Marko');
-    expect(result.lead.status).toBe('won');
+    expect(crm.opportunities.getOpportunity(ctxA, deal.id).companyId).toBe(abc.id);
+  });
+
+  it('an inactive existing customer is linked only after a confirmed reactivation', () => {
+    const old = crm.customers.createCustomer(ctxA, {
+      companyName: 'Stari kupac',
+      oib: '22222222222',
+      city: 'Pula',
+      contactName: 'I',
+    });
+    crm.customers.setActive(ctxA, old.id, false);
+    const { lead } = wonLead();
+    let conflict: unknown;
+    try {
+      crm.leads.convertLead(ctxA, lead.id, {
+        conversionMode: 'EXISTING_CUSTOMER',
+        customerId: old.id,
+      });
+    } catch (error) {
+      conflict = error;
+    }
+    expect(conflict).toBeInstanceOf(CrmConflictError);
+    expect((conflict as CrmConflictError).message).toBe(MESSAGES.customerInactive);
+    expect(crm.leads.getLead(ctxA, lead.id).conversionPending).toBe(true);
+    expect(crm.customers.getCustomer(ctxA, old.id).status).toBe('inactive');
+
+    crm.leads.convertLead(ctxA, lead.id, {
+      conversionMode: 'EXISTING_CUSTOMER',
+      customerId: old.id,
+      reactivate: true,
+    });
+    expect(crm.customers.getCustomer(ctxA, old.id).status).toBe('active');
   });
 
   it('a possible existing customer stops the new one until confirmed', () => {
@@ -317,7 +409,7 @@ describe('LeadService · conversion', () => {
       city: 'Split',
       contactName: 'I',
     });
-    const lead = marko();
+    const { lead } = wonLead();
     let conflict: unknown;
     try {
       crm.leads.convertLead(ctxA, lead.id, toNewCustomer);
@@ -327,12 +419,15 @@ describe('LeadService · conversion', () => {
     expect(conflict).toBeInstanceOf(CrmConflictError);
     expect((conflict as CrmConflictError).message).toBe(MESSAGES.possibleExistingCustomer);
     expect((conflict as CrmConflictError).details.matches).toHaveLength(1);
-    expect(crm.leads.getLead(ctxA, lead.id).status).toBe('active');
+    expect(crm.leads.getLead(ctxA, lead.id)).toMatchObject({
+      status: 'won',
+      conversionPending: true,
+    });
     const confirmed = crm.leads.convertLead(ctxA, lead.id, {
       ...toNewCustomer,
       ignoreMatches: true,
     });
-    expect(confirmed.lead.status).toBe('won');
+    expect(confirmed.lead.conversionPending).toBe(false);
     expect(crm.customers.listCustomers(ctxA)).toHaveLength(2);
   });
 
@@ -343,7 +438,7 @@ describe('LeadService · conversion', () => {
       city: 'X',
       contactName: 'Y',
     });
-    const lead = marko();
+    const { lead } = wonLead();
     rejects(
       () =>
         crm.leads.convertLead(ctxA, lead.id, {
@@ -355,8 +450,8 @@ describe('LeadService · conversion', () => {
     );
   });
 
-  it('validates the conversion before writing anything', () => {
-    const lead = marko();
+  it('validates the conversion before writing anything (missing customer data is asked for)', () => {
+    const { lead } = wonLead();
     rejects(
       () =>
         crm.leads.convertLead(ctxA, lead.id, {
@@ -364,43 +459,237 @@ describe('LeadService · conversion', () => {
           customer: { companyName: '' },
           createContact: true,
           contact: {},
-          createOpportunity: true,
-          opportunity: {},
         }),
       {
         'customer.companyName': expect.any(String),
+        'customer.oib': expect.any(String),
         'contact.fullName': expect.any(String),
-        'opportunity.title': expect.any(String),
       },
     );
     expect(crm.repo.data().customers).toHaveLength(0);
   });
 
-  it('is atomic: a failure after the customer was created leaves nothing behind', () => {
-    const lead = marko();
+  it('is atomic: a failure after the customer was reactivated leaves nothing behind', () => {
+    const old = crm.customers.createCustomer(ctxA, {
+      companyName: 'Stari kupac',
+      oib: '22222222222',
+      city: 'Pula',
+      contactName: 'I',
+    });
+    crm.customers.setActive(ctxA, old.id, false);
+    const { lead } = wonLead();
     const before = structuredClone(crm.repo.data());
-    vi.spyOn(crm.opportunities, 'createOpportunity').mockImplementation(() => {
+    vi.spyOn(crm.contacts, 'createContact').mockImplementation(() => {
       throw new Error('database unavailable');
     });
     expect(() =>
       crm.leads.convertLead(ctxA, lead.id, {
-        ...toNewCustomer,
-        createOpportunity: true,
-        opportunity: { title: 'Grijanje ureda' },
+        conversionMode: 'EXISTING_CUSTOMER',
+        customerId: old.id,
+        reactivate: true,
+        createContact: true,
+        contact: { fullName: 'Marko Horvat' },
       }),
     ).toThrow('database unavailable');
     expect(crm.repo.data()).toEqual(before);
-    expect(crm.leads.getLead(ctxA, lead.id)).toMatchObject({ status: 'active', convertedAt: null });
+    expect(crm.leads.getLead(ctxA, lead.id)).toMatchObject({ status: 'won', convertedAt: null });
     vi.restoreAllMocks();
   });
 
-  it('a converted lead cannot be converted or lost again', () => {
-    const lead = marko();
-    crm.leads.convertLead(ctxA, lead.id, toNewCustomer);
-    rejects(() => crm.leads.convertLead(ctxA, lead.id, { ...toNewCustomer, ignoreMatches: true }), {
-      status: MESSAGES.leadClosed,
+  it('idempotent: a repeated conversion returns the same customer and creates no duplicate', () => {
+    const { lead } = wonLead();
+    const first = crm.leads.convertLead(ctxA, lead.id, toNewCustomer);
+    const again = crm.leads.convertLead(ctxA, lead.id, { ...toNewCustomer, ignoreMatches: true });
+    expect(again).toMatchObject({ customerId: first.customerId, alreadyConverted: true });
+    expect(crm.repo.data().customers).toHaveLength(1);
+    // Into a different customer: refused; and a won lead is never closed as lost.
+    const other = crm.customers.createCustomer(ctxA, {
+      companyName: 'Drugi',
+      oib: '33333333333',
+      city: 'Zadar',
+      contactName: 'D',
     });
+    rejects(
+      () =>
+        crm.leads.convertLead(ctxA, lead.id, {
+          conversionMode: 'EXISTING_CUSTOMER',
+          customerId: other.id,
+        }),
+      { status: MESSAGES.leadAlreadyConverted },
+    );
     rejects(() => crm.leads.markLeadLost(ctxA, lead.id, {}), { status: MESSAGES.leadClosed });
+  });
+
+  it("the lead's other deals stay under the lead; linking one to the customer is explicit", () => {
+    const { lead } = wonLead();
+    const { opportunity: second } = crm.opportunities.createOpportunity(ctxA, {
+      leadId: lead.id,
+      title: 'Kapsulni sustav',
+    });
+    rejects(() => crm.opportunities.linkToLeadCustomer(ctxA, second.id), {
+      leadId: MESSAGES.leadNotConverted,
+    });
+    const result = crm.leads.convertLead(ctxA, lead.id, toNewCustomer);
+    expect(crm.opportunities.getOpportunity(ctxA, second.id)).toMatchObject({
+      companyId: null,
+      leadId: lead.id,
+      status: 'active',
+    });
+    const linked = crm.opportunities.linkToLeadCustomer(ctxA, second.id);
+    expect(linked).toMatchObject({ companyId: result.customerId, leadId: lead.id });
+  });
+});
+
+describe('LeadService · lead-first sales (ADR-0009)', () => {
+  it('KREIRAJ PRILIKU: deals of a lead need no customer; several, each with its own status', () => {
+    const lead = marko();
+    const deal = (title: string, value: string) =>
+      crm.opportunities.createOpportunity(ctxA, { leadId: lead.id, title, value }).opportunity;
+    const a = deal('Vending aparat', '5000');
+    const b = deal('Dodatni snack aparat', '3000');
+    const c = deal('Kapsulni sustav', '2000');
+    expect(a).toMatchObject({
+      leadId: lead.id,
+      companyId: null,
+      leadName: 'Marko Horvat · ABC d.o.o.',
+    });
+    expect(crm.repo.data().customers).toHaveLength(0);
+
+    crm.opportunities.closeOpportunity(ctxA, c.id, { outcome: 'lost' });
+    expect(crm.leads.getLead(ctxA, lead.id).status).toBe('active'); // a lost deal does not close the lead
+
+    const atWin = { ...ctxA, now: new Date('2026-10-06T10:00:00Z') };
+    const wonA = crm.opportunities.closeOpportunity(atWin, a.id, { outcome: 'won' });
+    expect(wonA).toMatchObject({ leadStatus: 'won', leadCustomerId: null });
+    expect(crm.leads.getLead(ctxA, lead.id)).toMatchObject({
+      status: 'won',
+      wonAt: wonA.closedAt,
+      wonBasis: 'opportunity',
+      conversionPending: true,
+      convertedAt: null,
+      convertedCustomerId: null,
+    });
+    expect(crm.repo.data().customers).toHaveLength(0); // never created automatically
+    expect(crm.opportunities.getOpportunity(ctxA, b.id).status).toBe('active');
+
+    // A later win keeps the first WON date and creates nothing.
+    crm.opportunities.closeOpportunity(ctxA, b.id, { outcome: 'won' });
+    expect(crm.leads.getLead(ctxA, lead.id).wonAt).toBe(wonA.closedAt);
+    expect(crm.repo.data().customers).toHaveLength(0);
+    expect(
+      crm.leads.getLead(ctxA, lead.id).activities.filter((x) => x.type === 'lead_won'),
+    ).toHaveLength(1);
+  });
+
+  it('relations are validated: no orphan, no unrelated customer, no foreign lead, no contact without a customer', () => {
+    const lead = marko();
+    const abc = crm.customers.createCustomer(ctxA, {
+      companyName: 'XYZ',
+      oib: '12345678903',
+      city: 'Zagreb',
+      contactName: 'Ivana',
+    });
+    rejects(() => crm.opportunities.createOpportunity(ctxA, { title: 'X' }), {
+      companyId: MESSAGES.originRequired,
+    });
+    rejects(
+      () =>
+        crm.opportunities.createOpportunity(ctxA, {
+          title: 'X',
+          leadId: lead.id,
+          companyId: abc.id,
+        }),
+      { companyId: MESSAGES.leadCustomerMismatch },
+    );
+    const foreignLead = crm.leads.createLead(ctxB, { name: 'Tuđi lead' });
+    rejects(
+      () => crm.opportunities.createOpportunity(ctxA, { title: 'X', leadId: foreignLead.id }),
+      { leadId: MESSAGES.unavailable },
+    );
+    rejects(
+      () =>
+        crm.opportunities.createOpportunity(ctxA, {
+          title: 'X',
+          leadId: lead.id,
+          contactId: abc.primaryContactId,
+        }),
+      { contactId: MESSAGES.opportunityNeedsCustomerForContact },
+    );
+    // Path B (customer → opportunity) is unchanged.
+    expect(
+      crm.opportunities.createOpportunity(ctxA, { title: 'Servis', companyId: abc.id }).opportunity,
+    ).toMatchObject({ companyId: abc.id, leadId: null });
+  });
+
+  it('a lead with open deals is not closed as lost; a lost lead gets no new deals', () => {
+    const lead = marko();
+    const { opportunity } = crm.opportunities.createOpportunity(ctxA, {
+      leadId: lead.id,
+      title: 'Vending aparat',
+    });
+    rejects(() => crm.leads.markLeadLost(ctxA, lead.id, {}), {
+      status: MESSAGES.leadHasActiveOpportunities,
+    });
+    crm.opportunities.closeOpportunity(ctxA, opportunity.id, { outcome: 'lost' });
+    crm.leads.markLeadLost(ctxA, lead.id, { reason: 'price' });
+    rejects(() => crm.opportunities.createOpportunity(ctxA, { title: 'X', leadId: lead.id }), {
+      leadId: MESSAGES.leadLostNoOpportunity,
+    });
+  });
+
+  it('the task form keeps the deal of a lead (no customer) — regression', () => {
+    const values = {
+      title: 'Poslati ponudu',
+      type: 'follow_up',
+      priority: 'normal',
+      description: '',
+      companyId: '',
+      contactId: '',
+      leadId: 'lead-1',
+      opportunityId: 'deal-1',
+      date: '2026-10-15',
+      dueTime: '',
+      inCalendar: false,
+      startTime: '',
+      endTime: '',
+    };
+    expect(taskInputFromForm(values).input).toMatchObject({
+      leadId: 'lead-1',
+      opportunityId: 'deal-1',
+      companyId: null,
+    });
+    // Without a lead or a customer there is no deal to keep.
+    expect(taskInputFromForm({ ...values, leadId: '' }).input.opportunityId).toBeNull();
+  });
+
+  it('a task of a lead deal gets the lead, no customer, and is in the Sales Calendar', () => {
+    const lead = marko();
+    const { opportunity } = crm.opportunities.createOpportunity(ctxA, {
+      leadId: lead.id,
+      title: 'Vending aparat',
+    });
+    const task = crm.tasks.createTask(ctxA, {
+      title: 'Poslati ponudu',
+      opportunityId: opportunity.id,
+      scheduledStartAt: '2026-10-15T08:00:00.000Z',
+    });
+    expect(task).toMatchObject({ leadId: lead.id, companyId: null, opportunityId: opportunity.id });
+    expect(
+      crm.calendar
+        .getCalendarTasks(ctxA, new Date('2026-10-15T00:00:00Z'), new Date('2026-10-16T00:00:00Z'))
+        .map((t) => t.id),
+    ).toContain(task.id);
+    const other = marko();
+    rejects(
+      () =>
+        crm.tasks.createTask(ctxA, {
+          title: 'X',
+          leadId: other.id,
+          opportunityId: opportunity.id,
+          dueDate: '2026-10-20',
+        }),
+      { opportunityId: MESSAGES.opportunityNotOfLead },
+    );
   });
 });
 
@@ -434,7 +723,7 @@ describe('LeadService · lost', () => {
 });
 
 describe('LeadService · period semantics', () => {
-  it('a lead created in Q3 and won in Q4 is new in Q3 and won in Q4', () => {
+  it('a lead created in Q3, its deal won in Q4 and converted in Q4: new in Q3, won and converted in Q4', () => {
     const q3 = (s: CrmServices) => s.dashboard.getPeriodSummary(ctxA, '2026-07-01', '2026-09-30');
     const q4 = (s: CrmServices) => s.dashboard.getPeriodSummary(ctxA, '2026-10-01', '2026-12-31');
     const beforeQ3 = q3(crm);
@@ -443,6 +732,18 @@ describe('LeadService · period semantics', () => {
     const inQ3 = { ...ctxA, now: new Date('2026-09-15T08:00:00Z') };
     const lead = crm.leads.createLead(inQ3, { name: 'Marko Horvat', companyName: 'ABC d.o.o.' });
     const lost = crm.leads.createLead(inQ3, { name: 'Kafić' });
+    const { opportunity } = crm.opportunities.createOpportunity(inQ3, {
+      leadId: lead.id,
+      title: 'Vending aparat',
+      value: '5000',
+    });
+    crm.opportunities.closeOpportunity(ctxA, opportunity.id, { outcome: 'won' });
+    const pending = q4(crm);
+    expect(pending.leads).toMatchObject({
+      won: beforeQ4.leads.won + 1,
+      converted: beforeQ4.leads.converted,
+      conversionPending: 1,
+    });
     crm.leads.convertLead(ctxA, lead.id, {
       conversionMode: 'CREATE_CUSTOMER',
       customer: { companyName: 'ABC d.o.o.', oib: '12345678903', city: 'Zagreb' },
@@ -451,17 +752,23 @@ describe('LeadService · period semantics', () => {
 
     const afterQ3 = q3(crm);
     const afterQ4 = q4(crm);
+    // The lead is counted once as a new lead: not again for its deal or its conversion.
     expect(afterQ3.leads.created).toBe(beforeQ3.leads.created + 2);
     expect(afterQ3.kpis.newLeads.value).toBe(beforeQ3.kpis.newLeads.value + 2);
+    expect(afterQ4.kpis.newLeads.value).toBe(beforeQ4.kpis.newLeads.value);
     expect(afterQ3.leads.won).toBe(beforeQ3.leads.won);
     expect(afterQ3.leads.lost).toBe(beforeQ3.leads.lost);
     expect(afterQ4.leads.created).toBe(beforeQ4.leads.created);
     expect(afterQ4.leads.won).toBe(beforeQ4.leads.won + 1);
+    expect(afterQ4.leads.converted).toBe(beforeQ4.leads.converted + 1);
+    expect(afterQ4.leads.conversionPending).toBe(0);
     expect(afterQ4.leads.lost).toBe(beforeQ4.leads.lost + 1);
-    // Opportunity W/L is a different thing and does not move.
-    expect(afterQ4.kpis.won.value).toBe(beforeQ4.kpis.won.value);
+    // The deal is an opportunity WON of Q4, created in Q3 (potential of Q3).
+    expect(afterQ4.kpis.won.value).toBe(beforeQ4.kpis.won.value + 1);
+    expect(afterQ4.kpis.wonValue.value).toBe(beforeQ4.kpis.wonValue.value + 5000);
+    expect(afterQ3.kpis.potential.value).toBe(beforeQ3.kpis.potential.value + 5000);
     // Ratios come from the shared helper; active leads never count as lost.
-    expect(afterQ4.leads).toEqual(
+    expect(afterQ4.leads).toMatchObject(
       leadOutcomeMetrics({
         created: afterQ4.leads.created,
         won: afterQ4.leads.won,

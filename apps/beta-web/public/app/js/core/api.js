@@ -129,6 +129,9 @@ export const api = {
   // opportunities: close, offers
   closeOpportunity: (id, input) =>
     request('POST', `/api/opportunities/${enc(id)}/close`, input).then((r) => r.opportunity),
+  /** A lead's deal → the customer the lead was converted into (ADR-0009). */
+  linkOpportunityToLeadCustomer: (id) =>
+    request('POST', `/api/opportunities/${enc(id)}/link-customer`, {}).then((r) => r.opportunity),
   recordOffer: (input) => request('POST', '/api/offers', input).then((r) => r.offer),
   offerAnswered: (id) =>
     request('POST', `/api/offers/${enc(id)}/answered`, {}).then((r) => r.offer),

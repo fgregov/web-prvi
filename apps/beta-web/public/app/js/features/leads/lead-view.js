@@ -1,6 +1,7 @@
 // Lead badges and one-line summaries, shared by the Leads list and Lead detail.
 // Stage (Novi lead → Kontaktiran → Kvalificiran) and status (Aktivan / Won /
-// Lost) are separate: a lead keeps its stage after it is won or lost.
+// Lost) are separate: a lead keeps its stage after it is won or lost. Won =
+// a deal of the lead was won; becoming a customer is a later step (ADR-0009).
 import { labelOf, LEAD_SOURCES, LEAD_STAGES } from '../../core/constants.js';
 import { dayKey, formatDay, formatMoney } from '../../core/format.js';
 import { h } from '../../ui/dom.js';
@@ -22,6 +23,16 @@ const STATUS_BADGE = {
 export function leadStatusBadge(lead) {
   const [tone, label] = STATUS_BADGE[lead.status] ?? STATUS_BADGE.active;
   return h('span', { class: `rv-badge rv-badge--${tone}` }, label);
+}
+
+/** WON without a customer yet (ADR-0009): a conversion state, not a lost deal. */
+export function leadConversionBadge(lead) {
+  if (!lead.conversionPending) return null;
+  return h(
+    'span',
+    { class: 'rv-badge rv-badge--neutral lead-pending' },
+    'Čeka pretvaranje u kupca',
+  );
 }
 
 export function leadStageBadge(lead) {

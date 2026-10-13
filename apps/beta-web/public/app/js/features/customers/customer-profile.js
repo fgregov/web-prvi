@@ -72,10 +72,13 @@ export function customerActions(profile, reload) {
         'Kupac je ponovno aktiviran.',
         'Nije moguće aktivirati kupca. Pokušajte ponovno.',
       ),
-    deal: opportunityActions(async (message) => {
-      showToast(message);
-      await reload();
-    }),
+    deal: opportunityActions(
+      async (message) => {
+        showToast(message);
+        await reload();
+      },
+      { returnTo: here },
+    ),
     toggleTask: async (task) => {
       try {
         if (task.status === 'completed') await api.reopenTask(task.id);

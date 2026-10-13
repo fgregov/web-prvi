@@ -152,7 +152,13 @@ export const ACTIVITY_META = {
   email_sent: { label: 'Poslan e-mail', icon: 'mail', tone: 'neutral' },
   lead_created: { label: 'Lead kreiran', icon: 'user-search', tone: 'red' },
   lead_stage_changed: { label: 'Faza leada promijenjena', icon: 'pencil', tone: 'neutral' },
-  lead_converted: { label: 'Lead pretvoren u kupca', icon: 'check', tone: 'green' },
+  lead_won: { label: 'Lead osvojen', icon: 'check', tone: 'green' },
+  lead_converted: { label: 'Lead pretvoren u kupca', icon: 'user-check', tone: 'green' },
+  opportunity_customer_linked: {
+    label: 'Prilika povezana s kupcem',
+    icon: 'building',
+    tone: 'neutral',
+  },
   lead_lost: { label: 'Lead izgubljen', icon: 'x', tone: 'neutral' },
   phone_call: { label: 'Telefonski poziv', icon: 'phone', tone: 'neutral' },
 };

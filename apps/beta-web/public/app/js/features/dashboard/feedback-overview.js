@@ -14,8 +14,14 @@ const BAND_LABEL = { yellow: 'čeka', red: 'potreban follow-up', black: 'hitan f
  */
 export function offerHref(item) {
   if (item.hasDocument) return `/follow-up/${encodeURIComponent(item.offerId)}`;
+  // An offer within a lead's deal before the lead is a customer (ADR-0009): on the lead.
+  if (!item.companyId && item.leadId) return `/leads/${encodeURIComponent(item.leadId)}#prilike`;
   return `/customers/${encodeURIComponent(item.companyId)}?offer=${encodeURIComponent(item.offerId)}#prilike`;
 }
+
+/** Who the offer is for: the customer, else the lead of its deal ("Lead · Hotel Lavanda"). */
+export const offerParty = (item) =>
+  item.customerName || (item.leadName ? `Lead · ${item.leadName}` : 'Kupac nije dostupan');
 
 function row(item) {
   return h(
@@ -26,14 +32,14 @@ function row(item) {
       {
         class: 'waiting waiting--offer',
         href: offerHref(item),
-        'aria-label': `${item.customerName}, ${item.title}: ${item.waitingDays} dana, ${BAND_LABEL[item.band]}`,
+        'aria-label': `${offerParty(item)}, ${item.title}: ${item.waitingDays} dana, ${BAND_LABEL[item.band]}`,
         dataset: { offerId: item.offerId, band: item.band },
       },
       h('span', { class: 'waiting__icon' }, spriteIcon('building')),
       h(
         'span',
         { class: 'waiting__text' },
-        h('span', { class: 'waiting__name' }, item.customerName),
+        h('span', { class: 'waiting__name' }, offerParty(item)),
         h('span', { class: 'waiting__sub' }, item.title),
       ),
       h(

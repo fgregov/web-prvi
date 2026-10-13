@@ -9,6 +9,7 @@ import {
   standingBadge,
   viewsLine,
 } from '../features/follow-up/format.js';
+import { offerParty } from '../features/dashboard/feedback-overview.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { renderTabbar } from '../ui/tabbar.js';
@@ -130,7 +131,7 @@ function card(item, now) {
       h(
         'span',
         { class: 'fu-offer__main' },
-        h('strong', { class: 'fu-offer__customer' }, item.customerName || 'Kupac nije dostupan'),
+        h('strong', { class: 'fu-offer__customer' }, offerParty(item)),
         h('span', { class: 'fu-offer__title' }, item.title),
         item.opportunityTitle
           ? h('span', { class: 'fu-offer__meta' }, `Prilika: ${item.opportunityTitle}`)

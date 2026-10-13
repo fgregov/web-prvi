@@ -1,10 +1,11 @@
 // ContactPicker / OpportunityPicker: selects that list the chosen customer's
-// contacts or active opportunities. Disabled until a customer is chosen.
+// contacts or active opportunities — or, for the OpportunityPicker, a lead's
+// active opportunities (ADR-0009). Disabled until a customer or lead is chosen.
 import { api } from '../../core/api.js';
 import { contactName } from '../../core/names.js';
 import { h } from '../../ui/dom.js';
 
-function RelatedPicker({ emptyLabel, noCustomerLabel, load, label: toLabel }) {
+function RelatedPicker({ emptyLabel, noCustomerLabel, load, loadLead, label: toLabel }) {
   const select = h('select', { class: 'rv-input', disabled: true });
   let pending = '';
   let ticket = 0;
@@ -29,16 +30,23 @@ function RelatedPicker({ emptyLabel, noCustomerLabel, load, label: toLabel }) {
       if ([...select.options].some((o) => o.value === pending)) select.value = pending;
     },
     /** (Re)loads the options for a customer; keeps `selectedId` when it belongs to it. */
-    async setCustomer(companyId, selectedId = pending) {
+    setCustomer(companyId, selectedId = pending) {
+      return this.setScope(companyId ? () => load(companyId) : null, selectedId);
+    },
+    /** The same for a lead (OpportunityPicker: the lead's own deals). */
+    setLead(leadId, selectedId = pending) {
+      return this.setScope(leadId && loadLead ? () => loadLead(leadId) : null, selectedId);
+    },
+    async setScope(loader, selectedId = pending) {
       const mine = ++ticket;
-      if (!companyId) {
+      if (!loader) {
         fill([], '');
         select.options[0].textContent = noCustomerLabel;
         select.disabled = true;
         return;
       }
       select.disabled = true;
-      const options = await load(companyId).catch(() => []);
+      const options = await loader().catch(() => []);
       if (mine !== ticket) return;
       fill(options, selectedId);
       select.disabled = false;
@@ -55,10 +63,11 @@ export const ContactPicker = () =>
     label: (c) => [contactName(c), c.role].filter(Boolean).join(' · '),
   });
 
-export const OpportunityPicker = () =>
+export const OpportunityPicker = ({ emptyLabel = 'Bez prilike', noCustomerLabel } = {}) =>
   RelatedPicker({
-    emptyLabel: 'Bez prilike',
-    noCustomerLabel: 'Najprije odaberite kupca',
+    emptyLabel,
+    noCustomerLabel: noCustomerLabel ?? 'Najprije odaberite kupca',
     load: (companyId) => api.listOpportunities({ companyId, status: 'active' }),
+    loadLead: (leadId) => api.listOpportunities({ leadId, status: 'active' }),
     label: (o) => o.title,
   });

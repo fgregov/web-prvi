@@ -143,12 +143,19 @@ function showCalendar(on, { prefill = false } = {}) {
   }
 }
 
+/**
+ * The customer's contacts and deals; without a customer, a lead's own deals
+ * (ADR-0009: a task of a lead's deal needs no customer).
+ */
 async function linkCustomer(companyId, { contactId = '', opportunityId = '' } = {}) {
+  const leadId = leadContext.read();
   form.setVisible('contactId', Boolean(companyId));
-  form.setVisible('opportunityId', Boolean(companyId));
+  form.setVisible('opportunityId', Boolean(companyId) || Boolean(leadId));
   await Promise.all([
     contact.setCustomer(companyId, contactId),
-    opportunity.setCustomer(companyId, opportunityId),
+    companyId
+      ? opportunity.setCustomer(companyId, opportunityId)
+      : opportunity.setLead(leadId, opportunityId),
   ]);
 }
 
@@ -176,7 +183,9 @@ async function prefill() {
     if (task.leadId) showLead(task.leadId, task.leadName ?? 'Lead');
     if (task.companyId) {
       customer.write(await customerById(task.companyId).catch(() => null));
-      await linkCustomer(task.companyId, {
+    }
+    if (task.companyId || task.leadId) {
+      await linkCustomer(task.companyId ?? '', {
         contactId: task.contactId ?? '',
         opportunityId: task.opportunityId ?? '',
       });
@@ -196,20 +205,25 @@ async function prefill() {
   let companyId = params.get('companyId');
   const opportunityId = params.get('opportunityId');
   const contactId = params.get('contactId');
-  const leadId = params.get('leadId');
+  let leadId = params.get('leadId');
   try {
-    if (leadId) {
-      const lead = await api.getLead(leadId);
-      showLead(lead.id, [lead.name, lead.companyName].filter(Boolean).join(' · '));
-    }
     if (opportunityId) {
       const opp = await api.getOpportunity(opportunityId);
       if (companyId && companyId !== opp.companyId) throw new ApiError(422, MESSAGES.unavailable);
       companyId = opp.companyId;
+      // A lead's deal: the task concerns its lead (and no customer until the lead's conversion).
+      if (opp.leadId) {
+        if (leadId && leadId !== opp.leadId) throw new ApiError(422, MESSAGES.unavailable);
+        leadId = opp.leadId;
+      }
     }
-    if (companyId) {
-      customer.write(await customerById(companyId));
-      await linkCustomer(companyId, {
+    if (leadId) {
+      const lead = await api.getLead(leadId);
+      showLead(lead.id, [lead.name, lead.companyName].filter(Boolean).join(' · '));
+    }
+    if (companyId) customer.write(await customerById(companyId));
+    if (companyId || leadId) {
+      await linkCustomer(companyId ?? '', {
         contactId: contactId ?? '',
         opportunityId: opportunityId ?? '',
       });

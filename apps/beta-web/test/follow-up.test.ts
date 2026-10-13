@@ -526,6 +526,118 @@ describe('Classification and compatibility', () => {
   });
 });
 
+describe("Lead-first sales: an offer within a lead's deal (ADR-0009)", () => {
+  it('upload, link and views without a customer; the conversion gives the same offer its customer', async () => {
+    const customersBefore = crm.repo.data().customers.length;
+    const lead = crm.leads.createLead(ctxA, { name: 'Marko Lukač', companyName: 'Pekara Lukač' });
+    const { opportunity } = crm.opportunities.createOpportunity(ctxA, {
+      leadId: lead.id,
+      title: 'Vending aparat',
+      value: '5000',
+    });
+    // A lead offer needs one of the lead's deals; another lead's deal is refused.
+    const other = crm.leads.createLead(ctxA, { name: 'Drugi lead' });
+    await rejectsAsync(
+      newOffer({ companyId: null, leadId: other.id, opportunityId: opportunity.id }),
+      {
+        opportunityId: MESSAGES.opportunityNotOfLead,
+      },
+    );
+    await rejectsAsync(newOffer({ companyId: null, leadId: lead.id }), {
+      opportunityId: 'Odaberite priliku leada.',
+    });
+    const created = await newOffer({
+      companyId: null,
+      leadId: lead.id,
+      opportunityId: opportunity.id,
+    });
+    const offer = await crm.followUp.detail(ctxA, created.offerId);
+    expect(offer).toMatchObject({
+      companyId: null,
+      customerName: '',
+      leadId: lead.id,
+      leadName: 'Marko Lukač · Pekara Lukač',
+      opportunityId: opportunity.id,
+      link: { status: 'active' },
+    });
+    expect(crm.repo.data().customers).toHaveLength(customersBefore); // no customer invented
+
+    crm.followUp.markSent(ctxA, created.offerId, {});
+    expect(await crm.followUp.recordAccess(created.token, HUMAN, NOW, false)).toBe(true);
+    expect(
+      await crm.followUp.recordView(
+        created.token,
+        { sessionId: 'session-aaaaaaaaaaaaaaaa' },
+        HUMAN,
+        NOW,
+        false,
+      ),
+    ).toBe('recorded');
+    const timeline = crm.leads.getLead(ctxA, lead.id).activities.map((a) => a.type);
+    expect(timeline).toEqual(expect.arrayContaining(['offer_sent', 'offer_viewed']));
+    expect(crm.followUp.list(ctxA, 'waiting').items.map((i) => i.leadName)).toEqual([
+      'Marko Lukač · Pekara Lukač',
+    ]);
+
+    crm.opportunities.closeOpportunity(ctxA, opportunity.id, { outcome: 'won' });
+    const { customerId } = crm.leads.convertLead(ctxA, lead.id, {
+      conversionMode: 'CREATE_CUSTOMER',
+      customer: { companyName: 'Pekara Lukač d.o.o.', oib: '44444444444', city: 'Osijek' },
+    });
+    const after = await crm.followUp.detail(ctxA, created.offerId);
+    expect(after).toMatchObject({
+      offerId: created.offerId, // the same offer, its link and its views
+      companyId: customerId,
+      customerName: 'Pekara Lukač d.o.o.',
+      leadId: lead.id,
+      link: { status: 'active' },
+      engagement: { viewCount: 1 },
+    });
+  });
+
+  it('leads WON before ADR-0009 were won at their conversion; nothing else is invented', () => {
+    const legacy = {
+      ...emptyData(),
+      leads: [
+        {
+          id: 'l-1',
+          organizationId: 'org-a',
+          status: 'won',
+          convertedAt: '2026-08-01T10:00:00.000Z',
+          convertedCustomerId: 'c-1',
+        },
+        { id: 'l-2', organizationId: 'org-a', status: 'active', convertedAt: null },
+      ],
+      opportunities: [{ id: 'o-1', organizationId: 'org-a', companyId: 'c-1' }],
+    } as unknown as CrmData;
+    const data = normalizeData(legacy);
+    expect(data.leads[0]).toMatchObject({
+      wonAt: '2026-08-01T10:00:00.000Z',
+      wonBasis: 'conversion',
+    });
+    expect(data.leads[1]).toMatchObject({ wonAt: null, wonBasis: null });
+    expect(data.opportunities[0]).toMatchObject({ companyId: 'c-1', leadId: null });
+    expect(data.opportunities).toHaveLength(1);
+  });
+
+  it('Ponude and the Home feedback list name the lead of an offer without a customer', () => {
+    const lead = crm.leads.createLead(ctxA, { name: 'Hotel Lavanda' });
+    const { opportunity } = crm.opportunities.createOpportunity(ctxA, {
+      leadId: lead.id,
+      title: 'Aparati za 3 lokacije',
+    });
+    crm.offers.recordSent(ctxA, { opportunityId: opportunity.id, title: 'Ponuda Lavanda' });
+    const item = crm.offers.feedback(ctxA).find((i) => i.title === 'Ponuda Lavanda');
+    expect(item).toMatchObject({
+      companyId: null,
+      leadId: lead.id,
+      leadName: 'Hotel Lavanda',
+      waitingDays: 1,
+      band: 'yellow',
+    });
+  });
+});
+
 describe('HTTP: /api/follow-up and /o/{token}', () => {
   let server: TestServer;
   let cookie: string;

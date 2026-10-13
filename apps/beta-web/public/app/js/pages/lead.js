@@ -1,21 +1,28 @@
 // /leads/{id} · Lead detail: who, how far it got (stage), how it ended
-// (status), its tasks and history. Active leads: Pretvori u kupca, Dodaj
-// zadatak, Kreiraj priliku, Označi kao izgubljen. Won and lost leads stay as
-// history and show what they became or why they were lost.
+// (status), its opportunities, tasks and history.
+//
+// Lead-first (ADR-0009): "Kreiraj priliku" opens a deal of this lead — no
+// customer needed. A won deal makes the lead WON; converting it into a
+// customer is offered then ("Prilika je osvojena!") and stays available here
+// as PRETVORI U KUPCA ("Čeka pretvaranje u kupca") until it is done. Lost
+// leads stay as history with their reason.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { ACTIVITY_META, labelOf, LEAD_LOST_REASONS, LEAD_STAGES } from '../core/constants.js';
 import { formatDateTime } from '../core/format.js';
 import { MESSAGES } from '../core/validation.js';
 import {
+  leadConversionBadge,
   leadSource,
   leadStageBadge,
   leadStatusBadge,
   leadValue,
 } from '../features/leads/lead-view.js';
+import { opportunityCard } from '../features/customers/profile/customer-opportunities.js';
+import { opportunityActions } from '../features/customers/profile/opportunity-actions.js';
+import { conversionHref, linkToLeadCustomer } from '../features/leads/won-conversion.js';
 import { activeReminder, reminderLabel } from '../features/reminders/reminder-control.js';
 import { openReminderSheet } from '../features/reminders/reminder-sheet.js';
 import { taskRow } from '../features/tasks/task-row.js';
-import { confirmDialog } from '../ui/confirm.js';
 import { h, uid } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { goBack, here, withParams } from '../ui/navigation.js';
@@ -32,8 +39,9 @@ root.replaceChildren(header.element, body);
 const enc = encodeURIComponent;
 const row = (label, value) =>
   value ? h('div', { class: 'rv-dl__row' }, h('dt', {}, label), h('dd', {}, value)) : null;
-const convertHref = (lead, params = {}) =>
-  withParams(`/leads/${enc(lead.id)}/convert`, { ...params, returnTo: here() });
+const convertHref = (lead, params = {}) => conversionHref(lead.id, { ...params, returnTo: here() });
+const newDealHref = (lead) =>
+  withParams('/opportunities/new', { leadId: lead.id, returnTo: here() });
 
 /** Stage of an active lead, changed in place (Novi lead → Kontaktiran → Kvalificiran). */
 function stagePicker(lead) {
@@ -71,42 +79,48 @@ function stagePicker(lead) {
   );
 }
 
-/** What the lead became (won) or why it ended (lost). */
+/** How the lead ended: WON (and its conversion into a customer) or LOST. */
 function outcome(lead) {
   if (lead.status === 'won') {
+    const firstWin = (lead.opportunities ?? [])
+      .filter((o) => o.status === 'won')
+      .sort((a, b) => (a.closedAt ?? '').localeCompare(b.closedAt ?? ''))[0];
     return h(
       'section',
-      { class: 'lead-outcome lead-outcome--won', 'aria-label': 'Pretvoreno u kupca' },
+      { class: 'lead-outcome lead-outcome--won', 'aria-label': 'Osvojen' },
       h(
         'p',
         { class: 'lead-outcome__title' },
-        icon('user-check', 'rv-icon rv-icon--sm'),
-        `Pretvoren u kupca · ${formatDateTime(lead.convertedAt)}`,
+        icon('check', 'rv-icon rv-icon--sm'),
+        lead.wonBasis === 'conversion'
+          ? `Osvojen · ${formatDateTime(lead.wonAt ?? lead.convertedAt)}`
+          : `Osvojen · ${formatDateTime(lead.wonAt)}`,
       ),
       h(
         'dl',
         { class: 'rv-dl' },
         row(
-          'Kupac',
-          lead.convertedCustomerId && lead.convertedCustomerName
-            ? h(
-                'a',
-                { href: `/customers/${enc(lead.convertedCustomerId)}` },
-                lead.convertedCustomerName,
-              )
-            : 'Kupac više nije dostupan',
+          'Osvojena prilika',
+          firstWin
+            ? firstWin.title
+            : lead.wonBasis === 'conversion'
+              ? 'Zabilježen pretvaranjem u kupca'
+              : null,
         ),
-        row('Kontakt', lead.convertedContactName),
         row(
-          'Prilika',
-          lead.convertedOpportunityTitle && lead.convertedCustomerId
-            ? h(
-                'a',
-                { href: `/customers/${enc(lead.convertedCustomerId)}#prilike` },
-                lead.convertedOpportunityTitle,
-              )
-            : null,
+          'Kupac',
+          lead.conversionPending
+            ? 'Čeka pretvaranje u kupca'
+            : lead.convertedCustomerId && lead.convertedCustomerName
+              ? h(
+                  'a',
+                  { href: `/customers/${enc(lead.convertedCustomerId)}` },
+                  lead.convertedCustomerName,
+                )
+              : 'Kupac više nije dostupan',
         ),
+        row('Pretvoren u kupca', lead.convertedAt ? formatDateTime(lead.convertedAt) : null),
+        row('Kontakt', lead.convertedContactName),
       ),
     );
   }
@@ -134,6 +148,27 @@ function outcome(lead) {
   return null;
 }
 
+/** WON without a customer: the conversion waits here until it is done. */
+function conversionPending(lead) {
+  if (!lead.conversionPending) return null;
+  return h(
+    'section',
+    { class: 'rv-card lead-convert-pending', 'aria-labelledby': 'lead-convert-title' },
+    h(
+      'p',
+      { class: 'lead-convert-pending__title', id: 'lead-convert-title' },
+      icon('user-check', 'rv-icon rv-icon--sm'),
+      'Čeka pretvaranje u kupca',
+    ),
+    h(
+      'p',
+      { class: 'lead-convert-pending__text' },
+      'Lead je osvojen. Kada želite, pretvorite ga u novog kupca ili ga povežite s postojećim. Lead i njegove prilike ostaju sačuvani.',
+    ),
+    h('a', { class: 'rv-btn rv-btn--primary', href: convertHref(lead) }, 'Pretvori u kupca'),
+  );
+}
+
 function actions(lead) {
   const taskHref = withParams('/tasks/new', {
     leadId: lead.id,
@@ -156,40 +191,25 @@ function actions(lead) {
             'Otvori kupca',
           )
         : null,
-      lead.convertedCustomerId
-        ? h(
-            'a',
-            {
-              class: 'rv-btn rv-btn--secondary',
-              href: withParams('/opportunities/new', {
+      h(
+        'a',
+        {
+          class: 'rv-btn rv-btn--secondary',
+          // A converted lead's next deals are its customer's (Path B); before that, the lead's.
+          href: lead.convertedCustomerId
+            ? withParams('/opportunities/new', {
                 companyId: lead.convertedCustomerId,
                 contactId: lead.convertedContactId,
                 returnTo: here(),
-              }),
-            },
-            'Kreiraj priliku',
-          )
-        : null,
+              })
+            : newDealHref(lead),
+        },
+        'Kreiraj priliku',
+      ),
       h('a', { class: 'rv-btn rv-btn--secondary', href: taskHref }, 'Dodaj zadatak'),
     );
   }
 
-  const opportunity = h(
-    'button',
-    { type: 'button', class: 'rv-btn rv-btn--secondary' },
-    'Kreiraj priliku',
-  );
-  opportunity.addEventListener('click', async () => {
-    // An opportunity always belongs to a customer: convert first, in the same step.
-    const go = await confirmDialog({
-      title: 'Prilika pripada kupcu',
-      message:
-        'Lead najprije postaje kupac. Pretvorite ga u kupca i kreirajte prodajnu priliku u istom koraku.',
-      cancelLabel: 'Odustani',
-      confirmLabel: 'Nastavi',
-    });
-    if (go) window.location.assign(convertHref(lead, { opportunity: '1' }));
-  });
   const lost = h(
     'button',
     { type: 'button', class: 'rv-btn rv-btn--ghost' },
@@ -215,11 +235,61 @@ function actions(lead) {
   return h(
     'div',
     { class: 'rv-screen__actions rv-screen__actions--stack' },
-    h('a', { class: 'rv-btn rv-btn--primary', href: convertHref(lead) }, 'Pretvori u kupca'),
+    h('a', { class: 'rv-btn rv-btn--primary', href: newDealHref(lead) }, 'Kreiraj priliku'),
     h('a', { class: 'rv-btn rv-btn--secondary', href: taskHref }, 'Dodaj zadatak'),
-    opportunity,
     reminder,
     lost,
+  );
+}
+
+/** The lead's deals (no customer needed), each with its own status and actions. */
+function opportunitiesSection(lead) {
+  const deals = lead.opportunities ?? [];
+  const cardActions = {
+    nextActionFor: (opportunityId) =>
+      withParams('/tasks/new', {
+        opportunityId,
+        leadId: lead.id,
+        type: 'follow_up',
+        returnTo: here(),
+      }),
+    deal: opportunityActions(
+      async (message) => {
+        showToast(message);
+        await load();
+      },
+      { returnTo: here() },
+    ),
+    linkCustomer: async (o) => {
+      if (await linkToLeadCustomer(o)) {
+        showToast(`Prilika je povezana s kupcem ${o.leadCustomerName}.`);
+        await load();
+      }
+    },
+  };
+  const active = deals.filter((o) => o.status === 'active').length;
+  return h(
+    'section',
+    { class: 'rv-card lead-section', id: 'prilike', 'aria-labelledby': 'lead-deals' },
+    h(
+      'h2',
+      { class: 'lead-section__title', id: 'lead-deals' },
+      'Prilike',
+      h('span', { class: 'lead-section__count' }, `${active} aktivnih`),
+    ),
+    deals.length
+      ? h(
+          'ul',
+          { class: 'rv-opps', role: 'list' },
+          deals.map((o) => opportunityCard(o, cardActions, { customer: true })),
+        )
+      : h(
+          'p',
+          { class: 'lead-section__empty' },
+          lead.status === 'lost'
+            ? 'Lead nema prilika.'
+            : 'Nema prilika. Kreirajte priliku za ovaj lead — kupac nije potreban.',
+        ),
   );
 }
 
@@ -377,7 +447,13 @@ function render(lead) {
     h(
       'article',
       { class: 'rv-card rv-task-detail lead-detail', dataset: { status: lead.status } },
-      h('div', { class: 'rv-task-detail__badges' }, leadStatusBadge(lead), leadStageBadge(lead)),
+      h(
+        'div',
+        { class: 'rv-task-detail__badges' },
+        leadStatusBadge(lead),
+        leadStageBadge(lead),
+        leadConversionBadge(lead),
+      ),
       h('h2', { class: 'rv-task-detail__title' }, lead.name),
       lead.companyName ? h('p', { class: 'lead-detail__company' }, lead.companyName) : null,
       lead.status === 'active' ? stagePicker(lead) : null,
@@ -400,7 +476,9 @@ function render(lead) {
       ),
       outcome(lead),
     ),
+    conversionPending(lead),
     actions(lead),
+    opportunitiesSection(lead),
     tasksSection(lead),
     historySection(lead),
   );

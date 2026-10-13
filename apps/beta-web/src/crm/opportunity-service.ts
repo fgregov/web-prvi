@@ -1,6 +1,8 @@
-// OpportunityService: an opportunity belongs to an existing customer; its
-// optional contact must belong to the same customer. The next action is
-// derived from tasks (ADR-0004), never stored on the opportunity.
+// OpportunityService: an opportunity belongs to a lead or to a customer, or to
+// both once the lead is converted (ADR-0009); its optional contact belongs to
+// its customer. Winning a lead's deal makes the lead WON; customer conversion
+// is a separate, later step (LeadService). The next action is derived from
+// tasks (ADR-0004), never stored on the opportunity.
 import { labelOf, PIPELINE_BASELINE, STAGES } from '../../public/app/js/core/constants.js';
 import {
   quarterOf,
@@ -19,10 +21,12 @@ import { hasDocument, offerView } from './offer-service.ts';
 import { cancelReminders, reminderView, shownReminder, type ReminderView } from './reminders.ts';
 import type { CrmRepository } from './repository.ts';
 import {
-  addActivity,
+  addLeadActivity,
+  addRecordActivity,
   contactName,
   findInOrg,
   inOrg,
+  leadLabel,
   newId,
   opt,
   requireInOrg,
@@ -31,10 +35,16 @@ import {
 } from './scope.ts';
 import type { TaskService, TaskView } from './task-service.ts';
 import { addDays, calendarDateInZone, startOfDayInZone } from './time.ts';
-import type { CrmContext, CrmData, Opportunity } from './types.ts';
+import type { CrmContext, CrmData, Lead, Opportunity } from './types.ts';
 
 export interface OpportunityView extends Opportunity {
   customerName: string;
+  /** The lead the deal belongs to (ADR-0009). */
+  leadName: string | null;
+  leadStatus: Lead['status'] | null;
+  /** The customer the lead was converted into; null while conversion is pending. */
+  leadCustomerId: string | null;
+  leadCustomerName: string | null;
   contactName: string | null;
   nextAction: TaskView | null;
   /** Active and without an open task: breaks "no opportunity without a next action". */
@@ -96,6 +106,71 @@ const createdIn = (bounds: ReturnType<typeof createdBounds>, o: Opportunity) => 
   return at >= bounds.from && at < bounds.to;
 };
 
+/**
+ * Timeline entry of a deal: on its customer and, for a lead's deal, also on
+ * the lead (one entry, both links), so each sees its own history.
+ */
+export function addDealActivity(
+  data: CrmData,
+  ctx: CrmContext,
+  o: Opportunity,
+  type: string,
+  description: string,
+) {
+  return addRecordActivity(
+    data,
+    ctx,
+    { companyId: o.companyId, leadId: o.leadId },
+    type,
+    description,
+    o.id,
+  );
+}
+
+/**
+ * A lead's deal was won: the lead is WON (once; a later win keeps the first
+ * date). No customer is created — conversion is offered separately.
+ */
+export function markLeadWon(data: CrmData, ctx: CrmContext, o: Opportunity) {
+  const lead = findInOrg(data.leads, ctx, o.leadId);
+  if (!lead || lead.status !== 'active') return;
+  const now = ctx.now.toISOString();
+  Object.assign(lead, {
+    status: 'won',
+    wonAt: o.closedAt ?? now,
+    wonBasis: 'opportunity',
+    stage: 'qualified', // a won lead was qualified, at the latest now
+    qualifiedAt: lead.qualifiedAt ?? now,
+    updatedAt: now,
+  });
+  addLeadActivity(data, ctx, lead.id, 'lead_won', `Osvojena prilika: ${o.title}`, null);
+}
+
+/**
+ * Gives a lead's deal its customer (the lead's conversion): the deal keeps its
+ * id, dates, lead and history; its offers and its tasks without a customer
+ * get the customer too.
+ */
+export function linkDealToCustomer(
+  data: CrmData,
+  ctx: CrmContext,
+  o: Opportunity,
+  customerId: string,
+  now: string,
+) {
+  o.companyId = customerId;
+  o.updatedAt = now;
+  for (const offer of inOrg(data.offers ?? [], ctx)) {
+    if (offer.opportunityId === o.id && !offer.companyId) {
+      offer.companyId = customerId;
+      offer.updatedAt = now;
+    }
+  }
+  for (const task of inOrg(data.tasks, ctx)) {
+    if (task.opportunityId === o.id && !task.companyId) task.companyId = customerId;
+  }
+}
+
 export function createOpportunityService(
   repo: CrmRepository,
   tasks: TaskService,
@@ -105,9 +180,16 @@ export function createOpportunityService(
     const contact = findInOrg(data.contacts, ctx, o.contactId);
     const nextAction = tasks.nextActionFor(ctx, o.id);
     const reminder = shownReminder(data, ctx, 'opportunityId', o.id);
+    const lead = findInOrg(data.leads, ctx, o.leadId);
+    const leadCustomer = findInOrg(data.customers, ctx, lead?.convertedCustomerId);
     return {
       ...o,
+      leadId: o.leadId ?? null,
       customerName: findInOrg(data.customers, ctx, o.companyId)?.companyName ?? '',
+      leadName: lead ? leadLabel(lead) : null,
+      leadStatus: lead?.status ?? null,
+      leadCustomerId: leadCustomer?.id ?? null,
+      leadCustomerName: leadCustomer?.companyName ?? null,
       contactName: contact ? contactName(contact) : null,
       nextAction,
       needsNextAction: o.status === 'active' && nextAction === null,
@@ -125,7 +207,11 @@ export function createOpportunityService(
     /** `from`/`to` (both or neither): only opportunities created in that period. */
     listOpportunities(
       ctx: CrmContext,
-      filter: { companyId?: string | null; status?: string | null } & CreatedPeriod = {},
+      filter: {
+        companyId?: string | null;
+        leadId?: string | null;
+        status?: string | null;
+      } & CreatedPeriod = {},
     ): OpportunityView[] {
       const bounds = createdBounds(ctx, filter);
       const data = repo.data();
@@ -133,6 +219,7 @@ export function createOpportunityService(
         .filter(
           (o) =>
             (!filter.companyId || o.companyId === filter.companyId) &&
+            (!filter.leadId || o.leadId === filter.leadId) &&
             (!filter.status || o.status === filter.status) &&
             createdIn(bounds, o),
         )
@@ -153,9 +240,29 @@ export function createOpportunityService(
       const errors: FieldErrors = validateOpportunity(input);
       if (hasErrors(errors)) throw new CrmValidationError(errors);
       const data = repo.data();
-      const customer = findInOrg(data.customers, ctx, input.companyId);
-      if (!customer) {
+      // Path A: from a lead (no customer needed) · Path B: from a customer.
+      const leadId = opt(input.leadId);
+      const lead = leadId ? findInOrg(data.leads, ctx, leadId) : undefined;
+      if (leadId && !lead) {
+        throw new CrmValidationError({ leadId: MESSAGES.unavailable }, MESSAGES.unavailable);
+      }
+      if (lead?.status === 'lost') {
+        throw new CrmValidationError(
+          { leadId: MESSAGES.leadLostNoOpportunity },
+          MESSAGES.leadLostNoOpportunity,
+        );
+      }
+      const companyId = opt(input.companyId);
+      const customer = companyId ? findInOrg(data.customers, ctx, companyId) : undefined;
+      if (companyId && !customer) {
         throw new CrmValidationError({ companyId: MESSAGES.unavailable }, MESSAGES.unavailable);
+      }
+      // Both only for a converted lead and the customer it became.
+      if (lead && customer && lead.convertedCustomerId !== customer.id) {
+        throw new CrmValidationError(
+          { companyId: MESSAGES.leadCustomerMismatch },
+          MESSAGES.leadCustomerMismatch,
+        );
       }
       const contactId = opt(input.contactId);
       if (contactId) {
@@ -163,7 +270,7 @@ export function createOpportunityService(
         if (!contact) {
           throw new CrmValidationError({ contactId: MESSAGES.unavailable }, MESSAGES.unavailable);
         }
-        if (contact.companyId !== customer.id) {
+        if (!customer || contact.companyId !== customer.id) {
           throw new CrmValidationError({ contactId: MESSAGES.contactNotOfCustomer });
         }
       }
@@ -174,7 +281,8 @@ export function createOpportunityService(
       const opportunity: Opportunity = {
         id: newId(),
         organizationId: ctx.organizationId,
-        companyId: customer.id,
+        companyId: customer?.id ?? null,
+        leadId: lead?.id ?? null,
         contactId,
         title: str(input.title),
         value: rawValue === '' ? null : Number(rawValue),
@@ -190,15 +298,17 @@ export function createOpportunityService(
         updatedAt: now,
       };
       data.opportunities.push(opportunity);
-      customer.updatedAt = now;
-      addActivity(
+      if (customer) customer.updatedAt = now;
+      if (lead) lead.updatedAt = now;
+      addDealActivity(
         data,
         ctx,
-        customer.id,
+        opportunity,
         'opportunity_created',
         `${opportunity.title} · ${money(opportunity.value, opportunity.currency)} · ${labelOf(STAGES, opportunity.stage)}`,
-        opportunity.id,
       );
+      // Created as won right away (a deal recorded after the fact) also wins its lead.
+      if (opportunity.status === 'won' && lead) markLeadWon(data, ctx, opportunity);
 
       if (opt(input.nextActionTitle)) {
         tasks.createIn(
@@ -209,7 +319,8 @@ export function createOpportunityService(
             type: 'follow_up',
             priority: 'normal',
             opportunityId: opportunity.id,
-            companyId: customer.id,
+            companyId: customer?.id ?? null,
+            leadId: lead?.id ?? null,
             contactId,
             dueDate: opt(input.nextActionDueDate),
           },
@@ -249,10 +360,10 @@ export function createOpportunityService(
       });
       cancelReminders(data, ctx, 'opportunityId', opportunity.id);
       const shown = won ? (opportunity.wonValue ?? opportunity.value) : opportunity.value;
-      addActivity(
+      addDealActivity(
         data,
         ctx,
-        opportunity.companyId,
+        opportunity,
         won ? 'opportunity_won' : 'opportunity_lost',
         [
           opportunity.title,
@@ -261,7 +372,44 @@ export function createOpportunityService(
         ]
           .filter(Boolean)
           .join(' · '),
-        opportunity.id,
+      );
+      // A won deal makes its lead WON; a lost one never changes the lead.
+      if (won) markLeadWon(data, ctx, opportunity);
+      repo.commit();
+      return view(data, ctx, opportunity);
+    },
+
+    /**
+     * A lead's deal (without a customer) of a lead that is already a customer:
+     * links it to that customer — the lead's confirmed conversion, never any
+     * other. Its offers and tasks follow. Explicit, never automatic.
+     */
+    linkToLeadCustomer(ctx: CrmContext, id: string): OpportunityView {
+      const data = repo.data();
+      const opportunity = requireInOrg(data.opportunities, ctx, id);
+      const lead = findInOrg(data.leads, ctx, opportunity.leadId);
+      const customer = findInOrg(data.customers, ctx, lead?.convertedCustomerId);
+      if (!lead || !customer) {
+        throw new CrmValidationError(
+          { leadId: MESSAGES.leadNotConverted },
+          MESSAGES.leadNotConverted,
+        );
+      }
+      if (opportunity.companyId === customer.id) return view(data, ctx, opportunity); // repeated tap
+      if (opportunity.companyId) {
+        throw new CrmValidationError(
+          { companyId: MESSAGES.leadCustomerMismatch },
+          MESSAGES.leadCustomerMismatch,
+        );
+      }
+      const now = ctx.now.toISOString();
+      linkDealToCustomer(data, ctx, opportunity, customer.id, now);
+      addDealActivity(
+        data,
+        ctx,
+        opportunity,
+        'opportunity_customer_linked',
+        `${opportunity.title} → ${customer.companyName}`,
       );
       repo.commit();
       return view(data, ctx, opportunity);

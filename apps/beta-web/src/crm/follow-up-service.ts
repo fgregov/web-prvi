@@ -27,10 +27,11 @@ import { CrmNotFoundError, CrmValidationError } from './errors.ts';
 import { offerStanding, type OfferService, type OfferStanding } from './offer-service.ts';
 import type { CrmRepository } from './repository.ts';
 import {
-  addActivity,
+  addRecordActivity,
   contactName,
   findInOrg,
   inOrg,
+  leadLabel,
   newId,
   opt,
   requireInOrg,
@@ -200,6 +201,7 @@ export function createFollowUpService(
       ? findInOrg(data.opportunities, ctx, offer.opportunityId)
       : undefined;
     const customer = findInOrg(data.customers, ctx, offer.companyId);
+    const lead = findInOrg(data.leads, ctx, opportunity?.leadId);
     const standing = offerStanding(offer, opportunity, ctx.now.getTime());
     const waitingDays =
       standing === 'waiting' && offer.sentAt
@@ -216,6 +218,9 @@ export function createFollowUpService(
       companyId: offer.companyId,
       customerName: customer?.companyName ?? '',
       customerActive: customer ? customer.status !== 'inactive' : true,
+      // An offer within a lead's deal before the lead is a customer (ADR-0009).
+      leadId: lead?.id ?? null,
+      leadName: lead ? leadLabel(lead) : null,
       opportunityId: opportunity?.id ?? null,
       opportunityTitle: opportunity?.title ?? '',
       createdAt: offer.createdAt,
@@ -236,11 +241,20 @@ export function createFollowUpService(
     return requireInOrg(data.offers, ctx, id);
   }
 
-  /** The relations a new offer points at: same organization, same customer. */
+  /**
+   * The relations a new offer points at, all in the caller's organization:
+   * a customer (optionally one of its deals and contacts), or — ADR-0009 — a
+   * lead and one of its deals, before the lead is a customer. A lead's deal
+   * that already has its customer gives the offer that customer.
+   */
   function checkRelations(data: CrmData, ctx: CrmContext, input: Body) {
     const errors: Record<string, string> = {};
-    const customer = findInOrg(data.customers, ctx, input.companyId);
-    if (!customer) errors.companyId = MESSAGES.unavailable;
+    const companyId = opt(input.companyId);
+    const leadId = opt(input.leadId);
+    const customer = companyId ? findInOrg(data.customers, ctx, companyId) : undefined;
+    const lead = !companyId && leadId ? findInOrg(data.leads, ctx, leadId) : undefined;
+    if (companyId && !customer) errors.companyId = MESSAGES.unavailable;
+    if (!companyId && leadId && !lead) errors.leadId = MESSAGES.unavailable;
     let opportunity: Opportunity | undefined;
     const opportunityId = opt(input.opportunityId);
     if (opportunityId) {
@@ -248,15 +262,20 @@ export function createFollowUpService(
       if (!opportunity) errors.opportunityId = MESSAGES.unavailable;
       else if (customer && opportunity.companyId !== customer.id) {
         errors.opportunityId = MESSAGES.opportunityNotOfCustomer;
+      } else if (lead && opportunity.leadId !== lead.id) {
+        errors.opportunityId = MESSAGES.opportunityNotOfLead;
       } else if (opportunity.status !== 'active') {
         errors.opportunityId = MESSAGES.opportunityClosed;
       }
+    } else if (lead) {
+      errors.opportunityId = 'Odaberite priliku leada.';
     }
+    const owner = customer ?? findInOrg(data.customers, ctx, opportunity?.companyId);
     const contactId = opt(input.contactId);
     if (contactId) {
       const contact = findInOrg(data.contacts, ctx, contactId);
       if (!contact) errors.contactId = MESSAGES.unavailable;
-      else if (customer && contact.companyId !== customer.id) {
+      else if (!owner || contact.companyId !== owner.id) {
         errors.contactId = MESSAGES.contactNotOfCustomer;
       }
     }
@@ -266,7 +285,7 @@ export function createFollowUpService(
         Object.values(errors).includes(MESSAGES.unavailable) ? MESSAGES.unavailable : undefined,
       );
     }
-    return { customer: customer!, opportunity, contactId };
+    return { customer: owner ?? null, opportunity, contactId };
   }
 
   /** Resolves a public token to its live link, offer and document; null for anything else. */
@@ -423,7 +442,7 @@ export function createFollowUpService(
       const offer: Offer = {
         id: newId(),
         organizationId: ctx.organizationId,
-        companyId: customer.id,
+        companyId: customer?.id ?? null,
         opportunityId: opportunity?.id ?? null,
         contactId: contactId ?? null,
         title: str(input.title),
@@ -616,10 +635,10 @@ export function createFollowUpService(
         sentAt: sentAt.toISOString(),
         updatedAt: ctx.now.toISOString(),
       });
-      addActivity(
+      addRecordActivity(
         data,
         ctx,
-        offer.companyId,
+        { companyId: offer.companyId, leadId: opportunity?.leadId },
         'offer_sent',
         opportunity ? `${offer.title} · ${opportunity.title}` : offer.title,
         opportunity?.id ?? offer.id,
@@ -748,7 +767,12 @@ export function createFollowUpService(
         automation: input.automation === true,
       });
       if (event && !event.suspectedBot && firstView) {
-        const activity = addActivity(
+        const deal = offer.opportunityId
+          ? data.opportunities.find(
+              (o) => o.id === offer.opportunityId && o.organizationId === link.organizationId,
+            )
+          : undefined;
+        const activity = addRecordActivity(
           data,
           {
             organizationId: link.organizationId,
@@ -756,7 +780,7 @@ export function createFollowUpService(
             timeZone: 'UTC',
             now,
           },
-          offer.companyId,
+          { companyId: offer.companyId, leadId: deal?.leadId },
           'offer_viewed',
           offer.title,
           offer.id,

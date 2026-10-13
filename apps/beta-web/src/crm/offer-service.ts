@@ -8,7 +8,16 @@ import { addDays, isDateKey, validateRange } from '../../public/app/js/core/peri
 import { hasErrors, MESSAGES, validateOffer } from '../../public/app/js/core/validation.js';
 import { CrmValidationError } from './errors.ts';
 import type { CrmRepository } from './repository.ts';
-import { addActivity, findInOrg, inOrg, newId, requireInOrg, str, type Body } from './scope.ts';
+import {
+  addRecordActivity,
+  findInOrg,
+  inOrg,
+  leadLabel,
+  newId,
+  requireInOrg,
+  str,
+  type Body,
+} from './scope.ts';
 import { calendarDateInZone, startOfDayInZone, zonedDateTime } from './time.ts';
 import type { CrmContext, CrmData, Customer, Offer, Opportunity } from './types.ts';
 
@@ -19,8 +28,12 @@ export interface FeedbackItem {
   opportunityTitle: string;
   /** Uploaded in the Follow-up Engine: opens there (document, link, engagement). */
   hasDocument: boolean;
-  companyId: string;
+  /** Null for an offer within a lead's deal before the lead is converted (ADR-0009). */
+  companyId: string | null;
   customerName: string;
+  /** The lead of the offer's deal ("Marko Lukač · FERO-TERM"), shown when there is no customer. */
+  leadId: string | null;
+  leadName: string | null;
   /** For a quick call from the overview, when the deal has a contact with a phone. */
   contactPhone: string | null;
   sentAt: string;
@@ -47,6 +60,7 @@ export function feedbackItems(data: CrmData, ctx: CrmContext, asOf: Date): Feedb
       : undefined;
     if (offer.opportunityId && (!opportunity || !after(opportunity.closedAt))) continue;
     const customer = findInOrg(data.customers, ctx, offer.companyId);
+    const lead = findInOrg(data.leads, ctx, opportunity?.leadId);
     const contact = findInOrg(
       data.contacts,
       ctx,
@@ -61,7 +75,9 @@ export function feedbackItems(data: CrmData, ctx: CrmContext, asOf: Date): Feedb
       hasDocument: documented.has(offer.id),
       companyId: offer.companyId,
       customerName: customer?.companyName ?? '',
-      contactPhone: contact?.phone || customer?.phone || null,
+      leadId: lead?.id ?? null,
+      leadName: lead ? leadLabel(lead) : null,
+      contactPhone: contact?.phone || customer?.phone || (lead?.phone ?? null) || null,
       sentAt: offer.sentAt,
       waitingDays,
       band: waitingBand(waitingDays),
@@ -112,9 +128,12 @@ export interface OfferOverviewItem {
   opportunityTitle: string;
   /** Uploaded in the Follow-up Engine: opens there (document, link, engagement). */
   hasDocument: boolean;
-  companyId: string;
+  /** Null for an offer within a lead's deal before the lead is converted (ADR-0009). */
+  companyId: string | null;
   customerName: string;
   customerActive: boolean;
+  leadId: string | null;
+  leadName: string | null;
 }
 
 const STANDING_ORDER: Record<OfferStanding, number> = {
@@ -147,13 +166,15 @@ export function offersOverview(
     inOrg(data.opportunities, ctx).map((o) => [o.id, o]),
   );
   const customers = new Map<string, Customer>(inOrg(data.customers, ctx).map((c) => [c.id, c]));
+  const leads = new Map(inOrg(data.leads, ctx).map((l) => [l.id, l]));
   const documented = new Set(inOrg(data.offerDocuments ?? [], ctx).map((d) => d.offerId));
   const all: OfferOverviewItem[] = [];
   for (const offer of inOrg(data.offers ?? [], ctx)) {
     const created = Date.parse(offer.createdAt);
     if (created < from || created >= to) continue;
     const opportunity = offer.opportunityId ? opportunities.get(offer.opportunityId) : undefined;
-    const customer = customers.get(offer.companyId);
+    const customer = offer.companyId ? customers.get(offer.companyId) : undefined;
+    const lead = opportunity?.leadId ? leads.get(opportunity.leadId) : undefined;
     const standing = offerStanding(offer, opportunity, asOf.getTime());
     const waitingDays =
       standing === 'waiting' ? offerWaitingDays(new Date(offer.sentAt!), asOf, ctx.timeZone) : null;
@@ -174,6 +195,8 @@ export function offersOverview(
       companyId: offer.companyId,
       customerName: customer?.companyName ?? '',
       customerActive: customer ? customer.status !== 'inactive' : true,
+      leadId: lead?.id ?? null,
+      leadName: lead ? leadLabel(lead) : null,
     });
   }
   const latest = (i: OfferOverviewItem) => i.withdrawnAt ?? i.answeredAt ?? i.sentAt ?? i.createdAt;
@@ -272,10 +295,10 @@ export function createOfferService(repo: CrmRepository) {
         updatedAt: now,
       };
       data.offers.push(offer);
-      addActivity(
+      addRecordActivity(
         data,
         ctx,
-        opportunity.companyId,
+        { companyId: opportunity.companyId, leadId: opportunity.leadId },
         'offer_sent',
         `${offer.title} · ${opportunity.title}`,
         opportunity.id,
@@ -299,10 +322,10 @@ export function createOfferService(repo: CrmRepository) {
       const opportunity = offer.opportunityId
         ? findInOrg(data.opportunities, ctx, offer.opportunityId)
         : undefined;
-      addActivity(
+      addRecordActivity(
         data,
         ctx,
-        offer.companyId,
+        { companyId: offer.companyId, leadId: opportunity?.leadId },
         'offer_answered',
         opportunity ? `${offer.title} · ${opportunity.title}` : offer.title,
         opportunity?.id ?? offer.id,

@@ -453,8 +453,11 @@ describe('ContactService (TEST D) and OpportunityService (TEST E)', () => {
     });
   });
 
-  it('requires an existing customer and a contact of that customer', () => {
+  it('requires a lead or an existing customer, and a contact of that customer', () => {
     rejects(() => crm.opportunities.createOpportunity(ctxA, { title: 'X' }), {
+      companyId: MESSAGES.originRequired,
+    });
+    rejects(() => crm.opportunities.createOpportunity(ctxA, { title: 'X', linkTo: 'customer' }), {
       companyId: MESSAGES.customerRequired,
     });
     rejects(() => crm.opportunities.createOpportunity(ctxB, { title: 'X', companyId: fero.id }), {

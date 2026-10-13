@@ -32,9 +32,11 @@ export interface PeriodMetrics {
   stageInProgress: number;
   stageOfferSent: number;
   stageNegotiation: number;
-  /** Leads converted (won) / closed as lost in the period — lead outcomes, not opportunities. */
+  /** Leads won / closed as lost in the period — lead outcomes, not opportunities. */
   leadsWon: number;
   leadsLost: number;
+  /** Leads converted into a customer in the period (after WON, ADR-0009). */
+  leadsConverted: number;
 }
 
 export const ZERO_METRICS: PeriodMetrics = {
@@ -59,6 +61,7 @@ export const ZERO_METRICS: PeriodMetrics = {
   stageNegotiation: 0,
   leadsWon: 0,
   leadsLost: 0,
+  leadsConverted: 0,
 };
 
 const quarter = (
@@ -92,6 +95,8 @@ const quarter = (
     stageNegotiation: stages[3],
     leadsWon: leadOutcomes[0],
     leadsLost: leadOutcomes[1],
+    // The demo history predates ADR-0009: its won leads were won by conversion.
+    leadsConverted: leadOutcomes[0],
   };
 };
 

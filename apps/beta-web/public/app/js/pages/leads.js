@@ -65,6 +65,7 @@ function row(lead) {
         'span',
         { class: 'lead-row__side' },
         leadStatusBadge(lead),
+        lead.conversionPending ? h('span', { class: 'lead-row__pending' }, 'Čeka kupca') : null,
         value ? h('span', { class: 'lead-row__value' }, value) : null,
       ),
       icon('chevron-right', 'icon chevron'),

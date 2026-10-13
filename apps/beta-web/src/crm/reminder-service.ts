@@ -225,10 +225,14 @@ export function createReminderService(repo: CrmRepository) {
         : undefined;
       if (!opportunity) return null;
       const customer = findInOrg(data.customers, ctx, opportunity.companyId);
+      const dealLead = findInOrg(data.leads, ctx, opportunity.leadId);
       return {
         title: 'RENVARA — Prilika',
-        body: `Podsjetnik za priliku: ${[opportunity.title, customer?.companyName].filter(Boolean).join(' — ')}`,
-        url: `/customers/${encodeURIComponent(opportunity.companyId)}#prilike`,
+        body: `Podsjetnik za priliku: ${[opportunity.title, customer?.companyName ?? dealLead?.name].filter(Boolean).join(' — ')}`,
+        // A lead's deal (no customer yet) lives on the lead.
+        url: opportunity.companyId
+          ? `/customers/${encodeURIComponent(opportunity.companyId)}#prilike`
+          : `/leads/${encodeURIComponent(opportunity.leadId ?? '')}#prilike`,
         tag,
       };
     },

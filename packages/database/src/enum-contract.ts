@@ -31,4 +31,5 @@ export type EnumContract = [
   Assert<Equal<D.OfferStatus, DbEnums['offer_status']>>,
   Assert<Equal<D.ReminderStatus, DbEnums['reminder_status']>>,
   Assert<Equal<D.OfferEventType, DbEnums['offer_event_type']>>,
+  Assert<Equal<D.LeadWonBasis, DbEnums['lead_won_basis']>>,
 ];

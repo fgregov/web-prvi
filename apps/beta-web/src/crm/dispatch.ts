@@ -155,6 +155,7 @@ export function createCrmApi(
         ok({
           opportunities: crm.opportunities.listOpportunities(ctx, {
             companyId: q(query, 'companyId'),
+            leadId: q(query, 'leadId'),
             status: q(query, 'status'),
             from: q(query, 'from'),
             to: q(query, 'to'),
@@ -183,6 +184,13 @@ export function createCrmApi(
       pattern: new RegExp(`^/api/opportunities/${ID}/close$`),
       handler: ({ ctx, params, body }) =>
         ok({ opportunity: crm.opportunities.closeOpportunity(ctx, id(params), body) }),
+    },
+    {
+      // A lead's deal → the customer the lead was converted into (ADR-0009), explicitly.
+      method: 'POST',
+      pattern: new RegExp(`^/api/opportunities/${ID}/link-customer$`),
+      handler: ({ ctx, params }) =>
+        ok({ opportunity: crm.opportunities.linkToLeadCustomer(ctx, id(params)) }),
     },
     reminderRoute('opportunity', 'opportunities'),
     // ---- offers (sent within an opportunity) and the FEEDBACK OVERVIEW

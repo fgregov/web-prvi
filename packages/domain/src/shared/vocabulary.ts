@@ -78,11 +78,20 @@ export const LEAD_STAGES = ['new', 'contacted', 'qualified'] as const;
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
 /**
- * Lead outcome, independent of opportunity status: `won` = converted into a
- * customer (and optionally contact / opportunity), `lost` = closed as lost.
+ * Lead outcome (ADR-0009): `won` = at least one of its opportunities was won
+ * (commercial success; converting it into a customer is a separate, later
+ * step), `lost` = closed as lost.
  */
 export const LEAD_STATUSES = ['active', 'won', 'lost'] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+/**
+ * Why a lead is WON: `opportunity` = one of its opportunities was won;
+ * `conversion` = recorded as WON by converting it into a customer (the meaning
+ * of WON before ADR-0009; no won opportunity is known).
+ */
+export const LEAD_WON_BASES = ['opportunity', 'conversion'] as const;
+export type LeadWonBasis = (typeof LEAD_WON_BASES)[number];
 
 export const LEAD_SOURCES = [
   'manual',

@@ -25,7 +25,8 @@ export function taskInputFromForm(v) {
     description: v.description,
     companyId: v.companyId || null,
     contactId: (v.companyId && v.contactId) || null,
-    opportunityId: (v.companyId && v.opportunityId) || null,
+    // A customer's deal, or a lead's deal before the lead is a customer (ADR-0009).
+    opportunityId: ((v.companyId || v.leadId) && v.opportunityId) || null,
     leadId: v.leadId || null,
     allDay: false,
     scheduledDate: null,

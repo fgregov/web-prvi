@@ -613,6 +613,16 @@ select.rv-input {
   letter-spacing: 0.03em;
 }
 
+/* Several choices (PRILIKA JE OSVOJENA!): one per row, full width. */
+.rv-confirm__actions--stack {
+  flex-direction: column;
+}
+
+.rv-confirm__actions--stack .rv-btn {
+  flex: none;
+  width: 100%;
+}
+
 @keyframes rv-sheet-in {
   from {
     transform: translateY(24px);

@@ -7,6 +7,7 @@ import type {
   LeadSource,
   LeadStage,
   LeadStatus,
+  LeadWonBasis,
   OfferStatus,
   ReminderStatus,
   TaskPriority,
@@ -62,8 +63,16 @@ export interface Contact extends TenantRecord {
   isPrimary: boolean;
 }
 
+/**
+ * A sales deal of a lead or of a customer (ADR-0009): `leadId` and/or
+ * `companyId`, never neither. A lead's deal gets its customer when the lead is
+ * converted; the lead stays linked.
+ */
 export interface Opportunity extends TenantRecord {
-  companyId: string;
+  /** The customer; null while the deal belongs to a lead that is not (yet) a customer. */
+  companyId: string | null;
+  /** The lead the deal was opened for; kept after the lead's conversion. */
+  leadId: string | null;
   contactId: string | null;
   title: string;
   value: number | null;
@@ -90,8 +99,12 @@ export interface Opportunity extends TenantRecord {
  * its deal closed). Follow-up Engine offers carry a PDF and a share link.
  */
 export interface Offer extends TenantRecord {
-  /** The customer (company). Older records get it from their opportunity on load. */
-  companyId: string;
+  /**
+   * The customer (company). Older records get it from their opportunity on
+   * load. Null only for an offer within a lead's deal before the lead is
+   * converted (ADR-0009).
+   */
+  companyId: string | null;
   opportunityId: string | null;
   contactId: string | null;
   title: string;
@@ -222,6 +235,11 @@ export interface Lead extends TenantRecord {
   estimatedValue: number | null;
   currency: string | null;
   qualifiedAt: Iso | null;
+  /** When the lead was won: its first won opportunity (ADR-0009). */
+  wonAt: Iso | null;
+  /** opportunity: a deal of the lead was won · conversion: WON as it was recorded before ADR-0009. */
+  wonBasis: LeadWonBasis | null;
+  /** When it was converted into a customer; null on a WON lead = conversion pending. */
   convertedAt: Iso | null;
   lostAt: Iso | null;
   lostReason: LeadLostReason | null;

@@ -12,9 +12,13 @@
 //   OPPORTUNITY WON        final value of opportunities won in the period (EUR; won_value, else the estimate)
 //   NEGOTIATIONS   distinct opportunities with a negotiation event in the period: created,
 //                  offer sent, offer answered, or a task of that opportunity completed
-//   BUYERS         distinct customers with a won opportunity in the calendar year of the
-//                  period's end, up to the end of the period (annual, as of)
-//   lead won/lost  leads converted (converted_at) / closed as lost (lost_at) in the period
+//   BUYERS         distinct buyers with a won opportunity in the calendar year of the
+//                  period's end, up to the end of the period (annual, as of): the
+//                  customer, or — for a lead's deal before conversion — the lead
+//                  (one buyer whether or not it has been converted yet)
+//   lead won/lost  leads won (won_at: their first won opportunity, ADR-0009) / closed
+//                  as lost (lost_at) in the period
+//   lead converted leads converted into a customer (converted_at) in the period
 //   sastanci       meetings scheduled in the period (not cancelled)
 //   zadaci         tasks dated in the period (calendar slot or deadline)
 // Money is summed in integer cents; other currencies are counted apart, never converted.
@@ -164,8 +168,10 @@ export function createDashboardService(
       // Lead lifecycle, each by its own date: created, qualified, converted (won), lost.
       newLeads: leads.filter((l) => inside(l.createdAt)).length,
       qualified: leads.filter((l) => inside(l.qualifiedAt)).length,
-      leadsWon: leads.filter((l) => l.status === 'won' && inside(l.convertedAt)).length,
+      // WON = commercial success (won deal); conversion into a customer is counted apart.
+      leadsWon: leads.filter((l) => l.status === 'won' && inside(l.wonAt)).length,
       leadsLost: leads.filter((l) => l.status === 'lost' && inside(l.lostAt)).length,
+      leadsConverted: leads.filter((l) => inside(l.convertedAt)).length,
       meetings: scheduled.filter((t) => t.type === 'meeting').length,
       won: won.length,
       lost: lost.length,
@@ -196,14 +202,24 @@ export function createDashboardService(
     const year = Number(range.endDate.slice(0, 4));
     const from = startOfDayInZone(`${year}-01-01`, ctx.timeZone).getTime();
     const to = Math.min(bounds(ctx, range).to, ctx.now.getTime() + 1);
+    const data = repo.data();
+    // A lead's won deal before conversion still has a buyer: the lead, or the
+    // customer it became (so one party is never counted twice).
+    const buyerOf = (o: { companyId: string | null; leadId: string | null }) => {
+      if (o.companyId) return o.companyId;
+      const lead = data.leads.find(
+        (l) => l.id === o.leadId && l.organizationId === ctx.organizationId,
+      );
+      return lead?.convertedCustomerId ?? `lead:${o.leadId}`;
+    };
     const companies = new Set(
-      inOrg(repo.data().opportunities, ctx)
+      inOrg(data.opportunities, ctx)
         .filter((o) => {
           if (o.status !== 'won' || !o.closedAt) return false;
           const at = Date.parse(o.closedAt);
           return at >= from && at < to;
         })
-        .map((o) => o.companyId),
+        .map(buyerOf),
     );
     const asOf = new Date(to - 1);
     return {
@@ -358,11 +374,19 @@ export function createDashboardService(
           { key: 'won', label: 'Dobiveno', count: metrics.won },
         ],
         // Lead outcomes (not opportunity W/L): win rate and W/L count closed leads only.
-        leads: leadOutcomeMetrics({
-          created: metrics.newLeads,
-          won: metrics.leadsWon,
-          lost: metrics.leadsLost,
-        }),
+        leads: {
+          ...leadOutcomeMetrics({
+            created: metrics.newLeads,
+            won: metrics.leadsWon,
+            lost: metrics.leadsLost,
+          }),
+          /** Leads converted into a customer in the period (a separate step after WON). */
+          converted: metrics.leadsConverted,
+          /** Now: WON leads still waiting to be converted (not a period count). */
+          conversionPending: inOrg(repo.data().leads, ctx).filter(
+            (l) => l.status === 'won' && !l.convertedAt,
+          ).length,
+        },
         followUps: {
           done: metrics.followUpsDone,
           noAnswer: metrics.followUpsNoAnswer,

@@ -319,3 +319,61 @@
   color: var(--rv-muted);
   font-size: 12.5px;
 }
+
+/* WON, not yet a customer (ADR-0009): the conversion waits on the lead. */
+.lead-convert-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border: 1px solid #bfe8cf;
+  background: var(--rv-green-soft);
+}
+
+.lead-convert-pending__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--rv-green-text);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.lead-convert-pending__text {
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: 14px;
+}
+
+.lead-convert-pending .rv-btn {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 14px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.lead-pending {
+  border: 1px solid #bfe8cf;
+  background: var(--rv-green-soft);
+  color: var(--rv-green-text);
+}
+
+/* The lead's deals: the same cards as on the customer profile. */
+.lead-section .rv-opps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lead-row__pending {
+  color: var(--rv-green-text);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
