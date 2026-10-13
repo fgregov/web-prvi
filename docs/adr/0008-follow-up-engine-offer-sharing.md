@@ -85,3 +85,13 @@ exposes every link). Hash-only tokens (rejected: the link could not be copied
 again later). Native `<iframe>` PDF display (rejected: iOS shows only the
 first page, Android downloads instead of rendering, and it gives no reliable
 "rendered" signal).
+
+**Amendment: period selector.** The Follow-up Engine now has the shared
+period selector (the dashboard period, as on Opportunity Pipeline and Ponude).
+The period follows the Ponude convention: offers *created* in it. The
+operational view is kept: a period that includes today also lists the earlier
+offers that are still unresolved (waiting or draft), so the waiting view of
+the current quarter is the same as before. Each offer's standing, wait (from
+`sent_at` to today) and views are unchanged by the period; a past period
+shows them as of today, and says so. `GET /api/follow-up/offers` takes
+optional `from`/`to` (validated like the other period views; 422 otherwise).

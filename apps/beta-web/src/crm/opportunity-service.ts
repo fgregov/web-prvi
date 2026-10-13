@@ -78,9 +78,9 @@ export interface CreatedPeriod {
 /**
  * The period as instants in the organization's timezone ([from, to)), or null
  * when none is asked for. Validated like the dashboard period, so an invalid
- * range is refused before any record is read.
+ * range is refused before any record is read. Also used by the Follow-up Engine.
  */
-function createdBounds(ctx: CrmContext, period: CreatedPeriod) {
+export function createdBounds(ctx: CrmContext, period: CreatedPeriod) {
   const none = (v: unknown) => v === undefined || v === null || v === '';
   if (none(period.from) && none(period.to)) return null;
   const startDate = String(period.from ?? '');

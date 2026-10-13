@@ -224,8 +224,10 @@ pricing.
   retention period. Written by the server only. The first qualifying view of
   an offer writes an `offer_viewed` activity ("Pregled ponude zabilježen").
 
-Follow-up Engine (`/follow-up`): every offer, unresolved first, no period;
-filters waiting (sent, not answered, deal open), viewed (unresolved with at
+Follow-up Engine (`/follow-up`): the offers created in the selected period
+(the shared dashboard period), unresolved first; a period that includes today
+also keeps the earlier offers still unresolved; each offer's state, wait and
+views are as of now whatever the period (ADR-0008, amendment); filters waiting (sent, not answered, deal open), viewed (unresolved with at
 least one qualifying view), resolved (answered, withdrawn, deal closed). A
 view never counts as an answer and never resets the wait.
 

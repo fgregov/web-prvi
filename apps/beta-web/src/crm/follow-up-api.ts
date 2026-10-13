@@ -119,7 +119,13 @@ export function createFollowUpApi(crm: CrmServices) {
       pattern: /^\/api\/follow-up\/offers$/,
       scope: 'internal',
       body: 'none',
-      handler: async (req) => ok(followUp.list(ctxOf(req), req.query.get('filter') || 'all')),
+      handler: async (req) =>
+        ok(
+          followUp.list(ctxOf(req), req.query.get('filter') || 'all', {
+            from: req.query.get('from'),
+            to: req.query.get('to'),
+          }),
+        ),
     },
     {
       method: 'POST',

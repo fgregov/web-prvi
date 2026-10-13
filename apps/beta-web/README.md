@@ -290,9 +290,16 @@ activity. Closing cancels the deal's pending reminder.
 
 ### Follow-up Engine: offer PDFs and customer links
 
-`/follow-up` (bottom navigation) lists every offer, unresolved first, with
-filters **Sve / Čeka odgovor / Pregledano / Riješeno** (no period: an offer
-waiting since last quarter is still waiting). Each card shows the customer,
+`/follow-up` (bottom navigation) lists the offers of the selected period,
+unresolved first, with filters **Sve / Čeka odgovor / Pregledano / Riješeno**
+and their counts. The period is the shared one (Home, Opportunity Pipeline,
+Ponude): its button sits with **+ Attach new document** (side by side where
+both fit, otherwise right above it) and offers Q1–Q4 of any year and
+"Ručni odabir perioda" (OD / DO). Offers count by their creation date, as on
+Ponude; a period that includes today also keeps the earlier offers that are
+still unresolved, so an offer waiting since last quarter is still waiting
+(the caption says how many). A past period lists its offers as they stand
+today: the period never changes an offer's wait or views. Each card shows the customer,
 offer, opportunity, sending date, recorded views and the wait badge
 (1–4D yellow, 5–9D red, 10D+ black; the sending day is day 1; a view never
 resets the wait). Design and security decisions: ADR-0008.
@@ -407,7 +414,7 @@ Renvara, Focus) decide how they are shown.
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
 | `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |
 | `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` (`?mode=existing&opportunityId=`) | New lead, Lead Detail (with its opportunities), Pretvori lead u kupca (WON leads) |
-| `/follow-up?filter=all\|waiting\|viewed\|resolved`  | FOLLOW-UP ENGINE (offer overview)                      |
+| `/follow-up?filter=all\|waiting\|viewed\|resolved`  | FOLLOW-UP ENGINE (offer overview, the shared period)   |
 | `/follow-up/new`, `/follow-up/{id}`, `/follow-up/{id}/preview` | Attach new document, offer detail (`?new=1`: success), own preview (not counted) |
 | `/o/{token}` (public, no session)                 | The customer's offer viewer                            |
 
@@ -435,7 +442,7 @@ Renvara, Focus) decide how they are shown.
 | `GET /api/push/status`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe`                      | Push availability, this device on/off           |
 | `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |
 | `POST /api/follow-up/uploads` (raw `application/pdf` body, `X-File-Name`; `415`, `413`)                   | Stage a PDF (validated, private, 1 h)           |
-| `GET /api/follow-up/offers?filter=all\|waiting\|viewed\|resolved`, `POST /api/follow-up/offers` (`{uploadId, title, companyId, opportunityId?, contactId?, note?}`) | Follow-up list with counts; create offer + document + link |
+| `GET /api/follow-up/offers?filter=all\|waiting\|viewed\|resolved&from=YYYY-MM-DD&to=YYYY-MM-DD` (period optional; 422 for an invalid range), `POST /api/follow-up/offers` (`{uploadId, title, companyId, opportunityId?, contactId?, note?}`) | Follow-up list with counts; create offer + document + link |
 | `GET /api/follow-up/offers/{id}`, `GET /api/follow-up/offers/{id}/document`                               | Offer detail (link, engagement, history), its PDF |
 | `POST /api/follow-up/offers/{id}/sent` (`{sentAt?}`), `…/answered`, `…/link/revoke`, `…/link`             | Mark sent / answered, revoke link, new link     |
 | Public: `GET /o/{token}/info`, `GET /o/{token}/document`, `POST /o/{token}/events` (`{type: "view", sessionId}`) | Viewer data, PDF, view event (`404` "Ova poveznica više nije dostupna." for unknown, revoked or expired links) |

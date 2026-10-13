@@ -2,6 +2,7 @@
 // share tokens, sending, waiting bands, engagement events, bots, revocation,
 // tenant isolation, and the HTTP surface (sessions, headers, limits).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { PERIOD_MESSAGES } from '../public/app/js/core/period.js';
 import { MESSAGES } from '../public/app/js/core/validation.js';
 import { createMemoryDocumentStore } from '../src/crm/document-store.ts';
 import { classifyRequest, clientFamily } from '../src/crm/engagement.ts';
@@ -324,6 +325,93 @@ describe('Sending and waiting (TEST E, F)', () => {
     expect(items.map((i) => i.standing)).toEqual(['waiting', 'draft', 'answered']);
     expect(crm.followUp.list(ctxA, 'resolved').items[0]!.offerId).toBe(b.offerId);
     rejects(() => crm.followUp.list(ctxA, 'nešto'), { filter: 'Neispravan filtar.' });
+  });
+});
+
+describe('Period: offers created in it; the running period keeps earlier unresolved ones', () => {
+  const Q3 = { from: '2026-07-01', to: '2026-09-30' };
+  const Q4 = { from: '2026-10-01', to: '2026-12-31' };
+  const SEPT = at('2026-09-20T08:00:00Z');
+
+  /** September: one waiting, one answered, one draft; October (today): one draft. */
+  async function quarters() {
+    const waiting = await newOffer({ title: 'Rujan · čeka' }, SEPT);
+    crm.followUp.markSent(SEPT, waiting.offerId, {});
+    const answered = await newOffer({ title: 'Rujan · odgovoreno' }, SEPT);
+    crm.followUp.markSent(SEPT, answered.offerId, {});
+    crm.followUp.markAnswered(at('2026-09-25T08:00:00Z'), answered.offerId);
+    const draft = await newOffer({ title: 'Rujan · nacrt' }, SEPT);
+    const october = await newOffer({ title: 'Listopad · nacrt' });
+    return { waiting, answered, draft, october };
+  }
+  const titles = (r: { items: { title: string }[] }) => r.items.map((i) => i.title);
+
+  it('a past quarter: only the offers created in it, each as it stands today', async () => {
+    const { waiting } = await quarters();
+    const everything = crm.followUp.list(ctxA);
+    const q3 = crm.followUp.list(ctxA, 'all', Q3);
+    expect(titles(q3)).toEqual(['Rujan · čeka', 'Rujan · nacrt', 'Rujan · odgovoreno']);
+    expect(q3.period).toEqual({ ...Q3, includesToday: false, earlierUnresolved: 0 });
+    expect(q3.counts).toEqual({ all: 3, waiting: 1, viewed: 0, resolved: 1 });
+    // Same item as without a period: the wait runs from the real sending day to today.
+    const item = q3.items.find((i) => i.offerId === waiting.offerId);
+    expect(item).toEqual(everything.items.find((i) => i.offerId === waiting.offerId));
+    expect(item).toMatchObject({ standing: 'waiting', waitingDays: 24, band: 'black' });
+  });
+
+  it('the running quarter: its offers plus the earlier unresolved ones; the waiting view is unchanged', async () => {
+    await quarters();
+    const q4 = crm.followUp.list(ctxA, 'all', Q4);
+    expect(titles(q4)).toEqual(['Rujan · čeka', 'Listopad · nacrt', 'Rujan · nacrt']);
+    expect(q4.period).toEqual({ ...Q4, includesToday: true, earlierUnresolved: 2 });
+    expect(q4.counts).toEqual({ all: 3, waiting: 1, viewed: 0, resolved: 0 });
+    const ids = (r: { items: { offerId: string }[] }) => r.items.map((i) => i.offerId);
+    expect(ids(crm.followUp.list(ctxA, 'waiting', Q4))).toEqual(
+      ids(crm.followUp.list(ctxA, 'waiting')),
+    );
+    // A custom range up to today behaves the same; one in the past keeps nothing extra.
+    expect(crm.followUp.list(ctxA, 'all', { from: '2026-10-10', to: '2026-10-13' }).period).toEqual(
+      {
+        from: '2026-10-10',
+        to: '2026-10-13',
+        includesToday: true,
+        earlierUnresolved: 2,
+      },
+    );
+    expect(
+      titles(crm.followUp.list(ctxA, 'all', { from: '2026-10-01', to: '2026-10-12' })),
+    ).toEqual([]);
+  });
+
+  it('day boundaries in the organization timezone; no period = every offer; nothing is changed', async () => {
+    // 1 Oct 00:30 in Zagreb is still 30 Sep in UTC.
+    const night = await newOffer({ title: 'Ponoć' }, at('2026-09-30T22:30:00Z'));
+    expect(
+      titles(crm.followUp.list(ctxA, 'all', { from: '2026-10-01', to: '2026-10-01' })),
+    ).toEqual(['Ponoć']);
+    expect(crm.followUp.list(ctxA, 'all', { from: '2026-09-30', to: '2026-09-30' }).items).toEqual(
+      [],
+    );
+    await quarters();
+    const before = crm.followUp.list(ctxA);
+    expect(before.period).toBeNull();
+    expect(before.items).toHaveLength(5);
+    crm.followUp.list(ctxA, 'all', Q3);
+    crm.followUp.list(ctxA, 'resolved', Q4);
+    expect(crm.followUp.list(ctxA)).toEqual(before);
+    expect(crm.followUp.list(ctxA).items.some((i) => i.offerId === night.offerId)).toBe(true);
+  });
+
+  it('refuses an invalid period like the other period views', () => {
+    rejects(() => crm.followUp.list(ctxA, 'all', { from: '2026-12-31', to: '2026-10-01' }), {
+      range: PERIOD_MESSAGES.endBeforeStart,
+    });
+    rejects(() => crm.followUp.list(ctxA, 'all', { from: '2026-10-01' }), {
+      range: PERIOD_MESSAGES.missingDates,
+    });
+    rejects(() => crm.followUp.list(ctxA, 'all', { from: '2026-02-30', to: '2026-03-01' }), {
+      range: PERIOD_MESSAGES.missingDates,
+    });
   });
 });
 
@@ -697,6 +785,26 @@ describe('HTTP: /api/follow-up and /o/{token}', () => {
     expect(body.offer.shareUrl).toMatch(new RegExp(`^${server.url}/o/[A-Za-z0-9_-]{43}$`));
     return body.offer;
   }
+
+  it('the list takes the selected period (from/to); an invalid one is 422', async () => {
+    const get = (query: string) =>
+      fetch(`${server.url}/api/follow-up/offers${query}`, { headers: { Cookie: cookie } });
+    const quarter = await get('?filter=all&from=2026-10-01&to=2026-12-31');
+    expect(quarter.status).toBe(200);
+    expect(((await quarter.json()) as { period: unknown }).period).toEqual({
+      from: '2026-10-01',
+      to: '2026-12-31',
+      includesToday: true,
+      earlierUnresolved: 0,
+    });
+    const reversed = await get('?from=2026-12-31&to=2026-10-01');
+    expect(reversed.status).toBe(422);
+    expect(((await reversed.json()) as { errors: { range: string } }).errors.range).toBe(
+      PERIOD_MESSAGES.endBeforeStart,
+    );
+    expect((await get('?from=2026-10-01')).status).toBe(422);
+    expect(((await (await get('')).json()) as { period: unknown }).period).toBeNull();
+  });
 
   it('needs a session for the internal API; refuses wrong types and oversized uploads', async () => {
     expect((await fetch(`${server.url}/api/follow-up/offers`)).status).toBe(401);

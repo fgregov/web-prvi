@@ -1,8 +1,18 @@
-// /follow-up · FOLLOW-UP ENGINE: every offer the salesperson tracks, unresolved
-// first (no period: an offer waiting since last quarter is still waiting).
-// "+ ATTACH NEW DOCUMENT" starts the upload; a card opens the offer.
-// Refreshes while the page is visible, so new views appear without reloading.
+// /follow-up · FOLLOW-UP ENGINE: the offers the salesperson tracks, unresolved
+// first, for the selected period (the Home dashboard's period, shared; the
+// selector sits next to "+ ATTACH NEW DOCUMENT", as on the Opportunity
+// Pipeline): offers created in it and, while the period runs, the earlier ones
+// still unresolved, so an offer waiting since last quarter is still waiting.
+// A card opens the offer. Refreshes while the page is visible, so new views
+// appear without reloading.
 import { api, ApiError } from '../core/api.js';
+import {
+  describePeriod,
+  getDashboardPeriod,
+  onDashboardPeriodChange,
+  setDashboardPeriod,
+} from '../core/dashboard-period.js';
+import { PeriodSelector } from '../features/dashboard/period-selector.js';
 import {
   LINK_STATUS_LABEL,
   dateLabel,
@@ -36,7 +46,9 @@ const params = new URLSearchParams(window.location.search);
 let filter = FILTERS.some((f) => f.value === params.get('filter')) ? params.get('filter') : 'all';
 
 const filters = h('div', { class: 'fu-filters' });
-const list = h('div', { class: 'fu-list-box', 'aria-live': 'polite' });
+const list = h('div', { class: 'fu-list-box rv-period-body', 'aria-live': 'polite' });
+const periodSlot = h('div', { class: 'rv-period-slot' });
+const caption = h('p', { class: 'rv-period-caption fu-period-caption' });
 document
   .getElementById('follow-up')
   .replaceChildren(
@@ -50,11 +62,17 @@ document
         'Ponude poslane kupcima: zabilježeni pregledi i koliko dugo čekate odgovor.',
       ),
       h(
-        'a',
-        { class: 'rv-btn rv-btn--primary fu-cta', href: '/follow-up/new' },
-        icon('plus', 'rv-icon'),
-        'Attach new document',
+        'div',
+        { class: 'fu-head__actions' },
+        periodSlot,
+        h(
+          'a',
+          { class: 'rv-btn rv-btn--primary fu-cta', href: '/follow-up/new' },
+          icon('plus', 'rv-icon'),
+          'Attach new document',
+        ),
       ),
+      caption,
     ),
     h(
       'section',
@@ -69,6 +87,24 @@ document
       list,
     ),
   );
+
+const selector = PeriodSelector({
+  container: periodSlot,
+  getPeriod: getDashboardPeriod,
+  onSelect: setDashboardPeriod,
+  compact: true,
+});
+
+/** What the list holds: the period's offers and, while it runs, the earlier unresolved ones. */
+function captionText(info, period) {
+  const created = `Ponude kreirane u razdoblju ${info.range}`;
+  if (!period?.includesToday) {
+    return `${created} Status, čekanje i pregledi prikazani su na današnji dan.`;
+  }
+  return period.earlierUnresolved
+    ? `${created} Neriješene ponude iz ranijih perioda: ${period.earlierUnresolved}.`
+    : created;
+}
 
 function renderFilters(counts) {
   filters.replaceChildren(
@@ -162,13 +198,22 @@ function card(item, now) {
 let ticket = 0;
 async function load({ quiet = false } = {}) {
   const mine = ++ticket;
-  if (!quiet) list.setAttribute('aria-busy', 'true');
+  const period = getDashboardPeriod();
+  const info = describePeriod(period);
+  if (!quiet) {
+    // Not on the background refresh, so the button never loses focus under the user.
+    selector.render();
+    // Until the period's offers arrive, the previous ones are dimmed and out of reach.
+    list.setAttribute('aria-busy', 'true');
+    list.classList.add('is-loading');
+  }
   let result;
   try {
-    result = await api.followUpOffers(filter);
+    result = await api.followUpOffers(filter, { from: period.startDate, to: period.endDate });
   } catch (error) {
     if (mine !== ticket) return;
     list.removeAttribute('aria-busy');
+    list.classList.remove('is-loading');
     if (quiet) return; // keep what is shown; the next refresh tries again
     list.replaceChildren(
       h(
@@ -179,9 +224,11 @@ async function load({ quiet = false } = {}) {
     );
     return;
   }
-  if (mine !== ticket) return;
+  if (mine !== ticket) return; // a newer period or filter was chosen meanwhile
   list.removeAttribute('aria-busy');
+  list.classList.remove('is-loading');
   renderFilters(result.counts);
+  caption.textContent = captionText(info, result.period);
   const now = new Date();
   list.replaceChildren(
     result.items.length
@@ -190,7 +237,11 @@ async function load({ quiet = false } = {}) {
           { class: 'fu-list', role: 'list' },
           result.items.map((item) => card(item, now)),
         )
-      : h('p', { class: 'empty-row fu-empty' }, EMPTY[filter]),
+      : h(
+          'p',
+          { class: 'empty-row fu-empty' },
+          result.counts.all ? EMPTY[filter] : 'Nema evidentiranih ponuda za odabrani period.',
+        ),
   );
 }
 
@@ -202,6 +253,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') load({ quiet: true });
 });
 
+onDashboardPeriodChange(() => load());
 renderFilters(null);
 await load();
 consumeFlash();

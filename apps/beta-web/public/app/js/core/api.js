@@ -146,7 +146,9 @@ export const api = {
     request('GET', `/api/dashboard/summary${query({ from, to })}`).then((r) => r.summary),
   resetDemo: () => request('POST', '/api/demo/reset', {}),
   // Follow-up Engine: offer PDFs, share links, engagement (ADR-0008)
-  followUpOffers: (filter = 'all') => request('GET', `/api/follow-up/offers${query({ filter })}`),
+  /** `range`: { from, to } calendar dates (the selected period). */
+  followUpOffers: (filter = 'all', range = {}) =>
+    request('GET', `/api/follow-up/offers${query({ filter, from: range.from, to: range.to })}`),
   followUpOffer: (id) => request('GET', `/api/follow-up/offers/${enc(id)}`).then((r) => r.offer),
   createFollowUpOffer: (input) =>
     request('POST', '/api/follow-up/offers', input).then((r) => r.offer),

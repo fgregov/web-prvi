@@ -25,6 +25,7 @@ import {
 } from './engagement.ts';
 import { CrmNotFoundError, CrmValidationError } from './errors.ts';
 import { offerStanding, type OfferService, type OfferStanding } from './offer-service.ts';
+import { createdBounds, type CreatedPeriod } from './opportunity-service.ts';
 import type { CrmRepository } from './repository.ts';
 import {
   addRecordActivity,
@@ -504,14 +505,37 @@ export function createFollowUpService(
       return { offerId: offer.id, token: share.token };
     },
 
-    /** The Follow-up Engine overview: every offer, unresolved ones first (no period). */
-    list(ctx: CrmContext, filter: unknown = 'all') {
+    /**
+     * The Follow-up Engine overview, unresolved offers first. Without a period:
+     * every offer. With one (calendar dates, as on Ponude): the offers CREATED
+     * in it; a period that runs up to today also keeps the earlier offers that
+     * are still unresolved, so an offer waiting since last quarter stays in
+     * reach. Each offer's standing, wait and views are its own, as of now,
+     * whatever the period.
+     */
+    list(ctx: CrmContext, filter: unknown = 'all', period: CreatedPeriod = {}) {
       const wanted = (filter || 'all') as FollowUpFilter;
       if (!FOLLOW_UP_FILTERS.includes(wanted)) {
         throw new CrmValidationError({ filter: 'Neispravan filtar.' });
       }
+      const bounds = createdBounds(ctx, period);
+      const now = ctx.now.getTime();
+      const includesToday = bounds !== null && bounds.from <= now && now < bounds.to;
       const data = repo.data();
-      const all = inOrg(data.offers, ctx).map((o) => itemView(data, ctx, o));
+      const all: FollowUpItem[] = [];
+      let earlierUnresolved = 0;
+      for (const offer of inOrg(data.offers, ctx)) {
+        const created = Date.parse(offer.createdAt);
+        const inPeriod = !bounds || (created >= bounds.from && created < bounds.to);
+        const earlier = includesToday && created < bounds.from;
+        if (!inPeriod && !earlier) continue;
+        const item = itemView(data, ctx, offer);
+        if (!inPeriod) {
+          if (RESOLVED.has(item.standing)) continue;
+          earlierUnresolved += 1;
+        }
+        all.push(item);
+      }
       const matches: Record<FollowUpFilter, (i: FollowUpItem) => boolean> = {
         all: () => true,
         waiting: (i) => i.standing === 'waiting',
@@ -528,6 +552,9 @@ export function createFollowUpService(
           latest(b).localeCompare(latest(a)),
       );
       return {
+        period: bounds
+          ? { from: String(period.from), to: String(period.to), includesToday, earlierUnresolved }
+          : null,
         counts: Object.fromEntries(
           FOLLOW_UP_FILTERS.map((f) => [f, all.filter(matches[f]).length]),
         ) as Record<FollowUpFilter, number>,

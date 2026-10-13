@@ -949,58 +949,6 @@ a {
   flex: none;
 }
 
-.rv-period-slot {
-  display: flex;
-  min-width: 0;
-}
-
-/* The period: secondary to the primary action next to it. */
-.rv-period-btn {
-  min-width: 0;
-  padding: 0 12px;
-  gap: 6px;
-  font-weight: 700;
-}
-
-.rv-period-btn .rv-icon {
-  flex: none;
-  width: 17px;
-  height: 17px;
-  color: var(--rv-muted);
-}
-
-.rv-period-btn .rv-period-btn__chevron {
-  color: var(--rv-red);
-  stroke-width: 2.4;
-}
-
-.rv-period-btn__label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-
-.rv-period-btn.is-history {
-  background: var(--rv-surface-muted);
-}
-
-.rv-period-caption {
-  margin: -8px 2px 14px;
-  color: var(--rv-muted);
-  font-size: 13px;
-}
-
-/* A new period is loading: the previous records are dimmed and not clickable. */
-.rv-period-body {
-  transition: opacity 0.15s ease;
-}
-
-.rv-period-body.is-loading {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
 .rv-pipeline-list {
   display: flex;
   flex-direction: column;

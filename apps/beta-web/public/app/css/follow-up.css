@@ -36,6 +36,31 @@
   text-decoration: none;
 }
 
+/* [ Q4 2026 ▾ ] [ + ATTACH NEW DOCUMENT ]: side by side where both fit with their
+   full labels; otherwise (phones: the button needs ~260px) the period sits right
+   above the button, which keeps its full width, label and size. Never clipped. */
+.fu-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px 8px;
+  margin-top: 10px;
+}
+
+.fu-head__actions .rv-period-slot {
+  flex: none;
+}
+
+.fu-head__actions .fu-cta {
+  flex: 1 0 auto;
+  width: auto;
+  margin-top: 0;
+}
+
+.fu-head .fu-period-caption {
+  margin: 2px 2px 0;
+}
+
 .fu-filters {
   padding: 12px 12px 4px;
 }
