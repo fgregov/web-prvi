@@ -659,7 +659,9 @@ describe('LeadService · lead-first sales (ADR-0009)', () => {
       companyId: null,
     });
     // Without a lead or a customer there is no deal to keep.
-    expect(taskInputFromForm({ ...values, leadId: '' }).input.opportunityId).toBeNull();
+    expect(taskInputFromForm({ ...values, leadId: '' }).input).toMatchObject({
+      opportunityId: null,
+    });
   });
 
   it('a task of a lead deal gets the lead, no customer, and is in the Sales Calendar', () => {
