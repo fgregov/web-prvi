@@ -443,7 +443,8 @@ function historySection(lead) {
 function render(lead) {
   document.title = `Renvara · ${lead.name}`;
   const value = leadValue(lead);
-  body.replaceChildren(
+  // replaceChildren() would print a missing section (null) as the text "null".
+  const sections = [
     h(
       'article',
       { class: 'rv-card rv-task-detail lead-detail', dataset: { status: lead.status } },
@@ -481,7 +482,8 @@ function render(lead) {
     opportunitiesSection(lead),
     tasksSection(lead),
     historySection(lead),
-  );
+  ];
+  body.replaceChildren(...sections.filter(Boolean));
 }
 
 async function load() {
