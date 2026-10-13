@@ -378,10 +378,13 @@ turned on.
   page provides `manifest.webmanifest` and `sw.js`). Native app push
   (APNs/FCM) is not part of this BETA; `push_subscriptions` already has
   `platform`/`provider` for it.
-- **Check it:** avatar (Home) → **Obavijesti** shows whether the server sends
-  push and whether this device receives it, turns it on here (the permission
-  prompt comes from that tap, as iOS requires), and **Pošalji probnu
-  obavijest** sends a test notification now (`POST /api/push/test`).
+- **Check it:** **Obavijesti** in the bottom navigation (MOBILNE OBAVIJESTI)
+  shows whether this device receives push and turns it on here (**Uključi na
+  ovom uređaju**; the permission prompt comes from that tap, as iOS requires).
+  The Home header has no notification bell and the avatar menu has no
+  Obavijesti entry (UPDATE 08); the server's test notification
+  (`POST /api/push/test`, signed-in session) is unchanged but no screen offers
+  a button for it.
 - Reminders are delivered while **Podsjetnik** is on in MOBILNE OBAVIJESTI
   (below); one held back is recorded as not delivered and says why.
 
@@ -428,8 +431,8 @@ used for deadlines given as a date only. Design: ADR-0010.
    or Cloudflare Tunnel. Put that address in `RENVARA_PUBLIC_ORIGIN` and
    restart. Keep the address fixed: the Home Screen app is bound to it.
 3. iPhone, Safari: open the address → Share → **Add to Home Screen** → open
-   Renvara from the Home Screen → sign in → avatar → **Obavijesti** →
-   **Uključi obavijesti** → Allow → **Pošalji probnu obavijest**.
+   Renvara from the Home Screen → sign in → **Obavijesti** (bottom
+   navigation) → **Uključi na ovom uređaju** (or switch a type on) → Allow.
 
 Reminders arrive only while that computer runs the server (it sends them, at
 most ~30 s late, through Apple's push service). iOS settings (Notifications →

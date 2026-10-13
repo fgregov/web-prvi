@@ -17,10 +17,6 @@
   <body>
     <!-- Icon sprite: Lucide icons (ISC license), inlined so the page has no external dependencies. -->
     <svg class="sprite" aria-hidden="true">
-      <symbol id="i-bell" viewBox="0 0 24 24">
-        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-      </symbol>
       <symbol id="i-users" viewBox="0 0 24 24">
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
@@ -120,10 +116,6 @@
           </div>
         </div>
         <div class="header-actions">
-          <button class="icon-button bell" type="button" aria-label="Obavijesti, ima novih">
-            <svg class="icon"><use href="#i-bell" /></svg>
-            <span class="bell__dot" aria-hidden="true"></span>
-          </button>
           <div class="account">
             <button
               class="avatar"
@@ -137,9 +129,6 @@
             </button>
             <div class="account-menu" id="account-menu" role="menu" aria-label="Račun" hidden>
               <p class="account-menu__name" data-account-name>Moj račun</p>
-              <button type="button" role="menuitem" data-notifications>
-                <svg class="icon"><use href="#i-bell" /></svg>Obavijesti
-              </button>
               <button type="button" role="menuitem" data-logout>
                 <svg class="icon"><use href="#i-log-out" /></svg>Odjava
               </button>

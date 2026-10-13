@@ -13,7 +13,6 @@ import {
   setDashboardPeriod,
 } from '../core/dashboard-period.js';
 import { dayRange, formatSlot, todayKey } from '../core/format.js';
-import { DEMO_CONTENT } from '../core/edition.js';
 import { currentQuarterPeriod } from '../core/period.js';
 import { renderFeedbackOverview } from '../features/dashboard/feedback-overview.js';
 import { renderHistory, renderHistorySkeleton } from '../features/dashboard/history-view.js';
@@ -21,7 +20,6 @@ import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-car
 import { PeriodSelector } from '../features/dashboard/period-selector.js';
 import { renderPipelineOverview } from '../features/dashboard/pipeline-overview.js';
 import { QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
-import { openPushSettings } from '../features/reminders/push-settings.js';
 import { renderTabbar } from '../ui/tabbar.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
@@ -47,7 +45,6 @@ const taskHref = (task) =>
   `/tasks/${encodeURIComponent(task.id)}?returnTo=${encodeURIComponent(HOME)}`;
 
 QuickAddSheet({ trigger: document.querySelector('.fab'), returnTo: HOME });
-document.querySelector('[data-notifications]')?.addEventListener('click', () => openPushSettings());
 renderTabbar(document.querySelector('.tabbar'), 'home');
 
 // A new session starts at the current quarter.
@@ -64,12 +61,6 @@ if (dateEl) {
   }).format(new Date());
   dateEl.textContent = text.charAt(0).toUpperCase() + text.slice(1);
   dateEl.setAttribute('datetime', todayKey());
-}
-
-// Clean start: the notification dot is a demo example (no data behind it).
-if (!DEMO_CONTENT) {
-  document.querySelector('.bell__dot')?.remove();
-  document.querySelector('.bell')?.setAttribute('aria-label', 'Obavijesti');
 }
 
 // ------------------------------------------------------------- Danas ---

@@ -40,6 +40,26 @@ describe('PRIORITETNI ZADACI (Home)', () => {
   });
 });
 
+describe('Home header (UPDATE 08)', () => {
+  const header = home.slice(home.indexOf('<header class="app-header">'), home.indexOf('</header>'));
+
+  it('has no notification bell; logo, title and avatar stay', () => {
+    expect(header).not.toMatch(/bell|Obavijesti/);
+    expect(home).not.toContain('i-bell');
+    expect(header).toContain('class="brand__name">RENVARA</span>');
+    expect(header).toContain('class="avatar"');
+  });
+
+  it('the avatar menu keeps the name and Odjava, without Obavijesti', () => {
+    const menu = header.slice(header.indexOf('id="account-menu"'));
+    expect(menu).not.toContain('data-notifications');
+    expect(
+      [...menu.matchAll(/role="menuitem"[^>]*>[\s\S]*?<\/svg>([^<]+)</g)].map((m) => m[1].trim()),
+    ).toEqual(['Odjava']);
+    expect(menu).toContain('data-account-name');
+  });
+});
+
 describe('Feedback overview (Home) links to its own screen', () => {
   it('"Svi" opens /feedback-overview, not the customer list', () => {
     const module = moduleOf('odgovor-title');

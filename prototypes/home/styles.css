@@ -183,32 +183,6 @@ a {
   flex: 0 0 auto;
 }
 
-.icon-button {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-}
-
-.bell .icon {
-  width: 26px;
-  height: 26px;
-  stroke-width: 1.9;
-}
-
-.bell__dot {
-  position: absolute;
-  top: 9px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 0 2px var(--bg);
-}
-
 .avatar {
   width: 48px;
   height: 48px;

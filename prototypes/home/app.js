@@ -23,7 +23,6 @@
   const placeholders = [
     ['.module__link[href^="#"]', (el) => el.textContent.trim()],
     ['.waiting', (el) => el.querySelector('.waiting__name').textContent],
-    ['.bell', () => 'Obavijesti'],
   ];
 
   placeholders.forEach(([selector, label]) => {
@@ -49,10 +48,6 @@
   }
 
   avatar.addEventListener('click', () => setAccountMenu(accountMenu.hidden));
-  // "Obavijesti" opens its sheet (pages/dashboard.js); the menu closes.
-  accountMenu
-    .querySelector('[data-notifications]')
-    ?.addEventListener('click', () => setAccountMenu(false));
 
   document.addEventListener('click', (event) => {
     if (!accountMenu.hidden && !event.target.closest('.account')) setAccountMenu(false);
