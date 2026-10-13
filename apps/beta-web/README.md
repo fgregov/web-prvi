@@ -181,7 +181,9 @@ in the organization's timezone, each count by its own event date):
 | FEEDBACK OVERVIEW            | Sent offers still waiting: waiting days counted from the sending day (= 1D), 1–4D yellow, 5–9D red, 10D+ black            |
 
 A past period shows the same widgets as of its end (BUYERS and FEEDBACK "Stanje
-na d.m."). Task priority colours: LOW yellow, MEDIUM red, HIGH black (always
+na d.m."). Every row of the OPPORTUNITY PIPELINE card, like its "Full dashboard"
+link and the OPPORTUNITY card, opens Prilike (`/opportunities`): the same view as
+Više → Prilike, with the stages closed. Task priority colours: LOW yellow, MEDIUM red, HIGH black (always
 with the label).
 
 "Svi" on FEEDBACK OVERVIEW opens **FEEDBACK OVERVIEW / PONUDE**
