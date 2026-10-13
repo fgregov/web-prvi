@@ -1,6 +1,8 @@
 // PeriodSelector: the period control under the Home header, its bottom sheet
 // with quarters (year by year) and the "Ručni odabir perioda" range sheet.
 // It only reads and writes the dashboard period; widgets react to the change.
+// `compact`: only a small button ("Q4 2026 ▾") for a page's action area
+// (Opportunity Pipeline, Ponude), with the same sheets.
 import { describePeriod, todayKey } from '../../core/dashboard-period.js';
 import {
   currentQuarterPeriod,
@@ -18,11 +20,38 @@ import { openSheet } from '../../ui/sheet.js';
 const YEARS_BACK = 5;
 
 /**
- * @param {{ container: HTMLElement, getPeriod: () => object, onSelect: (period) => void }} options
+ * @param {{ container: HTMLElement, getPeriod: () => object, onSelect: (period) => void, compact?: boolean }} options
  */
-export function PeriodSelector({ container, getPeriod, onSelect }) {
+export function PeriodSelector({ container, getPeriod, onSelect, compact = false }) {
+  function renderCompact(info) {
+    container.replaceChildren(
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `rv-btn rv-btn--secondary rv-period-btn${info.isCurrent ? '' : ' is-history'}`,
+          'aria-haspopup': 'dialog',
+          'aria-label': `${info.accessibleLabel}. Promijeni period`,
+          onClick: openQuarterSheet,
+        },
+        icon(info.isCurrent ? 'calendar' : 'history'),
+        // A custom range has no short name: its dates are the label.
+        h(
+          'span',
+          { class: 'rv-period-btn__label' },
+          info.period.type === 'QUARTER' ? info.title : info.range,
+        ),
+        icon('chevron-down', 'rv-icon rv-period-btn__chevron'),
+      ),
+    );
+  }
+
   function render() {
     const info = describePeriod(getPeriod());
+    if (compact) {
+      renderCompact(info);
+      return;
+    }
     const trigger = h(
       'button',
       {

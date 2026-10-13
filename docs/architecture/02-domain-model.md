@@ -190,6 +190,12 @@ not yet sent then —, answered, withdrawn, or closed with its deal) and, only
 while waiting, the days since it was sent. Viewing an offer is not an answer;
 only a recorded answer is.
 
+Opportunity Pipeline for a period (`/opportunities`, `?from=&to=` on
+`/api/opportunities` and `/api/pipeline`): the open opportunities **created** in
+the period (calendar days in the organization's timezone), in their current
+stage. Stage changes carry no dates, so the stage at the end of a past period
+cannot be reconstructed; the page states this instead of guessing.
+
 ### Reminder and push subscription
 A **reminder** (`reminders`) is a stored request to notify one member
 (`recipient_user_id`) at an exact instant (`remind_at`, with the `time_zone`

@@ -676,6 +676,12 @@ a {
   height: 17px;
 }
 
+/* A card title that opens the card's screen (Opportunity Pipeline, Feedback overview). */
+.module__title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 .module--compact .module__title {
   font-size: 0.75rem;
   font-weight: 800;

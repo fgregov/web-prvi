@@ -96,7 +96,8 @@ export const api = {
   getOpportunity: (id) =>
     request('GET', `/api/opportunities/${enc(id)}`).then((r) => r.opportunity),
   createOpportunity: (input) => request('POST', '/api/opportunities', input),
-  pipeline: () => request('GET', '/api/pipeline').then((r) => r.stages),
+  /** Stage totals; `{ from, to }` limits them to opportunities created in that period. */
+  pipeline: (period = {}) => request('GET', `/api/pipeline${query(period)}`).then((r) => r.stages),
   // tasks
   listTasks: (filter = {}) => request('GET', `/api/tasks${query(filter)}`).then((r) => r.tasks),
   taskSections: () => request('GET', '/api/tasks/sections').then((r) => r.sections),

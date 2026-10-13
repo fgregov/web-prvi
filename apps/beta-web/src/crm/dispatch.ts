@@ -156,6 +156,8 @@ export function createCrmApi(
           opportunities: crm.opportunities.listOpportunities(ctx, {
             companyId: q(query, 'companyId'),
             status: q(query, 'status'),
+            from: q(query, 'from'),
+            to: q(query, 'to'),
           }),
         }),
     },
@@ -217,7 +219,10 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/pipeline$/,
-      handler: ({ ctx }) => ok({ stages: crm.opportunities.pipeline(ctx) }),
+      handler: ({ ctx, query }) =>
+        ok({
+          stages: crm.opportunities.pipeline(ctx, { from: q(query, 'from'), to: q(query, 'to') }),
+        }),
     },
     // ---- tasks
     {

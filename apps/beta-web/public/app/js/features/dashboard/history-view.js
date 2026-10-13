@@ -18,7 +18,16 @@ const shortDate = (iso) => {
 };
 const taskHref = (task) => withParams(`/tasks/${encodeURIComponent(task.id)}`, { returnTo: HOME });
 
-function moduleCard({ id, title, iconName, link, compact = false, wrapHead = false, children }) {
+function moduleCard({
+  id,
+  title,
+  titleHref = null,
+  iconName,
+  link,
+  compact = false,
+  wrapHead = false,
+  children,
+}) {
   return h(
     'section',
     {
@@ -29,7 +38,11 @@ function moduleCard({ id, title, iconName, link, compact = false, wrapHead = fal
       'div',
       { class: `module__head${wrapHead ? ' module__head--wrap' : ''}` },
       h('span', { class: 'module__icon' }, spriteIcon(iconName)),
-      h('h2', { class: 'module__title', id }, title),
+      h(
+        'h2',
+        { class: 'module__title', id },
+        titleHref ? h('a', { class: 'module__title-link', href: titleHref }, title) : title,
+      ),
       link
         ? h(
             'a',
@@ -278,6 +291,7 @@ function pipelineCard(summary, title) {
   return moduleCard({
     id: 'hist-pipeline-title',
     title: 'Opportunity Pipeline',
+    titleHref: '/opportunities',
     iconName: 'bars',
     compact: true,
     link: { label: 'Full dashboard', href: '/opportunities' },
@@ -292,6 +306,7 @@ function feedbackCard(summary) {
   return moduleCard({
     id: 'hist-feedback-title',
     title: 'Feedback overview',
+    titleHref: '/feedback-overview',
     iconName: 'clock',
     link: { label: 'Svi', href: '/feedback-overview' },
     children: [

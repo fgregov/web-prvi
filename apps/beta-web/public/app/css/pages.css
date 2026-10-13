@@ -907,6 +907,70 @@ a {
 }
 
 /* ------------------------------------------- pipeline (accordions) --- */
+/* [ Q4 2026 ▾ ] [ + Nova prilika ]: one row, also on a 375px phone (also Ponude). */
+.rv-pipeline-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.rv-pipeline-actions > .rv-btn {
+  flex: none;
+}
+
+.rv-period-slot {
+  display: flex;
+  min-width: 0;
+}
+
+/* The period: secondary to the primary action next to it. */
+.rv-period-btn {
+  min-width: 0;
+  padding: 0 12px;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.rv-period-btn .rv-icon {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  color: var(--rv-muted);
+}
+
+.rv-period-btn .rv-period-btn__chevron {
+  color: var(--rv-red);
+  stroke-width: 2.4;
+}
+
+.rv-period-btn__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.rv-period-btn.is-history {
+  background: var(--rv-surface-muted);
+}
+
+.rv-period-caption {
+  margin: -8px 2px 14px;
+  color: var(--rv-muted);
+  font-size: 13px;
+}
+
+/* A new period is loading: the previous records are dimmed and not clickable. */
+.rv-period-body {
+  transition: opacity 0.15s ease;
+}
+
+.rv-period-body.is-loading {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .rv-pipeline-list {
   display: flex;
   flex-direction: column;
@@ -1232,163 +1296,10 @@ a.rv-upcoming__item {
 }
 
 /* ------------------------------------- feedback overview / ponude --- */
-/* The Home period bar (prototypes/home/styles.css), on this screen's tokens. */
-.rv-offers-period {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: -8px 0 12px;
-}
-
-.rv-offers-period .period__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.rv-offers-period .period__trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 40px;
-  margin-left: -2px;
-  padding: 0 6px 0 2px;
-  border: 0;
-  border-radius: var(--rv-radius-sm);
-  background: none;
-  color: var(--rv-ink);
-  font: inherit;
-  cursor: pointer;
-}
-
-.rv-offers-period .period__trigger:active {
-  background: var(--rv-surface-muted);
-}
-
-.rv-offers-period .period__title {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.rv-offers-period .icon {
-  flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.rv-offers-period .period__chevron {
-  width: 20px;
-  height: 20px;
-  color: var(--rv-red);
-  stroke-width: 2.4;
-}
-
-.rv-offers-period .period__state {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--rv-surface-muted);
-  color: var(--rv-muted);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.rv-offers-period .period__state .icon {
-  width: 13px;
-  height: 13px;
-}
-
-.rv-offers-period .period__state--live {
-  background: var(--rv-green-soft);
-  color: var(--rv-green-text);
-}
-
-.rv-offers-period .period__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--rv-green);
-}
-
-.rv-offers-period .period__row--sub {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  column-gap: 14px;
-}
-
-.rv-offers-period .period__range {
-  color: var(--rv-muted);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.rv-offers-period .period__back {
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--rv-red);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* Sve | Čeka odgovor | Odgovoreno | Nacrt: four options fit a 375px phone. */
-.rv-offers-filters .rv-segmented__option {
-  display: flex;
-}
-
-.rv-offers-filters .rv-segmented__option span {
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 1px;
-  min-height: 46px;
-  padding: 4px 2px;
-  font-size: 13px;
-  line-height: 1.15;
-  text-align: center;
-}
-
-.rv-offers-filters__count {
-  color: var(--rv-muted);
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.rv-offers-caption {
-  margin: 10px 2px 0;
-  color: var(--rv-muted);
-  font-size: 13px;
-}
-
-.rv-offers-caption[hidden] {
-  display: none;
-}
-
-.rv-offers-list {
-  margin-top: 12px;
-}
-
-.rv-offer-list {
-  margin: 0;
+/* Offers as cards in the accordions, like the pipeline's opportunity cards. */
+.rv-offer-cards .rv-board__card {
   padding: 0;
   overflow: hidden;
-  list-style: none;
-}
-
-.rv-offer-list li + li {
-  border-top: 1px solid var(--rv-divider);
 }
 
 .rv-offer-row {
@@ -1402,9 +1313,8 @@ a.rv-upcoming__item {
   text-decoration: none;
 }
 
-.rv-offer-row:active,
-.rv-offer-row:hover {
-  background: var(--rv-surface-muted);
+.rv-offer-row:active {
+  background: var(--rv-red-tint);
 }
 
 .rv-offer-row__text {

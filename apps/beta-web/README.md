@@ -181,14 +181,18 @@ in the organization's timezone, each count by its own event date):
 | FEEDBACK OVERVIEW            | Sent offers still waiting: waiting days counted from the sending day (= 1D), 1–4D yellow, 5–9D red, 10D+ black            |
 
 A past period shows the same widgets as of its end (BUYERS and FEEDBACK "Stanje
-na d.m."). Every row of the OPPORTUNITY PIPELINE card, like its "Full dashboard"
-link and the OPPORTUNITY card, opens Prilike (`/opportunities`): the same view as
-Više → Prilike, with the stages closed. Task priority colours: LOW yellow, MEDIUM red, HIGH black (always
-with the label).
+na d.m."). The OPPORTUNITY PIPELINE card (its title, every row and "Full
+dashboard") and the OPPORTUNITY card open Prilike (`/opportunities`): the same
+screen as Više → Prilike and the top bar's "Prilike", with the stages closed.
+The FEEDBACK OVERVIEW card (its title and "Svi") opens Ponude. Task priority
+colours: LOW yellow, MEDIUM red, HIGH black (always with the label).
 
 "Svi" on FEEDBACK OVERVIEW opens **FEEDBACK OVERVIEW / PONUDE**
-(`/feedback-overview`, back returns to Home): every offer **created** in Home's
-period, with Sve / Čeka odgovor / Odgovoreno / Nacrt. Where an offer stood is
+(`/feedback-overview`), laid out like the Opportunity Pipeline: the period
+button next to the title and every offer **created** in Home's period in
+accordions **ČEKA ODGOVOR**, **ODGOVORENO** and **NACRTI** (plus **POVUČENO /
+ZATVORENO** when there are withdrawn offers or offers of closed deals), closed
+on a new visit; `?status=waiting|answered|draft` opens that one. Where an offer stood is
 taken at the period's end (now, for the running quarter), so an offer created
 in Q3 and sent on 2 October is not waiting in the Q3 view. Only a sent offer
 that is still waiting has a day badge (same bands, counted from sending);
@@ -211,8 +215,18 @@ refreshes after an action. A link to a section (`#pregled`, `#prilike`,
 their own; creating stays in the header card.
 
 The **Opportunity Pipeline** (`/opportunities`) shows its five stages the same
-way (number of opportunities per stage as on Home); "Nova prilika" stays at
-the top. **Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
+way; "Nova prilika" stays at the top, with the period button next to it
+(`[ Q4 2026 ▾ ] [ + Nova prilika ]`). The period is Home's (shared with Home
+and Ponude, kept for the session, so coming Back from an opportunity keeps it):
+quarters year by year, or "Ručni odabir perioda" (Od / Do, the end not before
+the start). The stages list the **open opportunities created in the period**
+(the reporting rule Home uses for opportunities), each in the stage it is in
+today: stage changes are not recorded with dates, so a past period does not
+show where a deal stood at its end, and the page says so. The demo's static
+stage totals (42 / 28 / 18 / 11 / 6) belong to the current quarter only. A
+period without open opportunities says "Nema evidentiranih prilika za odabrani
+period." Choosing a period only reads; a new opportunity is always created
+today. **Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
 accordions with their number of tasks, closed on every visit and
 open while the page stays open. "Novi zadatak" stays at the top of the page.
 On both pages, coming Back (e.g. from a task) shows the sections that were
@@ -300,7 +314,7 @@ Renvara, Focus) decide how they are shown.
 | `/customers`, `/customers/new`, `/customers/{id}` | List with search, New Customer, Customer Detail        |
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
 | `/contacts/new`                                   | New contact (customer required)                        |
-| `/opportunities`, `/opportunities/new`            | Pipeline (stages as accordions) with next actions, New opportunity |
+| `/opportunities`, `/opportunities/new`            | Pipeline (stages as accordions, Home's period) with next actions, New opportunity |
 | `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO (accordions)       |
 | `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
@@ -315,7 +329,7 @@ Renvara, Focus) decide how they are shown.
 | `POST /api/customers/{id}/deactivate`, `POST /api/customers/{id}/activate`                                | Deactivate / reactivate a customer              |
 | `POST /api/customers/{id}/notes`, `POST /api/customers/{id}/emails`                                       | Timeline entries                                |
 | `GET/POST /api/contacts` (`?companyId=`)                                                                  | Contacts                                        |
-| `GET/POST /api/opportunities` (`?companyId=&status=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` | Opportunities, next action, pipeline totals     |
+| `GET/POST /api/opportunities` (`?companyId=&status=&from=&to=`), `GET /api/opportunities/{id}`, `GET /api/pipeline` (`?from=&to=`) | Opportunities, next action, pipeline totals (`from`/`to`: created in that period; 422 for an invalid range) |
 | `GET/POST /api/leads` (`?status=&q=`), `GET/PATCH /api/leads/{id}`                                        | Leads, Lead Detail (with tasks and history)     |
 | `GET /api/leads/{id}/matches`, `POST /api/leads/{id}/convert`, `POST /api/leads/{id}/lost`                | Possible customers, conversion (WON), LOST      |
 | `GET/POST /api/tasks` (`?status=&type=&priority=&companyId=&contactId=&opportunityId=&leadId=`)           | Tasks                                           |

@@ -3,6 +3,12 @@
 // derived from tasks (ADR-0004), never stored on the opportunity.
 import { labelOf, PIPELINE_BASELINE, STAGES } from '../../public/app/js/core/constants.js';
 import {
+  quarterOf,
+  quarterPeriod,
+  samePeriod,
+  validateRange,
+} from '../../public/app/js/core/period.js';
+import {
   hasErrors,
   MESSAGES,
   validateOpportunity,
@@ -24,6 +30,7 @@ import {
   type Body,
 } from './scope.ts';
 import type { TaskService, TaskView } from './task-service.ts';
+import { addDays, calendarDateInZone, startOfDayInZone } from './time.ts';
 import type { CrmContext, CrmData, Opportunity } from './types.ts';
 
 export interface OpportunityView extends Opportunity {
@@ -52,6 +59,43 @@ const money = (value: number | null, currency: string) =>
         maximumFractionDigits: 0,
       }).format(value);
 
+/** A reporting period asked for by the client: calendar dates, both or neither. */
+export interface CreatedPeriod {
+  from?: unknown;
+  to?: unknown;
+}
+
+/**
+ * The period as instants in the organization's timezone ([from, to)), or null
+ * when none is asked for. Validated like the dashboard period, so an invalid
+ * range is refused before any record is read.
+ */
+function createdBounds(ctx: CrmContext, period: CreatedPeriod) {
+  const none = (v: unknown) => v === undefined || v === null || v === '';
+  if (none(period.from) && none(period.to)) return null;
+  const startDate = String(period.from ?? '');
+  const endDate = String(period.to ?? '');
+  const problem = validateRange(startDate, endDate);
+  if (problem) throw new CrmValidationError({ range: problem }, problem);
+  const today = quarterOf(calendarDateInZone(ctx.now, ctx.timeZone));
+  return {
+    from: startOfDayInZone(startDate, ctx.timeZone).getTime(),
+    to: startOfDayInZone(addDays(endDate, 1), ctx.timeZone).getTime(),
+    isCurrentQuarter: samePeriod(quarterPeriod(today.year, today.quarter), {
+      type: 'QUARTER',
+      startDate,
+      endDate,
+    }),
+  };
+}
+
+/** Created inside the bounds (or no bounds asked for). */
+const createdIn = (bounds: ReturnType<typeof createdBounds>, o: Opportunity) => {
+  if (!bounds) return true;
+  const at = Date.parse(o.createdAt);
+  return at >= bounds.from && at < bounds.to;
+};
+
 export function createOpportunityService(
   repo: CrmRepository,
   tasks: TaskService,
@@ -78,16 +122,19 @@ export function createOpportunityService(
   return {
     view: (ctx: CrmContext, o: Opportunity) => view(repo.data(), ctx, o),
 
+    /** `from`/`to` (both or neither): only opportunities created in that period. */
     listOpportunities(
       ctx: CrmContext,
-      filter: { companyId?: string | null; status?: string | null } = {},
+      filter: { companyId?: string | null; status?: string | null } & CreatedPeriod = {},
     ): OpportunityView[] {
+      const bounds = createdBounds(ctx, filter);
       const data = repo.data();
       return inOrg(data.opportunities, ctx)
         .filter(
           (o) =>
             (!filter.companyId || o.companyId === filter.companyId) &&
-            (!filter.status || o.status === filter.status),
+            (!filter.status || o.status === filter.status) &&
+            createdIn(bounds, o),
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map((o) => view(data, ctx, o));
@@ -220,14 +267,21 @@ export function createOpportunityService(
       return view(data, ctx, opportunity);
     },
 
-    /** Dashboard pipeline: active opportunities created in the CRM, plus the demo's static totals. */
-    pipeline(ctx: CrmContext) {
-      const created = inOrg(repo.data().opportunities, ctx).filter(
-        (o) => o.status === 'active' && !o.seeded,
+    /**
+     * Opportunity Pipeline totals per stage: active opportunities (created in
+     * the period, when one is given) in their current stage. The demo's static
+     * totals belong to the current view only (no period, or the current
+     * quarter); they already include the seeded opportunities.
+     */
+    pipeline(ctx: CrmContext, period: CreatedPeriod = {}) {
+      const bounds = createdBounds(ctx, period);
+      const withBaseline = demoContent && (!bounds || bounds.isCurrentQuarter);
+      const active = inOrg(repo.data().opportunities, ctx).filter(
+        (o) => o.status === 'active' && createdIn(bounds, o) && (!o.seeded || !withBaseline),
       );
       return STAGES.map((stage) => {
-        const count = created.filter((o) => o.stage === stage.value).length;
-        const baseline = demoContent
+        const count = active.filter((o) => o.stage === stage.value).length;
+        const baseline = withBaseline
           ? ((PIPELINE_BASELINE as Record<string, number>)[stage.value] ?? 0)
           : 0;
         return { value: stage.value, label: stage.label, created: count, total: baseline + count };

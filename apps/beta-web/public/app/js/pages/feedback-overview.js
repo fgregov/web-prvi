@@ -3,25 +3,23 @@
 // end of that period (now, for the running one) and, for a sent offer still
 // waiting for the customer, the days since it was sent (1–4D yellow, 5–9D
 // red, 10D+ black). A row opens the offer on its opportunity.
+// Laid out like the Opportunity Pipeline: the period next to the title, and
+// the offers grouped by their standing in accordions (closed on a new visit,
+// as they were when coming Back).
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import {
+  describePeriod,
   getDashboardPeriod,
   onDashboardPeriodChange,
   setDashboardPeriod,
 } from '../core/dashboard-period.js';
 import { PeriodSelector } from '../features/dashboard/period-selector.js';
 import { offerHref } from '../features/dashboard/feedback-overview.js';
+import { accordionSection, openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { goBack, withParams } from '../ui/navigation.js';
-import { MobilePageHeader } from '../ui/screen.js';
+import { renderShell } from '../ui/shell.js';
 
-const FILTERS = [
-  { value: 'all', label: 'Sve' },
-  { value: 'waiting', label: 'Čeka odgovor' },
-  { value: 'answered', label: 'Odgovoreno' },
-  { value: 'draft', label: 'Nacrt' },
-];
 /** Offers that are not waiting: their state in words (never a timer). */
 const STANDING = {
   draft: 'Nacrt',
@@ -29,34 +27,74 @@ const STANDING = {
   withdrawn: 'Povučeno',
   closed: 'Prilika zatvorena',
 };
-const EMPTY = {
-  all: 'Nema evidentiranih ponuda za odabrani period.',
-  waiting: 'Nijedna ponuda iz odabranog perioda ne čeka odgovor.',
-  answered: 'Nijedna ponuda iz odabranog perioda nema zabilježen odgovor.',
-  draft: 'Nema nacrta ponuda u odabranom periodu.',
-};
+/** The accordions: the offer standings, as the status filter offered them. */
+const GROUPS = [
+  {
+    id: 'ceka-odgovor',
+    status: 'waiting',
+    standings: ['waiting'],
+    title: 'Čeka odgovor',
+    iconName: 'clock',
+    empty: 'Nijedna ponuda iz odabranog perioda ne čeka odgovor.',
+  },
+  {
+    id: 'odgovoreno',
+    status: 'answered',
+    standings: ['answered'],
+    title: 'Odgovoreno',
+    iconName: 'check',
+    empty: 'Nijedna ponuda iz odabranog perioda nema zabilježen odgovor.',
+  },
+  {
+    id: 'nacrti',
+    status: 'draft',
+    standings: ['draft'],
+    title: 'Nacrti',
+    iconName: 'pencil',
+    empty: 'Nema nacrta ponuda u odabranom periodu.',
+  },
+  // Withdrawn offers and offers of a closed opportunity: shown only when there are some.
+  {
+    id: 'povuceno-zatvoreno',
+    status: null,
+    standings: ['withdrawn', 'closed'],
+    title: 'Povučeno / zatvoreno',
+    iconName: 'x',
+    empty: null,
+  },
+];
 
-const params = new URLSearchParams(window.location.search);
-let filter = FILTERS.some((f) => f.value === params.get('status')) ? params.get('status') : 'all';
+// ?status=waiting|answered|draft (the former filter) opens that group.
+const linked = GROUPS.find(
+  (g) => g.status && g.status === new URLSearchParams(window.location.search).get('status'),
+);
+const openSections = openSectionsState(
+  GROUPS.map((g) => g.id),
+  linked?.id ?? null,
+);
 
-const root = document.getElementById('screen');
-const header = MobilePageHeader({
-  title: 'Feedback overview / Ponude',
-  onBack: () => goBack('/dashboard'),
-});
-const periodBar = h('section', { class: 'period rv-offers-period', 'aria-label': 'Period' });
-const filters = h('div', { class: 'rv-offers-filters' });
-const caption = h('p', { class: 'rv-offers-caption', hidden: true });
-const list = h('div', { class: 'rv-offers-list', 'aria-live': 'polite' });
+renderShell('offers');
+const root = document.getElementById('app');
+const summary = h('p', { class: 'rv-muted' }, ' ');
+const periodSlot = h('div', { class: 'rv-period-slot' });
+const caption = h('p', { class: 'rv-period-caption' });
+const body = h('div', { class: 'rv-period-body', 'aria-live': 'polite' });
 root.replaceChildren(
-  header.element,
-  h('main', { class: 'rv-screen__body rv-offers-page' }, periodBar, filters, caption, list),
+  h(
+    'div',
+    { class: 'rv-page-head' },
+    h('div', {}, h('h1', { class: 'rv-page-title' }, 'Feedback overview / Ponude'), summary),
+    h('div', { class: 'rv-page-head__actions rv-pipeline-actions' }, periodSlot),
+  ),
+  caption,
+  body,
 );
 
 const selector = PeriodSelector({
-  container: periodBar,
+  container: periodSlot,
   getPeriod: getDashboardPeriod,
   onSelect: setDashboardPeriod,
+  compact: true,
 });
 
 /** "07.10.2026." in this device's timezone (the organization's, in the BETA). */
@@ -72,42 +110,11 @@ const shortDay = (iso) => {
   const d = new Date(iso);
   return `${d.getDate()}.${d.getMonth() + 1}.`;
 };
-
-function renderFilters(counts) {
-  filters.replaceChildren(
-    h(
-      'div',
-      { class: 'rv-segmented', role: 'radiogroup', 'aria-label': 'Status ponude' },
-      FILTERS.map((option) =>
-        h(
-          'label',
-          { class: 'rv-segmented__option' },
-          h('input', {
-            type: 'radio',
-            name: 'offer-status',
-            value: option.value,
-            checked: option.value === filter,
-            onChange: () => {
-              filter = option.value;
-              // In the URL, so Back from an offer returns to the same list.
-              window.history.replaceState(
-                null,
-                '',
-                withParams('/feedback-overview', { status: filter === 'all' ? '' : filter }),
-              );
-              load();
-            },
-          }),
-          h(
-            'span',
-            {},
-            option.label,
-            h('small', { class: 'rv-offers-filters__count' }, String(counts?.[option.value] ?? '')),
-          ),
-        ),
-      ),
-    ),
-  );
+/** 1 ponuda, 2 ponude, 5 ponuda. */
+function offersCount(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? `${n} ponude` : `${n} ponuda`;
 }
 
 function badge(item) {
@@ -144,7 +151,7 @@ function row(item, isCurrent) {
   ].join(', ');
   return h(
     'li',
-    {},
+    { class: 'rv-board__card' },
     h(
       'a',
       {
@@ -176,18 +183,23 @@ function row(item, isCurrent) {
 }
 
 let ticket = 0;
+let scrolled = false;
 async function load() {
   const mine = ++ticket;
   const period = getDashboardPeriod();
+  const info = describePeriod(period);
   selector.render();
-  list.setAttribute('aria-busy', 'true');
+  // Until the period's offers arrive, the previous ones are dimmed and out of reach.
+  body.setAttribute('aria-busy', 'true');
+  body.classList.add('is-loading');
   let overview;
   try {
-    overview = await api.offersOverview(period.startDate, period.endDate, filter);
+    overview = await api.offersOverview(period.startDate, period.endDate, 'all');
   } catch (error) {
     if (mine !== ticket) return;
-    list.removeAttribute('aria-busy');
-    list.replaceChildren(
+    body.removeAttribute('aria-busy');
+    body.classList.remove('is-loading');
+    body.replaceChildren(
       h(
         'p',
         { class: 'rv-card rv-empty' },
@@ -196,23 +208,54 @@ async function load() {
     );
     return;
   }
-  if (mine !== ticket) return;
-  list.removeAttribute('aria-busy');
-  renderFilters(overview.counts);
+  if (mine !== ticket) return; // a newer period was chosen meanwhile
+  body.removeAttribute('aria-busy');
+  body.classList.remove('is-loading');
+
+  const { counts, items } = overview;
   const { isCurrent, asOf } = overview.period;
-  caption.hidden = isCurrent;
+  summary.textContent =
+    offersCount(counts.all) + (counts.waiting ? ` · ${counts.waiting} čeka odgovor` : '');
   caption.textContent = isCurrent
-    ? ''
-    : `Stanje na ${shortDay(asOf)}: čekanje i status kakvi su bili na kraju perioda.`;
-  list.replaceChildren(
-    overview.items.length
-      ? h(
-          'ul',
-          { class: 'rv-card rv-offer-list', role: 'list' },
-          overview.items.map((item) => row(item, isCurrent)),
-        )
-      : h('p', { class: 'rv-card rv-empty rv-offers-empty' }, EMPTY[filter]),
+    ? `Ponude kreirane u razdoblju ${info.range}`
+    : `Ponude kreirane u razdoblju ${info.range} Stanje na ${shortDay(asOf)}: čekanje i status kakvi su bili na kraju perioda.`;
+
+  if (!counts.all) {
+    body.replaceChildren(
+      h('p', { class: 'rv-card rv-empty' }, 'Nema evidentiranih ponuda za odabrani period.'),
+    );
+    return;
+  }
+  body.replaceChildren(
+    h(
+      'div',
+      { class: 'rv-accordion-list' },
+      GROUPS.map((group) => {
+        // In the order the server sorts them: the longest wait first.
+        const groupItems = items.filter((item) => group.standings.includes(item.standing));
+        if (!group.empty && !groupItems.length) return null;
+        return accordionSection({
+          id: group.id,
+          title: group.title,
+          iconName: group.iconName,
+          count: groupItems.length,
+          open: openSections,
+          children: groupItems.length
+            ? h(
+                'ul',
+                { class: 'rv-pipeline-list rv-offer-cards', role: 'list' },
+                groupItems.map((item) => row(item, isCurrent)),
+              )
+            : h('p', { class: 'rv-muted rv-pipeline-empty' }, group.empty),
+        });
+      }),
+    ),
   );
+  // Opened from a link to one group (?status=…): show it, once.
+  if (linked && !scrolled && openSections.has(linked.id)) {
+    scrolled = true;
+    document.getElementById(linked.id)?.scrollIntoView();
+  }
 }
 
 document.title = 'Renvara · Feedback overview / Ponude';
