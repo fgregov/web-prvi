@@ -208,7 +208,9 @@ refreshes after an action. A link to a section (`#pregled`, `#prilike`,
 `#kontakti` …, or an offer from Feedback overview) opens that one. The sections have no create buttons of
 their own; creating stays in the header card.
 
-**Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
+The **Opportunity Pipeline** (`/opportunities`) shows its five stages the same
+way (number of opportunities per stage as on Home); "Nova prilika" stays at
+the top. **Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
 accordions with their number of tasks, closed on every visit and
 open while the page stays open. "Novi zadatak" stays at the top of the page.
 On both pages, coming Back (e.g. from a task) shows the sections that were
@@ -296,7 +298,7 @@ Renvara, Focus) decide how they are shown.
 | `/customers`, `/customers/new`, `/customers/{id}` | List with search, New Customer, Customer Detail        |
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
 | `/contacts/new`                                   | New contact (customer required)                        |
-| `/opportunities`, `/opportunities/new`            | Pipeline with next actions, New opportunity            |
+| `/opportunities`, `/opportunities/new`            | Pipeline (stages as accordions) with next actions, New opportunity |
 | `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO (accordions)       |
 | `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
