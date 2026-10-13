@@ -3,6 +3,7 @@
 // honest note about whether this device will actually receive it. Used in the
 // create/edit forms and in the reminder sheet (lead detail, opportunity card).
 import { addDaysKey, dayKey, timeKey, toInstant } from '../../core/format.js';
+import { api } from '../../core/api.js';
 import { reminderError } from '../../core/validation.js';
 import { h } from '../../ui/dom.js';
 import { CustomField, DatePickerField, SwitchField, TimePickerField } from '../../ui/fields.js';
@@ -59,18 +60,33 @@ export function ReminderControl({ reminder: shown = null } = {}) {
   );
   const presetControl = { element: presets, focusTarget: presets, read: () => '', write() {} };
 
-  function showNote(result) {
+  function showNote(result, remindersOn = true) {
+    const ok = result.ok && remindersOn;
     note.hidden = false;
-    note.classList.toggle('is-warning', !result.ok);
+    note.classList.toggle('is-warning', !ok);
     note.replaceChildren(
-      icon(result.ok ? 'check' : 'info', 'rv-icon rv-icon--sm'),
+      icon(ok ? 'check' : 'info', 'rv-icon rv-icon--sm'),
       h(
         'span',
         {},
-        result.ok ? 'Obavijest će stići na ovaj uređaj.' : PUSH_UNAVAILABLE[result.reason],
+        !result.ok
+          ? PUSH_UNAVAILABLE[result.reason]
+          : remindersOn
+            ? 'Obavijest će stići na ovaj uređaj.'
+            : 'Podsjetnik se sprema, ali „Podsjetnik” je isključen u Mobilnim obavijestima pa obavijest neće stići.',
       ),
+      remindersOn
+        ? null
+        : h('a', { class: 'rv-reminder__link', href: '/notifications' }, 'Mobilne obavijesti'),
     );
   }
+
+  /** "Podsjetnik" in MOBILNE OBAVIJESTI: reminders are delivered only while it is on. */
+  const remindersOn = () =>
+    api
+      .notificationPreferences()
+      .then((r) => r.preferences.reminder_due !== false)
+      .catch(() => true); // unknown: say nothing that may not be true
 
   /** Turning a reminder on is the moment to ask for notification permission. */
   async function toggled(on) {
@@ -86,7 +102,8 @@ export function ReminderControl({ reminder: shown = null } = {}) {
       form?.setValue('reminderDate', date);
       form?.setValue('reminderTime', time);
     }
-    showNote(await enablePush());
+    const [device, deliveredOn] = await Promise.all([enablePush(), remindersOn()]);
+    showNote(device, deliveredOn);
   }
 
   const fields = [
@@ -156,6 +173,7 @@ const NOT_DELIVERED = {
   push_not_configured: 'obavijesti nisu uključene na poslužitelju',
   no_device: 'nijedan uređaj nema uključene obavijesti',
   target_missing: 'zapis više ne postoji',
+  notifications_off: '„Podsjetnik” je isključen u Mobilnim obavijestima',
 };
 
 /**

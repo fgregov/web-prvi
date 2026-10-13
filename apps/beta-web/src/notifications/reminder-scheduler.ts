@@ -5,6 +5,10 @@
 // outcome (sent, or failed after up to MAX_ATTEMPTS with backoff). Devices the
 // push service reports as gone are switched off. Delivery is at most about one
 // interval late; the push service and the device's settings decide the rest.
+// MOBILNE OBAVIJESTI: a reminder is sent only while its recipient has
+// "Podsjetnik" on; the same run collects the other event types (deadlines,
+// Feedback Overview bands, offer views queued by the viewer) and sends them
+// the same way, each exactly once.
 import type { Logger } from '../app.ts';
 import type { CrmServices } from '../crm/index.ts';
 import type { PushSender } from './web-push.ts';
@@ -24,7 +28,7 @@ export function createReminderScheduler({
   now = () => new Date(),
   intervalMs = 30_000,
 }: {
-  services: Pick<CrmServices, 'reminders' | 'pushSubscriptions'>;
+  services: Pick<CrmServices, 'reminders' | 'pushSubscriptions' | 'notifications'>;
   sender: PushSender;
   logger: Logger;
   now?: () => Date;
@@ -50,6 +54,12 @@ export function createReminderScheduler({
         const payload = services.reminders.payload(reminder);
         if (!payload) {
           fail('target_missing', false);
+          continue;
+        }
+        if (
+          !services.notifications.remindersOn(reminder.organizationId, reminder.recipientUserId)
+        ) {
+          fail('notifications_off', false);
           continue;
         }
         if (!sender.configured) {
@@ -83,10 +93,49 @@ export function createReminderScheduler({
           );
         }
       }
-      return due.length;
+      return due.length + (await deliverNotifications(at));
     } finally {
       running = false;
     }
+  }
+
+  /** The other notification types: collect what became due, then send what is queued. */
+  async function deliverNotifications(at: Date): Promise<number> {
+    const { notifications, pushSubscriptions } = services;
+    if (notifications.releaseStale(at)) logger.warn('notifications_released');
+    notifications.collectDue(at);
+    const queued = notifications.claimDue(at);
+    for (const item of queued) {
+      const fail = (error: string, retryable: boolean) => {
+        notifications.markFailed(item.id, now(), error, retryable);
+        logger.warn('notification_not_delivered', { type: item.type, error, retryable });
+      };
+      if (!sender.configured) {
+        fail('push_not_configured', false);
+        continue;
+      }
+      const devices = pushSubscriptions.enabledFor(item.organizationId, item.recipientUserId);
+      if (!devices.length) {
+        fail('no_device', false);
+        continue;
+      }
+      const payload = notifications.payload(item);
+      const results = await Promise.all(devices.map((device) => sender.send(device, payload)));
+      results.forEach((result, i) => {
+        if (!result.ok && result.gone) pushSubscriptions.disable(devices[i]!.endpoint, now());
+      });
+      const accepted = results.filter((r) => r.ok).length;
+      if (accepted) {
+        notifications.markSent(item.id, now(), accepted);
+        logger.info('notification_delivered', { type: item.type, devices: accepted });
+      } else {
+        fail(
+          [...new Set(results.map((r) => (r.ok ? '' : r.error)))].join(','),
+          results.some((r) => !r.ok && r.retryable),
+        );
+      }
+    }
+    return queued.length;
   }
 
   /** A test notification to every enabled device of one user, now. */

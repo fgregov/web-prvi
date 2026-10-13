@@ -55,14 +55,15 @@ describe('Feedback overview (Home) links to its own screen', () => {
     );
   });
 
-  it('the bottom navigation is unchanged (the same five items, no new one)', async () => {
+  it('the bottom navigation: five items, Obavijesti in place of Izvještaji (now under Više)', async () => {
     const { TABS } = await import('../public/app/js/ui/tabbar.js');
-    expect(TABS.map((t: { href: string }) => t.href)).toEqual([
-      '/dashboard',
-      '/follow-up',
-      '/leads',
-      '/reports',
-      '/more',
+    type Tab = { href: string; label: string; icon: string };
+    expect(TABS.map((t: Tab) => [t.href, t.label, t.icon])).toEqual([
+      ['/dashboard', 'Početna', 'home'],
+      ['/follow-up', 'Follow-up Engine', 'repeat'],
+      ['/leads', 'Leads', 'users'],
+      ['/notifications', 'Obavijesti', 'bell'],
+      ['/more', 'Više', 'ellipsis'],
     ]);
   });
 });

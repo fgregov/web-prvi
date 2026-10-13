@@ -12,6 +12,7 @@ import {
   type PdfInfo,
 } from './follow-up-service.ts';
 import { createLeadService } from './lead-service.ts';
+import { createNotificationService } from './notification-service.ts';
 import { createOfferService } from './offer-service.ts';
 import { createOpportunityService } from './opportunity-service.ts';
 import { createPushSubscriptionService } from './push-subscription-service.ts';
@@ -47,6 +48,8 @@ const processShareKey = () =>
 /**
  * `demoContent`: the presentation demo's fixed numbers (Home KPIs, pipeline)
  * and demo reset. Off → only the organization's own records count.
+ * `notificationDelivery`: false where nothing can deliver push (the in-browser
+ * demo): preferences are saved, but no notification is queued.
  * `followUp`: document storage, PDF check and link key of the Follow-up Engine
  * (the BETA server passes its private directory, pdf.js and its secret).
  */
@@ -55,7 +58,12 @@ export function createCrmServices(
   {
     demoContent = DEMO_CONTENT,
     followUp = {},
-  }: { demoContent?: boolean; followUp?: Partial<FollowUpOptions> } = {},
+    notificationDelivery = true,
+  }: {
+    demoContent?: boolean;
+    followUp?: Partial<FollowUpOptions>;
+    notificationDelivery?: boolean;
+  } = {},
 ) {
   const tasks = createTaskService(repo);
   const contacts = createContactService(repo);
@@ -67,7 +75,10 @@ export function createCrmServices(
   const offers = createOfferService(repo);
   const reminders = createReminderService(repo);
   const pushSubscriptions = createPushSubscriptionService(repo);
+  const notifications = createNotificationService(repo, { delivery: notificationDelivery });
   const followUpService = createFollowUpService(repo, offers, {
+    onQualifiedView: (data, offer, event, now) =>
+      notifications.offerViewed(data, offer, event, now),
     documents: followUp.documents ?? createMemoryDocumentStore(),
     inspectPdf: followUp.inspectPdf ?? basicPdfCheck,
     shareKey: followUp.shareKey ?? processShareKey(),
@@ -88,6 +99,7 @@ export function createCrmServices(
     offers,
     reminders,
     pushSubscriptions,
+    notifications,
     followUp: followUpService,
   };
 }

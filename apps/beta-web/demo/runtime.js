@@ -41,6 +41,9 @@ const COLLECTIONS = [
   'offerShareLinks',
   'offerEvents',
   'reminders',
+  'notificationPreferences',
+  'notificationSettings',
+  'notificationDeliveries',
 ];
 const LATENCY_MS = 140; // makes loading states visible, like a real request
 const SAVE_FAILED = 'Spremanje u testnu bazu nije uspjelo. Pokušajte ponovno.';
@@ -172,7 +175,9 @@ const repo = {
 };
 // Follow-up Engine: PDFs in this browser's IndexedDB. The link key is fixed and
 // public (it is in this page): demo links protect nothing and open only here.
+// Nothing delivers push here: MOBILNE OBAVIJESTI preferences are saved, nothing is queued.
 const services = createCrmServices(repo, {
+  notificationDelivery: false,
   followUp: {
     documents: indexedDbDocumentStore(),
     shareKey: deriveShareKey('renvara-demo-share-links:not-a-secret:v1'),
@@ -378,6 +383,7 @@ const ROUTES = {
   '/feedback-overview': 'feedback-overview',
   '/follow-up': 'follow-up',
   '/follow-up/new': 'follow-up-new',
+  '/notifications': 'notifications',
   '/reports': 'module',
   '/more': 'module',
 };

@@ -8,6 +8,7 @@ import type {
   LeadStage,
   LeadStatus,
   LeadWonBasis,
+  NotificationType,
   OfferStatus,
   ReminderStatus,
   TaskPriority,
@@ -292,6 +293,62 @@ export interface Activity {
   seq: number;
 }
 
+/**
+ * MOBILNE OBAVIJESTI: one member's choice for one event type
+ * (public.notification_preferences). No record = off.
+ */
+export interface NotificationPreference {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly userId: string;
+  readonly type: NotificationType;
+  enabled: boolean;
+  /** Last time it was switched on: events from before it are never notified. */
+  enabledAt: Iso | null;
+  createdAt: Iso;
+  updatedAt: Iso;
+}
+
+/** One member's notification settings (public.notification_settings). */
+export interface NotificationSettings {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly userId: string;
+  /** "HH:MM" for deadlines given as a date only; null = they are not notified. */
+  deadlineTime: string | null;
+  /** The organization's timezone when saved: dates and bands are counted in it. */
+  timeZone: string;
+  createdAt: Iso;
+  updatedAt: Iso;
+}
+
+/**
+ * A push notification of MOBILNE OBAVIJESTI (public.notification_deliveries):
+ * one per event and recipient (`idempotencyKey`), written by the server.
+ * `acceptedAt` = the push service accepted it; not a device receipt.
+ */
+export interface NotificationDelivery {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly recipientUserId: string;
+  readonly type: NotificationType;
+  /** The offer, task or opportunity it is about. */
+  readonly sourceId: string;
+  readonly idempotencyKey: string;
+  readonly occurredAt: Iso;
+  status: ReminderStatus;
+  attempts: number;
+  nextAttemptAt: Iso | null;
+  acceptedAt: Iso | null;
+  devicesAccepted: number;
+  lastError: string | null;
+  title: string;
+  body: string;
+  url: string;
+  createdAt: Iso;
+  updatedAt: Iso;
+}
+
 export interface CrmData {
   version: 2;
   seq: number;
@@ -307,6 +364,9 @@ export interface CrmData {
   offerEvents: OfferEvent[];
   reminders: Reminder[];
   pushSubscriptions: PushSubscriptionRecord[];
+  notificationPreferences: NotificationPreference[];
+  notificationSettings: NotificationSettings[];
+  notificationDeliveries: NotificationDelivery[];
 }
 
 /** Who is acting, for which organization, at what time. Built per request from the session. */

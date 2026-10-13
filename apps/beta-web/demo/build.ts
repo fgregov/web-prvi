@@ -300,6 +300,7 @@ const STYLE_FILES = [
   'app/css/screen.css',
   'app/css/leads.css',
   'app/css/follow-up.css',
+  'app/css/notifications.css',
   'viewer/viewer.css',
 ];
 const styles = Object.fromEntries(

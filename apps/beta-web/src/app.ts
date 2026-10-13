@@ -62,6 +62,7 @@ const CRM_PAGES: Record<string, string> = {
   '/feedback-overview': 'feedback-overview.html',
   '/follow-up': 'follow-up.html',
   '/follow-up/new': 'follow-up-new.html',
+  '/notifications': 'notifications.html',
   // Primary modules not built yet: navigation shells.
   '/reports': 'module.html',
   '/more': 'module.html',

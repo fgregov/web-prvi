@@ -202,8 +202,8 @@ export function createReminderService(repo: CrmRepository) {
         const task = findInOrg(data.tasks, ctx, r.taskId);
         return task
           ? {
-              title: 'RENVARA — Zadatak',
-              body: task.title,
+              title: 'RENVARA — Podsjetnik',
+              body: `Vrijeme je za zadatak: ${task.title}`,
               url: `/tasks/${encodeURIComponent(task.id)}`,
               tag,
             }
@@ -213,7 +213,7 @@ export function createReminderService(repo: CrmRepository) {
         const lead = findInOrg(data.leads, ctx, r.leadId);
         return lead
           ? {
-              title: 'RENVARA — Lead',
+              title: 'RENVARA — Podsjetnik',
               body: `Podsjetnik za lead: ${[lead.name, lead.companyName].filter(Boolean).join(' · ')}`,
               url: `/leads/${encodeURIComponent(lead.id)}`,
               tag,
@@ -227,7 +227,7 @@ export function createReminderService(repo: CrmRepository) {
       const customer = findInOrg(data.customers, ctx, opportunity.companyId);
       const dealLead = findInOrg(data.leads, ctx, opportunity.leadId);
       return {
-        title: 'RENVARA — Prilika',
+        title: 'RENVARA — Podsjetnik',
         body: `Podsjetnik za priliku: ${[opportunity.title, customer?.companyName ?? dealLead?.name].filter(Boolean).join(' — ')}`,
         // A lead's deal (no customer yet) lives on the lead.
         url: opportunity.companyId

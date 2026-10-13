@@ -487,6 +487,191 @@ export type Database = {
           },
         ];
       };
+      notification_deliveries: {
+        Row: {
+          accepted_at: string | null;
+          attempts: number;
+          body: string;
+          created_at: string;
+          devices_accepted: number;
+          id: string;
+          idempotency_key: string;
+          last_error: string | null;
+          next_attempt_at: string | null;
+          occurred_at: string;
+          organization_id: string;
+          recipient_user_id: string;
+          source_id: string;
+          status: Database['public']['Enums']['reminder_status'];
+          title: string;
+          type: Database['public']['Enums']['notification_type'];
+          updated_at: string;
+          url: string;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          attempts?: number;
+          body: string;
+          created_at?: string;
+          devices_accepted?: number;
+          id?: string;
+          idempotency_key: string;
+          last_error?: string | null;
+          next_attempt_at?: string | null;
+          occurred_at: string;
+          organization_id: string;
+          recipient_user_id: string;
+          source_id: string;
+          status?: Database['public']['Enums']['reminder_status'];
+          title: string;
+          type: Database['public']['Enums']['notification_type'];
+          updated_at?: string;
+          url: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          attempts?: number;
+          body?: string;
+          created_at?: string;
+          devices_accepted?: number;
+          id?: string;
+          idempotency_key?: string;
+          last_error?: string | null;
+          next_attempt_at?: string | null;
+          occurred_at?: string;
+          organization_id?: string;
+          recipient_user_id?: string;
+          source_id?: string;
+          status?: Database['public']['Enums']['reminder_status'];
+          title?: string;
+          type?: Database['public']['Enums']['notification_type'];
+          updated_at?: string;
+          url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_deliveries_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_deliveries_recipient_fk';
+            columns: ['organization_id', 'recipient_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
+          },
+        ];
+      };
+      notification_preferences: {
+        Row: {
+          created_at: string;
+          enabled: boolean;
+          enabled_at: string | null;
+          id: string;
+          organization_id: string;
+          type: Database['public']['Enums']['notification_type'];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          enabled?: boolean;
+          enabled_at?: string | null;
+          id?: string;
+          organization_id: string;
+          type: Database['public']['Enums']['notification_type'];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          enabled?: boolean;
+          enabled_at?: string | null;
+          id?: string;
+          organization_id?: string;
+          type?: Database['public']['Enums']['notification_type'];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_preferences_member_fk';
+            columns: ['organization_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'notification_preferences_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_preferences_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      notification_settings: {
+        Row: {
+          created_at: string;
+          deadline_time: string | null;
+          id: string;
+          organization_id: string;
+          time_zone: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          deadline_time?: string | null;
+          id?: string;
+          organization_id: string;
+          time_zone: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          deadline_time?: string | null;
+          id?: string;
+          organization_id?: string;
+          time_zone?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notification_settings_member_fk';
+            columns: ['organization_id', 'user_id'];
+            isOneToOne: true;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'notification_settings_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notification_settings_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       offer_documents: {
         Row: {
           content_type: string;
@@ -1597,6 +1782,14 @@ export type Database = {
       lead_won_basis: 'opportunity' | 'conversion';
       member_role: 'owner' | 'admin' | 'manager' | 'sales';
       member_status: 'active' | 'suspended' | 'removed';
+      notification_type:
+        | 'offer_viewed'
+        | 'reminder_due'
+        | 'task_deadline'
+        | 'opportunity_deadline'
+        | 'feedback_low'
+        | 'feedback_medium'
+        | 'feedback_high';
       offer_event_type: 'link_access' | 'document_view';
       offer_status: 'draft' | 'sent' | 'answered' | 'withdrawn';
       opportunity_stage: 'new_lead' | 'contacted' | 'qualified' | 'proposal' | 'negotiation';
@@ -1765,6 +1958,15 @@ export const Constants = {
       lead_won_basis: ['opportunity', 'conversion'],
       member_role: ['owner', 'admin', 'manager', 'sales'],
       member_status: ['active', 'suspended', 'removed'],
+      notification_type: [
+        'offer_viewed',
+        'reminder_due',
+        'task_deadline',
+        'opportunity_deadline',
+        'feedback_low',
+        'feedback_medium',
+        'feedback_high',
+      ],
       offer_event_type: ['link_access', 'document_view'],
       offer_status: ['draft', 'sent', 'answered', 'withdrawn'],
       opportunity_stage: ['new_lead', 'contacted', 'qualified', 'proposal', 'negotiation'],

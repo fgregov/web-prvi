@@ -79,6 +79,8 @@ export interface FollowUpOptions {
   readonly linkTtlDays?: number;
   /** Engagement events older than this are deleted (days). */
   readonly retentionDays?: number;
+  /** A qualifying view was recorded (inside the same write): MOBILNE OBAVIJESTI. */
+  readonly onQualifiedView?: (data: CrmData, offer: Offer, event: OfferEvent, now: Date) => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -793,6 +795,7 @@ export function createFollowUpService(
         ...signals,
         automation: input.automation === true,
       });
+      if (event && !event.suspectedBot) options.onQualifiedView?.(data, offer, event, now);
       if (event && !event.suspectedBot && firstView) {
         const deal = offer.opportunityId
           ? data.opportunities.find(

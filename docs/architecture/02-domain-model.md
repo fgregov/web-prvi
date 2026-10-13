@@ -266,6 +266,17 @@ configuration, a device that allowed notifications, the push service and the
 device's own settings. A failed reminder stays visible on its record as "not
 delivered" until a new one is set.
 
+### Notification preference and delivery (ADR-0010)
+A **notification preference** (`notification_preferences`) is one member's
+choice for one of seven event types (offer viewed, reminder, task deadline,
+opportunity deadline, Feedback Overview low/medium/high); no row = off, and
+`enabled_at` (server clock) makes notifications prospective.
+`notification_settings` holds the member's time for date-only deadlines (none
+= those are not notified). A **notification delivery**
+(`notification_deliveries`) is one notification of one event to one recipient,
+unique per idempotency key, written by the server scheduler; `accepted_at`
+records the push service's acceptance, not a device receipt.
+
 ## The next-action rule (ADR-0004)
 
 > No active sales opportunity should exist without a known next action.

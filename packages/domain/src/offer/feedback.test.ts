@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byUrgency, offerWaitingDays, waitingBand } from './feedback.ts';
+import { bandEntryAt, byUrgency, offerWaitingDays, waitingBand } from './feedback.ts';
 
 const TZ = 'Europe/Zagreb';
 const at = (iso: string) => new Date(iso);
@@ -47,5 +47,33 @@ describe('offer feedback wait', () => {
   it('sorts by urgency, longest wait first', () => {
     const items = [1, 12, 5, 10, 4, 9].map((waitingDays) => ({ waitingDays }));
     expect(items.sort(byUrgency).map((i) => i.waitingDays)).toEqual([12, 10, 9, 5, 4, 1]);
+  });
+});
+
+describe('band entry (notifications of the Feedback Overview bands)', () => {
+  it('yellow at sending, red on the 5th date and black on the 10th, at the sending time of day', () => {
+    const sent = at('2026-10-05T07:30:00Z'); // 09:30 in Zagreb
+    expect(bandEntryAt(sent, 'yellow', TZ).toISOString()).toBe('2026-10-05T07:30:00.000Z');
+    expect(bandEntryAt(sent, 'red', TZ).toISOString()).toBe('2026-10-09T07:30:00.000Z');
+    expect(bandEntryAt(sent, 'black', TZ).toISOString()).toBe('2026-10-14T07:30:00.000Z');
+    for (const [band, day] of [
+      ['yellow', 1],
+      ['red', 5],
+      ['black', 10],
+    ] as const) {
+      const entry = bandEntryAt(sent, band, TZ);
+      expect(offerWaitingDays(sent, entry, TZ)).toBe(day);
+      expect(waitingBand(offerWaitingDays(sent, entry, TZ))).toBe(band);
+      // A day earlier, at the same time, the offer was still a day short of the band.
+      if (day > 1)
+        expect(offerWaitingDays(sent, new Date(entry.getTime() - 86_400_000), TZ)).toBe(day - 1);
+    }
+  });
+
+  it('keeps the wall-clock time across a daylight-saving change, never leaving the day', () => {
+    // Sent Fri 23.10. 10:00 (UTC+2); clocks go back on 25.10.: 5D = Tue 27.10. 10:00 (UTC+1).
+    const sent = at('2026-10-23T08:00:00Z');
+    expect(bandEntryAt(sent, 'red', TZ).toISOString()).toBe('2026-10-27T09:00:00.000Z');
+    expect(offerWaitingDays(sent, bandEntryAt(sent, 'red', TZ), TZ)).toBe(5);
   });
 });

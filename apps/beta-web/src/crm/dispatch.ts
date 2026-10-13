@@ -396,6 +396,17 @@ export function createCrmApi(
       pattern: /^\/api\/push\/unsubscribe$/,
       handler: ({ ctx, body }) => ok(crm.pushSubscriptions.unsubscribe(ctx, body)),
     },
+    // ---- MOBILNE OBAVIJESTI: the signed-in member's own notification preferences
+    {
+      method: 'GET',
+      pattern: /^\/api\/notifications\/preferences$/,
+      handler: ({ ctx }) => ok(crm.notifications.preferences(ctx)),
+    },
+    {
+      method: 'PATCH',
+      pattern: /^\/api\/notifications\/preferences$/,
+      handler: ({ ctx, body }) => ok(crm.notifications.update(ctx, body)),
+    },
     // ---- BETA: restore this organization's demo data (presentation demo only;
     // a clean start has no demo data to restore, so the route does not exist)
     ...(crm.demoContent

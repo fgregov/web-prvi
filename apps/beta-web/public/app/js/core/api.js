@@ -145,6 +145,10 @@ export const api = {
   dashboardSummary: (from, to) =>
     request('GET', `/api/dashboard/summary${query({ from, to })}`).then((r) => r.summary),
   resetDemo: () => request('POST', '/api/demo/reset', {}),
+  // MOBILNE OBAVIJESTI: { preferences: { [type]: boolean }, deadlineTime }
+  notificationPreferences: () => request('GET', '/api/notifications/preferences'),
+  updateNotificationPreferences: (changes) =>
+    request('PATCH', '/api/notifications/preferences', changes),
   // Follow-up Engine: offer PDFs, share links, engagement (ADR-0008)
   /** `range`: { from, to } calendar dates (the selected period). */
   followUpOffers: (filter = 'all', range = {}) =>

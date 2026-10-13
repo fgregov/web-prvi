@@ -93,6 +93,22 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export const LEAD_WON_BASES = ['opportunity', 'conversion'] as const;
 export type LeadWonBasis = (typeof LEAD_WON_BASES)[number];
 
+/**
+ * MOBILNE OBAVIJESTI: the events a user can receive push notifications for,
+ * each switched on or off on its own (all off for a new user). The feedback
+ * bands are the Feedback Overview's (1–4D, 5–9D, 10D+), not task priorities.
+ */
+export const NOTIFICATION_TYPES = [
+  'offer_viewed',
+  'reminder_due',
+  'task_deadline',
+  'opportunity_deadline',
+  'feedback_low',
+  'feedback_medium',
+  'feedback_high',
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
 export const LEAD_SOURCES = [
   'manual',
   'referral',

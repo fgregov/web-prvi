@@ -1,6 +1,7 @@
 // /reports, /more · navigation shells for the primary
 // modules that are not built yet. They keep the bottom navigation working and
-// show the Home period they will be filtered by.
+// show the Home period they will be filtered by. Izvještaji are reached from
+// Više (not the bottom navigation), so Više stays the active tab there.
 import { describePeriod, getDashboardPeriod } from '../core/dashboard-period.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -8,7 +9,7 @@ import { renderTabbar } from '../ui/tabbar.js';
 
 const MODULES = {
   '/reports': {
-    key: 'reports',
+    key: 'more',
     title: 'Izvještaji',
     icon: 'bars',
     text: 'Detaljna analitika, trendovi i usporedbe. Modul je u pripremi.',
@@ -21,6 +22,7 @@ const MORE_LINKS = [
   { href: '/opportunities', label: 'Prilike', icon: 'target' },
   { href: '/tasks', label: 'Zadaci', icon: 'check-square' },
   { href: '/calendar', label: 'Sales Kalendar', icon: 'calendar' },
+  { href: '/reports', label: 'Izvještaji', icon: 'bars' },
 ];
 
 const module = MODULES[window.location.pathname] ?? MODULES['/more'];

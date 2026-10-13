@@ -1,0 +1,171 @@
+/* MOBILNE OBAVIJESTI (/notifications): the user's switches per event type and
+   whether this device receives push. Renvara tokens from components.css; the
+   head mirrors the Follow-up Engine's; colour is never the only signal. */
+
+.nt-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  margin-bottom: 14px;
+}
+
+.nt-title {
+  margin: 0;
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.nt-sub {
+  margin: 0;
+  color: var(--rv-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* Whether push reaches this device. */
+.nt-device {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--rv-radius-sm);
+  background: var(--rv-surface-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.nt-device:empty {
+  display: none;
+}
+
+.nt-device .rv-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--rv-green);
+}
+
+.nt-device.is-warning {
+  background: #fff7e6;
+}
+
+.nt-device.is-warning .rv-icon {
+  color: #b26b00;
+}
+
+.nt-device__action {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* The seven switches. */
+.nt-list {
+  margin: 0;
+  padding: 0 14px 6px;
+  list-style: none;
+}
+
+.nt-list > li + li {
+  border-top: 1px solid var(--rv-border);
+}
+
+.nt-row {
+  -webkit-tap-highlight-color: transparent;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.nt-row__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--rv-surface-muted);
+  color: var(--rv-muted);
+}
+
+.nt-row__band {
+  justify-self: start;
+  font-size: 11px;
+}
+
+.nt-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nt-row__label {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.nt-row__desc {
+  color: var(--rv-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.nt-row__status {
+  min-height: 0;
+  color: var(--rv-green);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nt-row__status:empty {
+  display: none;
+}
+
+.nt-row__status.is-error {
+  color: var(--rv-red);
+}
+
+/* The time for date-only deadlines. */
+.nt-time {
+  margin-top: 14px;
+}
+
+.nt-time__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 14px 16px;
+}
+
+.nt-time__text {
+  margin: 0 0 4px;
+  color: var(--rv-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.nt-time__input {
+  max-width: 160px;
+}
+
+.nt-loading,
+.nt-error {
+  padding: 16px;
+  color: var(--rv-muted);
+}
+
+.nt-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.nt-device__action[hidden] {
+  display: none;
+}

@@ -382,6 +382,40 @@ turned on.
   push and whether this device receives it, turns it on here (the permission
   prompt comes from that tap, as iOS requires), and **Pošalji probnu
   obavijest** sends a test notification now (`POST /api/push/test`).
+- Reminders are delivered while **Podsjetnik** is on in MOBILNE OBAVIJESTI
+  (below); one held back is recorded as not delivered and says why.
+
+### MOBILNE OBAVIJESTI
+
+**Obavijesti** in the bottom navigation (between Leads and Više; Izvještaji
+moved under **Više**) opens `/notifications`: seven switches, each saved on
+the server for the signed-in user only (all off for a new user), plus the time
+used for deadlines given as a date only. Design: ADR-0010.
+
+| Switch | Event | Opens |
+| --- | --- | --- |
+| Pregled ponude | a qualifying view of a shared offer (not a preview, not a scanner); at most one per offer every 30 min | the offer in Follow-up Engine |
+| Podsjetnik | a reminder the user set (the existing reminder system) | its task, lead or opportunity |
+| Rok za izvršenje zadatka | an open task reaches its deadline (`dueAt`, or `dueDate` at the chosen time) | the task |
+| Rok za izvršenje prilike | an active opportunity reaches its expected close date, at the chosen time | the opportunity (customer or lead) |
+| Feedback Overview — niski / srednji / visoki prioritet | a sent offer still waiting enters 1D / 5D / 10D (the Feedback Overview bands) | the offer in Follow-up Engine |
+
+- **Once per event, from now on.** Each notification has an idempotency key;
+  nothing repeats inside a band or after a restart. Switching a type on never
+  sends what happened before; an event found more than 24 h late is skipped.
+  A completed task, a closed opportunity, an answered offer or a switch turned
+  off cancels a notification not yet sent.
+- **No invented times.** "Rokovi bez vremena" sets the time for date-only
+  deadlines; without it they are not notified.
+- **Honest delivery state.** The screen says whether this device receives push
+  (the permission is asked when a switch is turned on, at most once per visit,
+  never on load), whether it is blocked ("Mobilne obavijesti nisu dopuštene na
+  ovom uređaju. Omogućite ih u postavkama uređaja."), or whether the server
+  has no push keys. A save that fails puts the switch back and says
+  "Postavku nije moguće spremiti. Pokušajte ponovno."
+- Lock-screen text: the event and the customer or record name, never amounts,
+  notes, contacts or link tokens. `notificationDeliveries` records what the
+  push service accepted (no device receipt exists for Web Push).
 
 #### One iPhone, no App Store
 
@@ -415,6 +449,8 @@ Renvara, Focus) decide how they are shown.
 | `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |
 | `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` (`?mode=existing&opportunityId=`) | New lead, Lead Detail (with its opportunities), Pretvori lead u kupca (WON leads) |
 | `/follow-up?filter=all\|waiting\|viewed\|resolved`  | FOLLOW-UP ENGINE (offer overview, the shared period)   |
+| `/notifications`                                  | MOBILNE OBAVIJESTI (bottom navigation "Obavijesti")    |
+| `/reports`                                        | Izvještaji (from Više; module shell)                   |
 | `/follow-up/new`, `/follow-up/{id}`, `/follow-up/{id}/preview` | Attach new document, offer detail (`?new=1`: success), own preview (not counted) |
 | `/o/{token}` (public, no session)                 | The customer's offer viewer                            |
 
@@ -440,6 +476,7 @@ Renvara, Focus) decide how they are shown.
 | `GET /api/offers?from=YYYY-MM-DD&to=YYYY-MM-DD&status=all\|waiting\|answered\|draft`                       | FEEDBACK OVERVIEW / PONUDE                      |
 | `PUT /api/tasks\|leads\|opportunities/{id}/reminder` (`{reminderAt: ISO \| null}`)                         | Set, move or remove a reminder                  |
 | `GET /api/push/status`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe`                      | Push availability, this device on/off           |
+| `GET /api/notifications/preferences`, `PATCH /api/notifications/preferences` (`{preferences?: {type: boolean}, deadlineTime?: "HH:MM" \| null}`) | MOBILNE OBAVIJESTI: the user's own switches (422 for invalid input) |
 | `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |
 | `POST /api/follow-up/uploads` (raw `application/pdf` body, `X-File-Name`; `415`, `413`)                   | Stage a PDF (validated, private, 1 h)           |
 | `GET /api/follow-up/offers?filter=all\|waiting\|viewed\|resolved&from=YYYY-MM-DD&to=YYYY-MM-DD` (period optional; 422 for an invalid range), `POST /api/follow-up/offers` (`{uploadId, title, companyId, opportunityId?, contactId?, note?}`) | Follow-up list with counts; create offer + document + link |
@@ -614,6 +651,12 @@ no real credential is stored in the repository.
   battery saving) can still delay or hide them. Times use the browser's timezone for input and
   the organization's timezone for "today" and date-only entries; in the BETA
   both are Europe/Zagreb.
+- MOBILNE OBAVIJESTI use the same Web Push path: verified end to end against a
+  local push service (encrypted, VAPID-signed, decrypted), not on a real phone
+  in this repository's tests. Delivery to a phone needs VAPID keys, HTTPS and a
+  device that allowed notifications (iPhone: the app added to the Home
+  Screen). A Feedback band or deadline is notified once; there is no repeating
+  reminder policy yet.
 
 - Follow-up Engine: PDFs are stored on the server's disk (BETA); production
   uses the private Supabase bucket `offer-documents` (migration

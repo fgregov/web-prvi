@@ -137,6 +137,52 @@ describe('access', () => {
   });
 });
 
+describe('MOBILNE OBAVIJESTI preferences', () => {
+  it("needs a session; reads and saves the signed-in user's own switches; 422 for invalid input", async () => {
+    const anonymous = await fetch(`${server.url}/api/notifications/preferences`);
+    expect(anonymous.status).toBe(401);
+    const initial = await json(await api('/api/notifications/preferences'));
+    expect(initial).toMatchObject({
+      status: 200,
+      body: { preferences: { offer_viewed: false, feedback_high: false }, deadlineTime: null },
+    });
+    const saved = await json(
+      await api('/api/notifications/preferences', {
+        method: 'PATCH',
+        body: {
+          preferences: { offer_viewed: true, opportunity_deadline: false },
+          deadlineTime: '08:30',
+        },
+      }),
+    );
+    expect(saved).toMatchObject({
+      status: 200,
+      body: {
+        preferences: { offer_viewed: true, opportunity_deadline: false },
+        deadlineTime: '08:30',
+      },
+    });
+    // Persisted: a new request (or a restart reading the same store) sees the same values.
+    const again = await json(await api('/api/notifications/preferences'));
+    expect(again.body.preferences.offer_viewed).toBe(true);
+    expect(crm.repo.data().notificationPreferences).toMatchObject([
+      { organizationId: ORG, type: 'offer_viewed', enabled: true },
+      { organizationId: ORG, type: 'opportunity_deadline', enabled: false },
+    ]);
+    const bad = await json(
+      await api('/api/notifications/preferences', {
+        method: 'PATCH',
+        body: { preferences: { offer_viewed: 'da' } },
+      }),
+    );
+    expect(bad.status).toBe(422);
+    expect(bad.body.errors).toHaveProperty('offer_viewed');
+    expect(
+      (await json(await api('/api/notifications/preferences'))).body.preferences.offer_viewed,
+    ).toBe(true);
+  });
+});
+
 describe('tasks', () => {
   it('creates, reads, updates, completes and cancels a task', async () => {
     const created = await json(

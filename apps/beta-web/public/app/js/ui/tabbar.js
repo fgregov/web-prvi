@@ -1,5 +1,6 @@
 // Primary bottom navigation (Home and the module shells). One definition, so
-// every screen shows the same five items in the same order.
+// every screen shows the same five items in the same order. Izvještaji live
+// under Više; "Obavijesti" is the short label of MOBILNE OBAVIJESTI.
 import { h } from './dom.js';
 import { icon } from './icons.js';
 
@@ -13,7 +14,13 @@ export const TABS = [
     icon: 'repeat',
   },
   { key: 'leads', href: '/leads', label: 'Leads', icon: 'users' },
-  { key: 'reports', href: '/reports', label: 'Izvještaji', icon: 'bars' },
+  {
+    key: 'notifications',
+    href: '/notifications',
+    label: 'Obavijesti',
+    title: 'Mobilne obavijesti',
+    icon: 'bell',
+  },
   { key: 'more', href: '/more', label: 'Više', icon: 'ellipsis' },
 ];
 
@@ -28,7 +35,7 @@ export function renderTabbar(nav, active) {
           class: `tab${isActive ? ' is-active' : ''}${tab.lines ? ' tab--two-line' : ''}`,
           href: tab.href,
           'aria-current': isActive ? 'page' : null,
-          'aria-label': tab.lines ? tab.label : null,
+          'aria-label': tab.lines ? tab.label : (tab.title ?? null),
         },
         icon(tab.icon, `icon${isActive && tab.key === 'home' ? ' icon--filled' : ''}`),
         h(

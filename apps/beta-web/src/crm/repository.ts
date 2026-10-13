@@ -31,6 +31,9 @@ export const emptyData = (): CrmData => ({
   offerEvents: [],
   reminders: [],
   pushSubscriptions: [],
+  notificationPreferences: [],
+  notificationSettings: [],
+  notificationDeliveries: [],
 });
 
 /**
@@ -40,10 +43,30 @@ export const emptyData = (): CrmData => ({
  * ADR-0009 belong to their customer only (no lead). Leads WON before ADR-0009
  * (WON then meant "converted") were won at their conversion: wonAt =
  * convertedAt, wonBasis = 'conversion'. Nothing else changes and no sale is
- * invented.
+ * invented. Data from before MOBILNE OBAVIJESTI: a user with reminders still to
+ * fire keeps receiving them ("Podsjetnik" on); everything else starts off.
  */
 export function normalizeData(input: Partial<CrmData>): CrmData {
   const data = { ...emptyData(), ...input } as CrmData;
+  if (input.notificationPreferences === undefined) {
+    const now = new Date().toISOString();
+    const seen = new Set<string>();
+    for (const r of data.reminders) {
+      const key = `${r.organizationId}|${r.recipientUserId}`;
+      if ((r.status !== 'pending' && r.status !== 'processing') || seen.has(key)) continue;
+      seen.add(key);
+      data.notificationPreferences.push({
+        id: globalThis.crypto.randomUUID(),
+        organizationId: r.organizationId,
+        userId: r.recipientUserId,
+        type: 'reminder_due',
+        enabled: true,
+        enabledAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
   // Records as stored: fields added later may be missing (undefined).
   type Stored<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] };
   data.opportunities = data.opportunities.map((o) => {

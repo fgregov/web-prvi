@@ -178,6 +178,8 @@ describe('Reminder scheduling', () => {
 
   function setup(outcomes: Array<'ok' | 'gone' | 'retry' | 'fail'> = []) {
     const crm = createCrmServices(createMemoryRepository(emptyData()), { demoContent: false });
+    // MOBILNE OBAVIJESTI: reminders are delivered while "Podsjetnik" is on.
+    crm.notifications.update(ctx, { preferences: { reminder_due: true } });
     const sent: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
     let clock = NOW;
     const sender: PushSender = {
@@ -231,8 +233,8 @@ describe('Reminder scheduling', () => {
       'https://push.example/device-2',
     ]);
     expect(sent[0]!.payload).toEqual({
-      title: 'RENVARA — Zadatak',
-      body: 'Poslati ponudu',
+      title: 'RENVARA — Podsjetnik',
+      body: 'Vrijeme je za zadatak: Poslati ponudu',
       url: `/tasks/${task.id}`,
       tag: expect.stringMatching(/^reminder-/),
     });
@@ -268,6 +270,28 @@ describe('Reminder scheduling', () => {
     ]);
     expect(sent[1]!.payload.url).toBe(`/customers/${customer.id}#prilike`);
     expect(JSON.stringify(sent)).not.toContain('Povjerljivo');
+  });
+
+  it('"Podsjetnik" off: a due reminder is not sent and says why; on again: new reminders arrive', async () => {
+    const { crm, sent, scheduler, subscribe, at } = setup();
+    subscribe(1);
+    crm.notifications.update(ctx, { preferences: { reminder_due: false } });
+    const task = crm.tasks.createTask(ctx, { title: 'A', dueDate: '2026-12-31' });
+    crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T07:00:00Z');
+    at('2026-10-10T07:00:20Z');
+    await scheduler.tick();
+    expect(sent).toHaveLength(0);
+    expect(crm.repo.data().reminders[0]).toMatchObject({
+      status: 'failed',
+      lastError: 'notifications_off',
+    });
+    crm.notifications.update(ctx, { preferences: { reminder_due: true } });
+    await scheduler.tick();
+    expect(sent).toHaveLength(0); // the one held back is not sent afterwards
+    crm.reminders.setReminder(ctx, { kind: 'task', id: task.id }, '2026-10-10T08:00:00Z');
+    at('2026-10-10T08:00:10Z');
+    await scheduler.tick();
+    expect(sent).toHaveLength(1);
   });
 
   it('moving a reminder means the old time no longer fires; removing it stops it', async () => {
@@ -542,6 +566,7 @@ describe('Delivery over HTTP to a push service', () => {
       now: new Date('2026-10-09T10:00:00Z'),
     };
     const crm = createCrmServices(createMemoryRepository(emptyData()), { demoContent: false });
+    crm.notifications.update(ctx, { preferences: { reminder_due: true } });
     const d = device();
     crm.pushSubscriptions.subscribe(ctx, {
       endpoint: `http://127.0.0.1:${port}/push/phone`,
@@ -572,8 +597,8 @@ describe('Delivery over HTTP to a push service', () => {
     });
     expect(headers.authorization).toMatch(new RegExp(`^vapid t=[^,]+, k=${keys.publicKey}$`));
     expect(JSON.parse(decrypt(body, d.privateKey, d.authSecret))).toEqual({
-      title: 'RENVARA — Zadatak',
-      body: 'Poslati ponudu za FERO-TERM',
+      title: 'RENVARA — Podsjetnik',
+      body: 'Vrijeme je za zadatak: Poslati ponudu za FERO-TERM',
       url: `/tasks/${task.id}`,
       tag: expect.any(String),
     });
