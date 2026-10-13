@@ -26,8 +26,11 @@ export const WRITE_ORDER = [
   'contacts',
   'opportunities',
   'offers',
+  'offerDocuments',
+  'offerShareLinks',
   'tasks',
   'reminders',
+  'offerEvents',
   'activities',
 ];
 /** Longest the page waits for one database call before the save gives up on it. */

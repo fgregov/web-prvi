@@ -83,15 +83,86 @@ export interface Opportunity extends TenantRecord {
   seeded?: boolean;
 }
 
-/** A sales offer sent within an opportunity (public.offers). Waits for feedback while `sent`. */
+/**
+ * A sales offer (public.offers): created outside Renvara (ERP, Word), tracked
+ * here. Belongs to a customer, optionally to one of its opportunities and
+ * contacts. Waits for feedback from `sentAt` until answered (or withdrawn, or
+ * its deal closed). Follow-up Engine offers carry a PDF and a share link.
+ */
 export interface Offer extends TenantRecord {
-  opportunityId: string;
+  /** The customer (company). Older records get it from their opportunity on load. */
+  companyId: string;
+  opportunityId: string | null;
+  contactId: string | null;
   title: string;
   status: OfferStatus;
   sentAt: Iso | null;
   answeredAt: Iso | null;
   withdrawnAt: Iso | null;
   createdBy: string | null;
+  /** Internal note of the salesperson. Never shown to the customer. */
+  note: string;
+}
+
+/**
+ * The PDF of an offer (public.offer_documents). One active version per offer:
+ * a replacement adds a version and marks the previous one replaced, never
+ * overwriting it. The bytes live in private storage under `storageKey`.
+ */
+export interface OfferDocument extends TenantRecord {
+  offerId: string;
+  /** "<organizationId>/<offerId>/<documentId>.pdf": server-generated only. */
+  storageKey: string;
+  /** Display name (sanitized), e.g. "Ponuda_Feroterm_2026.pdf". */
+  fileName: string;
+  contentType: 'application/pdf';
+  sizeBytes: number;
+  pageCount: number;
+  /** Hex SHA-256 of the bytes (integrity, duplicate detection). */
+  sha256: string;
+  version: number;
+  replacedAt: Iso | null;
+  uploadedBy: string | null;
+}
+
+/**
+ * A secret link that opens one offer's PDF without a Renvara account
+ * (public.offer_share_links). Bearer access: whoever has an unexpired,
+ * unrevoked link can open it. Looked up by the token's SHA-256; the token
+ * itself is kept only sealed (AES-GCM, server key) so it can be copied again.
+ */
+export interface OfferShareLink extends TenantRecord {
+  offerId: string;
+  documentId: string;
+  /** Hex SHA-256 of the token. */
+  tokenHash: string;
+  /** base64url(iv ‖ AES-256-GCM ciphertext) of the token. */
+  tokenSealed: string;
+  expiresAt: Iso;
+  revokedAt: Iso | null;
+  revokedBy: string | null;
+  createdBy: string | null;
+}
+
+/**
+ * One engagement signal on a shared offer (public.offer_engagement_events).
+ * `link_access`: the link was requested (scanners included). `document_view`:
+ * the viewer rendered the PDF in a visible tab. No IP, no raw user agent.
+ */
+export interface OfferEvent {
+  readonly id: string;
+  readonly organizationId: string;
+  offerId: string;
+  shareLinkId: string;
+  type: 'link_access' | 'document_view';
+  occurredAt: Iso;
+  /** Random id of one viewer tab (sessionStorage), null for server-only accesses. */
+  sessionId: string | null;
+  suspectedBot: boolean;
+  /** Why it looks automated: scanner_user_agent, prefetch, head_request, no_user_agent, automation. */
+  botReason: string | null;
+  /** Coarse client family only, e.g. "Safari · iOS". */
+  client: string | null;
 }
 
 export type ReminderTarget =
@@ -213,6 +284,9 @@ export interface CrmData {
   activities: Activity[];
   leads: Lead[];
   offers: Offer[];
+  offerDocuments: OfferDocument[];
+  offerShareLinks: OfferShareLink[];
+  offerEvents: OfferEvent[];
   reminders: Reminder[];
   pushSubscriptions: PushSubscriptionRecord[];
 }

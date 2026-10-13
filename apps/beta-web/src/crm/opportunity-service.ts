@@ -15,7 +15,7 @@ import {
   validateOpportunityClose,
 } from '../../public/app/js/core/validation.js';
 import { CrmValidationError, type FieldErrors } from './errors.ts';
-import { offerView } from './offer-service.ts';
+import { hasDocument, offerView } from './offer-service.ts';
 import { cancelReminders, reminderView, shownReminder, type ReminderView } from './reminders.ts';
 import type { CrmRepository } from './repository.ts';
 import {
@@ -114,7 +114,7 @@ export function createOpportunityService(
       offers: inOrg(data.offers ?? [], ctx)
         .filter((offer) => offer.opportunityId === o.id)
         .sort((a, b) => (b.sentAt ?? b.createdAt).localeCompare(a.sentAt ?? a.createdAt))
-        .map((offer) => offerView(offer, ctx, o)),
+        .map((offer) => offerView(offer, ctx, o, hasDocument(data, ctx, offer.id))),
       reminder: reminder ? reminderView(reminder) : null,
     };
   }

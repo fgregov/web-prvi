@@ -19,7 +19,13 @@ erDiagram
   COMPANIES |o--o{ ACTIVITIES : timeline
   CONTACTS |o--o{ ACTIVITIES : timeline
   OPPORTUNITIES |o--o{ TASKS : "next actions"
-  OPPORTUNITIES ||--o{ OFFERS : "offers sent"
+  COMPANIES ||--o{ OFFERS : "offers"
+  OPPORTUNITIES |o--o{ OFFERS : "within a deal"
+  CONTACTS |o--o{ OFFERS : "addressed to"
+  OFFERS ||--o{ OFFER_DOCUMENTS : "PDF versions"
+  OFFERS ||--o{ OFFER_SHARE_LINKS : "secret links"
+  OFFER_DOCUMENTS ||--o{ OFFER_SHARE_LINKS : "opens"
+  OFFER_SHARE_LINKS ||--o{ OFFER_ENGAGEMENT_EVENTS : "access, views"
   TASKS |o--o{ REMINDERS : ""
   LEADS |o--o{ REMINDERS : ""
   OPPORTUNITIES |o--o{ REMINDERS : ""
@@ -170,13 +176,39 @@ which allows personal reminders. A task may concern a lead (`lead_id`, same
 organization) before that lead is a customer.
 
 ### Offer
-An offer sent to the customer for an opportunity (`offers`, composite FK to
-the opportunity). Minimal by design: `title`, `status` (draft · sent ·
-answered · withdrawn) and one timestamp per state (`sent_at`, `answered_at`,
-`withdrawn_at`, enforced by CHECKs). Sending and answering also write
-`offer_sent` / `offer_answered` activities. An answered offer leaves the
-**Feedback overview** but is never deleted. No document, share link or line
-items yet (see "Future entities").
+An offer of a customer (`offers.company_id`, required), optionally within one
+of its opportunities and addressed to one of its contacts (both optional and
+checked to belong to the same customer by the `offers_relations` trigger;
+an offer with only an opportunity takes its customer from it). Minimal by
+design: `title`, `status` (draft · sent · answered · withdrawn), one
+timestamp per state (`sent_at`, `answered_at`, `withdrawn_at`, enforced by
+CHECKs) and an internal `note` the customer never sees. Sending and answering
+also write `offer_sent` / `offer_answered` activities. An answered offer
+leaves the **Feedback overview** but is never deleted. No line items or
+pricing.
+
+### Offer document, share link, engagement event (Follow-up Engine, ADR-0008)
+- **Offer document** (`offer_documents`): the offer's PDF in the private
+  bucket `offer-documents` at `<organization_id>/<offer_id>/<document_id>.pdf`
+  (a CHECK keeps the path inside the offer's folder), with file name, size,
+  page count, SHA-256 and a version; one active version per offer.
+- **Share link** (`offer_share_links`): bearer access to one document.
+  `token_hash` (SHA-256 of the 256-bit token, unique) for lookup,
+  `token_sealed` (AES-256-GCM under a server key) so the link can be copied
+  again, `expires_at`, `revoked_at`/`revoked_by`. The token itself is never
+  stored readable. Written by the server only (members can read).
+- **Engagement event** (`offer_engagement_events`, append-only):
+  `link_access` (the link was requested; mail scanners included) or
+  `document_view` (the PDF was rendered and visible for 2 s, with a random
+  per-tab `session_id`), `suspected_bot` with its reason, a coarse
+  `client_family`. No IP address, no raw user agent; deleted after the
+  retention period. Written by the server only. The first qualifying view of
+  an offer writes an `offer_viewed` activity ("Pregled ponude zabilježen").
+
+Follow-up Engine (`/follow-up`): every offer, unresolved first, no period;
+filters waiting (sent, not answered, deal open), viewed (unresolved with at
+least one qualifying view), resolved (answered, withdrawn, deal closed). A
+view never counts as an answer and never resets the wait.
 
 Feedback overview (Home): offers sent by the as-of moment, not answered or
 withdrawn by then, whose opportunity was not closed by then. Waiting days are
@@ -257,8 +289,8 @@ resolution (finding "Mark") and the application services.
 |---|---|---|
 | **FollowUp** | **Not a separate entity.** It is a `task` with `type = follow_up`. | A follow-up is something the user must do at a time. A second "future action" table would split the next-action rule in two. |
 | **WaitingItem** | **Model as task state, not an entity.** *Proposal, needs approval:* add a task type `await_response` (or a `waiting_since` column) whose due date is the expected-response date. When it passes, the task is overdue and becomes the follow-up prompt. | Waiting is "the next action is the customer's". Keeping it in tasks keeps one source of truth for next actions and makes "how long have I been waiting" a simple derived value. |
-| **Offer** | **Entity** (`offers`): belongs to an opportunity, has a document in Storage, a public share token, sent_at and status. *Implemented minimally:* title, status and its timestamps (see "Offer"); the document and share token are still to come. | It has its own identity, lifecycle and external link. It is not a pricing engine: no line items or calculations. |
-| **OfferView** | **Entity, append-only event** (`offer_views`), written by an Edge Function when the share link is opened. | High-volume telemetry. Engagement scores are derived from it. Significant views can also produce an `offer_viewed` activity on the timeline. |
+| **Offer** | **Entity** (`offers`). *Implemented:* belongs to a customer (opportunity and contact optional), PDF in private Storage (`offer_documents`), secret share links (`offer_share_links`), status and timestamps (see "Offer", ADR-0008). | It has its own identity, lifecycle and external link. It is not a pricing engine: no line items or calculations. |
+| **OfferView** | **Implemented as** `offer_engagement_events` (append-only, `link_access` · `document_view`), written by the server; the first qualifying view writes an `offer_viewed` activity. | High-volume telemetry, kept apart from the timeline. Counts are signals (scanners are flagged, not hidden), never proof of reading. |
 | **Notification** | **Entity as a delivery log** (`notifications`). What *should* notify is derived from tasks and events; the table records what was sent, to whom, on which channel and when it was read. *Partly implemented:* user-chosen reminders are explicit `reminders` rows (status, attempts, last error), because the user picks their exact time. | Automatic notifications stay derived from tasks and events. The log gives idempotency and read state. |
 | **AIConversation / AIMessage** | **Entities**, user-private by default (RLS on `user_id` as well as organization). | Needed for context, audit and cost tracking. Message content is not CRM data. |
 | **AINote** | **Not an entity.** It is an `activity` (`type = note`, `source = ai_assistant`). | One timeline. Provenance is captured by `source` and the linked conversation ID in `metadata`. |

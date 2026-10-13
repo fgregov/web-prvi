@@ -142,4 +142,95 @@ export const api = {
   dashboardSummary: (from, to) =>
     request('GET', `/api/dashboard/summary${query({ from, to })}`).then((r) => r.summary),
   resetDemo: () => request('POST', '/api/demo/reset', {}),
+  // Follow-up Engine: offer PDFs, share links, engagement (ADR-0008)
+  followUpOffers: (filter = 'all') => request('GET', `/api/follow-up/offers${query({ filter })}`),
+  followUpOffer: (id) => request('GET', `/api/follow-up/offers/${enc(id)}`).then((r) => r.offer),
+  createFollowUpOffer: (input) =>
+    request('POST', '/api/follow-up/offers', input).then((r) => r.offer),
+  markFollowUpSent: (id, sentAt) =>
+    request('POST', `/api/follow-up/offers/${enc(id)}/sent`, { sentAt }).then((r) => r.offer),
+  markFollowUpAnswered: (id) =>
+    request('POST', `/api/follow-up/offers/${enc(id)}/answered`, {}).then((r) => r.offer),
+  revokeFollowUpLink: (id) =>
+    request('POST', `/api/follow-up/offers/${enc(id)}/link/revoke`, {}).then((r) => r.offer),
+  issueFollowUpLink: (id) =>
+    request('POST', `/api/follow-up/offers/${enc(id)}/link`, {}).then((r) => r.offer),
+  /** The PDF for the salesperson's own preview (not counted as a customer view). */
+  async followUpDocument(id) {
+    let response;
+    try {
+      response = await fetch(`/api/follow-up/offers/${enc(id)}/document`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+    } catch {
+      throw new ApiError(0, NETWORK_ERROR);
+    }
+    if (response.status === 401) {
+      window.location.replace('/login?reason=expired');
+      throw new ApiError(401, 'Sesija je istekla.');
+    }
+    if (!response.ok) throw new ApiError(response.status, 'Dokument trenutno nije dostupan.');
+    return response.arrayBuffer();
+  },
+  uploadOfferDocument,
 };
+
+/**
+ * Uploads a picked PDF as the raw request body. `onProgress(0…1)` while it
+ * travels (XMLHttpRequest; the in-browser demo has no network, so fetch).
+ */
+function uploadOfferDocument(file, onProgress = () => {}) {
+  const path = '/api/follow-up/uploads';
+  const headers = {
+    'Content-Type': 'application/pdf',
+    'X-File-Name': encodeURIComponent(file.name ?? 'ponuda.pdf'),
+    Accept: 'application/json',
+  };
+  const settle = (status, payload) => {
+    if (status === 401) {
+      window.location.replace('/login?reason=expired');
+      throw new ApiError(401, 'Sesija je istekla.');
+    }
+    if (status < 200 || status >= 300 || payload.success === false) {
+      const { success, message, errors, ...details } = payload;
+      throw new ApiError(status, message ?? NETWORK_ERROR, errors ?? {}, details);
+    }
+    return payload.upload;
+  };
+  if (globalThis.__rv || typeof XMLHttpRequest === 'undefined') {
+    return fetch(path, { method: 'POST', headers, body: file, credentials: 'same-origin' })
+      .catch(() => {
+        throw new ApiError(0, NETWORK_ERROR);
+      })
+      .then(async (response) => {
+        onProgress(1);
+        return settle(response.status, await response.json().catch(() => ({})));
+      });
+  }
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', path);
+    xhr.withCredentials = true;
+    for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    });
+    xhr.addEventListener('load', () => {
+      let payload = {};
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        /* not JSON: a proxy or network error page */
+      }
+      try {
+        resolve(settle(xhr.status, payload));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    xhr.addEventListener('error', () => reject(new ApiError(0, NETWORK_ERROR)));
+    xhr.addEventListener('abort', () => reject(new ApiError(0, NETWORK_ERROR)));
+    xhr.send(file);
+  });
+}

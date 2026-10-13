@@ -44,7 +44,14 @@ function offerRow(offer, deal) {
     h(
       'span',
       { class: 'rv-offer__text' },
-      h('strong', {}, offer.title),
+      offer.hasDocument
+        ? h(
+            'a',
+            { class: 'rv-offer__link', href: `/follow-up/${encodeURIComponent(offer.id)}` },
+            h('strong', {}, offer.title),
+            ' · PDF',
+          )
+        : h('strong', {}, offer.title),
       h(
         'span',
         {},
@@ -154,6 +161,14 @@ export function customerOpportunities(profile, actions, open) {
                           onClick: () => actions.deal.offerSent(o),
                         },
                         'Ponuda poslana',
+                      ),
+                      h(
+                        'a',
+                        {
+                          class: 'rv-btn rv-btn--sm rv-btn--secondary',
+                          href: `/follow-up/new?opportunityId=${encodeURIComponent(o.id)}`,
+                        },
+                        'Priloži PDF ponude',
                       ),
                       h(
                         'button',

@@ -18,7 +18,8 @@
     "node": ">=22.18"
   },
   "dependencies": {
-    "@renvara/domain": "workspace:*"
+    "@renvara/domain": "workspace:*",
+    "pdfjs-dist": "6.3.289"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

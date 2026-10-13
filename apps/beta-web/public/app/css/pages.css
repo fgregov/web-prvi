@@ -613,6 +613,21 @@ a {
   min-width: 0;
 }
 
+.rv-offer__link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rv-red-text);
+  text-decoration: none;
+}
+
+.rv-offer__link strong {
+  color: var(--rv-ink);
+}
+
+.rv-offer__link:hover strong {
+  text-decoration: underline;
+}
+
 .rv-offer__text span {
   color: var(--rv-muted);
 }

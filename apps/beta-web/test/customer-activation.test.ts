@@ -57,7 +57,7 @@ function around(data: CrmData, companyId: string) {
   return structuredClone({
     contacts: data.contacts.filter((c) => c.companyId === companyId),
     opportunities: deals,
-    offers: data.offers.filter((o) => dealIds.has(o.opportunityId)),
+    offers: data.offers.filter((o) => o.opportunityId && dealIds.has(o.opportunityId)),
     tasks,
     reminders: data.reminders.filter((r) => r.taskId && taskIds.has(r.taskId)),
     leads: data.leads,

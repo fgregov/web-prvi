@@ -410,6 +410,10 @@ export function createCrmApi(
                 activities: [...keep(data.activities), ...seed.activities],
                 leads: [...keep(data.leads), ...seed.leads],
                 offers: [...keep(data.offers), ...seed.offers],
+                // Follow-up Engine records of the replaced offers go with them.
+                offerDocuments: keep(data.offerDocuments),
+                offerShareLinks: keep(data.offerShareLinks),
+                offerEvents: keep(data.offerEvents),
                 // Reminders of the replaced records go with them.
                 reminders: keep(data.reminders),
               });

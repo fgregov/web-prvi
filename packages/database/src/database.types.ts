@@ -481,13 +481,251 @@ export type Database = {
           },
         ];
       };
+      offer_documents: {
+        Row: {
+          content_type: string;
+          created_at: string;
+          created_by: string | null;
+          file_name: string;
+          id: string;
+          offer_id: string;
+          organization_id: string;
+          page_count: number;
+          replaced_at: string | null;
+          sha256: string;
+          size_bytes: number;
+          storage_path: string;
+          updated_at: string;
+          updated_by: string | null;
+          version: number;
+        };
+        Insert: {
+          content_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          file_name: string;
+          id?: string;
+          offer_id: string;
+          organization_id: string;
+          page_count: number;
+          replaced_at?: string | null;
+          sha256: string;
+          size_bytes: number;
+          storage_path: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          version?: number;
+        };
+        Update: {
+          content_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          file_name?: string;
+          id?: string;
+          offer_id?: string;
+          organization_id?: string;
+          page_count?: number;
+          replaced_at?: string | null;
+          sha256?: string;
+          size_bytes?: number;
+          storage_path?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'offer_documents_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offer_documents_offer_fk';
+            columns: ['organization_id', 'offer_id'];
+            isOneToOne: false;
+            referencedRelation: 'offers';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offer_documents_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offer_documents_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      offer_engagement_events: {
+        Row: {
+          bot_reason: string | null;
+          client_family: string | null;
+          event_type: Database['public']['Enums']['offer_event_type'];
+          id: string;
+          occurred_at: string;
+          offer_id: string;
+          organization_id: string;
+          session_id: string | null;
+          share_link_id: string;
+          suspected_bot: boolean;
+        };
+        Insert: {
+          bot_reason?: string | null;
+          client_family?: string | null;
+          event_type: Database['public']['Enums']['offer_event_type'];
+          id?: string;
+          occurred_at?: string;
+          offer_id: string;
+          organization_id: string;
+          session_id?: string | null;
+          share_link_id: string;
+          suspected_bot?: boolean;
+        };
+        Update: {
+          bot_reason?: string | null;
+          client_family?: string | null;
+          event_type?: Database['public']['Enums']['offer_event_type'];
+          id?: string;
+          occurred_at?: string;
+          offer_id?: string;
+          organization_id?: string;
+          session_id?: string | null;
+          share_link_id?: string;
+          suspected_bot?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'offer_engagement_events_link_fk';
+            columns: ['organization_id', 'share_link_id'];
+            isOneToOne: false;
+            referencedRelation: 'offer_share_links';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offer_engagement_events_offer_fk';
+            columns: ['organization_id', 'offer_id'];
+            isOneToOne: false;
+            referencedRelation: 'offers';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offer_engagement_events_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      offer_share_links: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          document_id: string;
+          expires_at: string;
+          id: string;
+          offer_id: string;
+          organization_id: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          token_hash: string;
+          token_sealed: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          document_id: string;
+          expires_at: string;
+          id?: string;
+          offer_id: string;
+          organization_id: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          token_hash: string;
+          token_sealed: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          document_id?: string;
+          expires_at?: string;
+          id?: string;
+          offer_id?: string;
+          organization_id?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          token_hash?: string;
+          token_sealed?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'offer_share_links_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offer_share_links_document_fk';
+            columns: ['organization_id', 'document_id'];
+            isOneToOne: false;
+            referencedRelation: 'offer_documents';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offer_share_links_offer_fk';
+            columns: ['organization_id', 'offer_id'];
+            isOneToOne: false;
+            referencedRelation: 'offers';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offer_share_links_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offer_share_links_revoked_by_fkey';
+            columns: ['revoked_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'offer_share_links_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       offers: {
         Row: {
           answered_at: string | null;
+          company_id: string;
+          contact_id: string | null;
           created_at: string;
           created_by: string | null;
           id: string;
-          opportunity_id: string;
+          note: string;
+          opportunity_id: string | null;
           organization_id: string;
           sent_at: string | null;
           status: Database['public']['Enums']['offer_status'];
@@ -498,10 +736,13 @@ export type Database = {
         };
         Insert: {
           answered_at?: string | null;
+          company_id: string;
+          contact_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
-          opportunity_id: string;
+          note?: string;
+          opportunity_id?: string | null;
           organization_id: string;
           sent_at?: string | null;
           status?: Database['public']['Enums']['offer_status'];
@@ -512,10 +753,13 @@ export type Database = {
         };
         Update: {
           answered_at?: string | null;
+          company_id?: string;
+          contact_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
-          opportunity_id?: string;
+          note?: string;
+          opportunity_id?: string | null;
           organization_id?: string;
           sent_at?: string | null;
           status?: Database['public']['Enums']['offer_status'];
@@ -525,6 +769,20 @@ export type Database = {
           withdrawn_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'offers_company_fk';
+            columns: ['organization_id', 'company_id'];
+            isOneToOne: false;
+            referencedRelation: 'companies';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'offers_contact_fk';
+            columns: ['organization_id', 'contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['organization_id', 'id'];
+          },
           {
             foreignKeyName: 'offers_created_by_fkey';
             columns: ['created_by'];
@@ -1274,6 +1532,7 @@ export type Database = {
         | 'note'
         | 'offer_sent'
         | 'offer_answered'
+        | 'offer_viewed'
         | 'follow_up'
         | 'status_change'
         | 'other';
@@ -1302,6 +1561,7 @@ export type Database = {
       lead_status: 'active' | 'won' | 'lost';
       member_role: 'owner' | 'admin' | 'manager' | 'sales';
       member_status: 'active' | 'suspended' | 'removed';
+      offer_event_type: 'link_access' | 'document_view';
       offer_status: 'draft' | 'sent' | 'answered' | 'withdrawn';
       opportunity_stage: 'new_lead' | 'contacted' | 'qualified' | 'proposal' | 'negotiation';
       opportunity_status: 'active' | 'won' | 'lost';
@@ -1436,6 +1696,7 @@ export const Constants = {
         'note',
         'offer_sent',
         'offer_answered',
+        'offer_viewed',
         'follow_up',
         'status_change',
         'other',
@@ -1467,6 +1728,7 @@ export const Constants = {
       lead_status: ['active', 'won', 'lost'],
       member_role: ['owner', 'admin', 'manager', 'sales'],
       member_status: ['active', 'suspended', 'removed'],
+      offer_event_type: ['link_access', 'document_view'],
       offer_status: ['draft', 'sent', 'answered', 'withdrawn'],
       opportunity_stage: ['new_lead', 'contacted', 'qualified', 'proposal', 'negotiation'],
       opportunity_status: ['active', 'won', 'lost'],

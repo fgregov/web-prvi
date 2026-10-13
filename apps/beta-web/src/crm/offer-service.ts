@@ -1,5 +1,5 @@
-// OfferService: sales offers sent within an opportunity, and the FEEDBACK
-// OVERVIEW built from them. An offer waits for feedback from the moment it is
+// OfferService: sales offers of a customer (optionally within an opportunity),
+// and the FEEDBACK OVERVIEW built from them. An offer waits for feedback from the moment it is
 // recorded as sent until the customer's answer is recorded (or its deal is
 // won or lost). Nothing else counts: no drafts, no uploads, no tasks, no
 // viewed PDFs. Answered offers are kept with their dates.
@@ -15,8 +15,10 @@ import type { CrmContext, CrmData, Customer, Offer, Opportunity } from './types.
 export interface FeedbackItem {
   offerId: string;
   title: string;
-  opportunityId: string;
+  opportunityId: string | null;
   opportunityTitle: string;
+  /** Uploaded in the Follow-up Engine: opens there (document, link, engagement). */
+  hasDocument: boolean;
   companyId: string;
   customerName: string;
   /** For a quick call from the overview, when the deal has a contact with a phone. */
@@ -34,25 +36,30 @@ export interface FeedbackItem {
 export function feedbackItems(data: CrmData, ctx: CrmContext, asOf: Date): FeedbackItem[] {
   const at = asOf.getTime();
   const after = (iso: string | null | undefined) => !iso || Date.parse(iso) > at;
+  const documented = new Set(inOrg(data.offerDocuments ?? [], ctx).map((d) => d.offerId));
   const items: FeedbackItem[] = [];
   for (const offer of inOrg(data.offers, ctx)) {
     if (offer.status === 'draft' || !offer.sentAt || Date.parse(offer.sentAt) > at) continue;
     if (!after(offer.answeredAt) || !after(offer.withdrawnAt)) continue;
-    const opportunity = findInOrg(data.opportunities, ctx, offer.opportunityId);
-    if (!opportunity || !after(opportunity.closedAt)) continue;
-    const customer = findInOrg(data.customers, ctx, opportunity.companyId);
+    // An offer within a deal stops waiting when the deal is won or lost.
+    const opportunity = offer.opportunityId
+      ? findInOrg(data.opportunities, ctx, offer.opportunityId)
+      : undefined;
+    if (offer.opportunityId && (!opportunity || !after(opportunity.closedAt))) continue;
+    const customer = findInOrg(data.customers, ctx, offer.companyId);
     const contact = findInOrg(
       data.contacts,
       ctx,
-      opportunity.contactId ?? customer?.primaryContactId,
+      offer.contactId ?? opportunity?.contactId ?? customer?.primaryContactId,
     );
     const waitingDays = offerWaitingDays(new Date(offer.sentAt), asOf, ctx.timeZone);
     items.push({
       offerId: offer.id,
       title: offer.title,
-      opportunityId: opportunity.id,
-      opportunityTitle: opportunity.title,
-      companyId: opportunity.companyId,
+      opportunityId: opportunity?.id ?? null,
+      opportunityTitle: opportunity?.title ?? '',
+      hasDocument: documented.has(offer.id),
+      companyId: offer.companyId,
       customerName: customer?.companyName ?? '',
       contactPhone: contact?.phone || customer?.phone || null,
       sentAt: offer.sentAt,
@@ -72,7 +79,11 @@ export type OfferStanding = 'waiting' | 'draft' | 'answered' | 'withdrawn' | 'cl
 export const OFFER_FILTERS = ['all', 'waiting', 'answered', 'draft'] as const;
 export type OfferFilter = (typeof OFFER_FILTERS)[number];
 
-export function offerStanding(offer: Offer, opportunity: Opportunity | undefined, at: number) {
+export function offerStanding(
+  offer: Offer,
+  opportunity: Opportunity | undefined,
+  at: number,
+): OfferStanding {
   const by = (iso: string | null | undefined) => Boolean(iso) && Date.parse(iso!) <= at;
   // A status without its date (never written so, but kept safe) counts from the start.
   if (by(offer.withdrawnAt) || (offer.status === 'withdrawn' && !offer.withdrawnAt)) {
@@ -97,8 +108,10 @@ export interface OfferOverviewItem {
   sentAt: string | null;
   answeredAt: string | null;
   withdrawnAt: string | null;
-  opportunityId: string;
+  opportunityId: string | null;
   opportunityTitle: string;
+  /** Uploaded in the Follow-up Engine: opens there (document, link, engagement). */
+  hasDocument: boolean;
   companyId: string;
   customerName: string;
   customerActive: boolean;
@@ -134,12 +147,13 @@ export function offersOverview(
     inOrg(data.opportunities, ctx).map((o) => [o.id, o]),
   );
   const customers = new Map<string, Customer>(inOrg(data.customers, ctx).map((c) => [c.id, c]));
+  const documented = new Set(inOrg(data.offerDocuments ?? [], ctx).map((d) => d.offerId));
   const all: OfferOverviewItem[] = [];
   for (const offer of inOrg(data.offers ?? [], ctx)) {
     const created = Date.parse(offer.createdAt);
     if (created < from || created >= to) continue;
-    const opportunity = opportunities.get(offer.opportunityId);
-    const customer = opportunity ? customers.get(opportunity.companyId) : undefined;
+    const opportunity = offer.opportunityId ? opportunities.get(offer.opportunityId) : undefined;
+    const customer = customers.get(offer.companyId);
     const standing = offerStanding(offer, opportunity, asOf.getTime());
     const waitingDays =
       standing === 'waiting' ? offerWaitingDays(new Date(offer.sentAt!), asOf, ctx.timeZone) : null;
@@ -156,7 +170,8 @@ export function offersOverview(
       withdrawnAt: offer.withdrawnAt,
       opportunityId: offer.opportunityId,
       opportunityTitle: opportunity?.title ?? '',
-      companyId: opportunity?.companyId ?? '',
+      hasDocument: documented.has(offer.id),
+      companyId: offer.companyId,
       customerName: customer?.companyName ?? '',
       customerActive: customer ? customer.status !== 'inactive' : true,
     });
@@ -182,14 +197,34 @@ export function offersOverview(
   };
 }
 
-/** An offer as an opportunity shows it, with its current wait while unanswered. */
-export function offerView(offer: Offer, ctx: CrmContext, opportunity: Opportunity) {
-  const waiting = offer.status === 'sent' && opportunity.status === 'active' && offer.sentAt;
+/**
+ * An offer with its current wait while unanswered (and its deal, if any, still
+ * open). `hasDocument`: uploaded in the Follow-up Engine.
+ */
+export function offerView(
+  offer: Offer,
+  ctx: CrmContext,
+  opportunity: Opportunity | undefined,
+  hasDocument = false,
+) {
+  const waiting =
+    offer.status === 'sent' && (!opportunity || opportunity.status === 'active') && offer.sentAt;
   const waitingDays = waiting
     ? offerWaitingDays(new Date(offer.sentAt!), ctx.now, ctx.timeZone)
     : null;
-  return { ...offer, waitingDays, band: waitingDays === null ? null : waitingBand(waitingDays) };
+  return {
+    ...offer,
+    hasDocument,
+    waitingDays,
+    band: waitingDays === null ? null : waitingBand(waitingDays),
+  };
 }
+
+/** Whether the offer has a PDF (uploaded in the Follow-up Engine). */
+export const hasDocument = (data: CrmData, ctx: CrmContext, offerId: string) =>
+  (data.offerDocuments ?? []).some(
+    (d) => d.offerId === offerId && d.organizationId === ctx.organizationId,
+  );
 
 export function createOfferService(repo: CrmRepository) {
   function activeOpportunity(data: CrmData, ctx: CrmContext, id: unknown): Opportunity {
@@ -223,13 +258,16 @@ export function createOfferService(repo: CrmRepository) {
       const offer: Offer = {
         id: newId(),
         organizationId: ctx.organizationId,
+        companyId: opportunity.companyId,
         opportunityId: opportunity.id,
+        contactId: opportunity.contactId,
         title: str(input.title),
         status: 'sent',
         sentAt: sentAt.toISOString(),
         answeredAt: null,
         withdrawnAt: null,
         createdBy: ctx.user.id,
+        note: '',
         createdAt: now,
         updatedAt: now,
       };
@@ -258,17 +296,19 @@ export function createOfferService(repo: CrmRepository) {
       }
       const now = ctx.now.toISOString();
       Object.assign(offer, { status: 'answered', answeredAt: now, updatedAt: now });
-      const opportunity = requireInOrg(data.opportunities, ctx, offer.opportunityId);
+      const opportunity = offer.opportunityId
+        ? findInOrg(data.opportunities, ctx, offer.opportunityId)
+        : undefined;
       addActivity(
         data,
         ctx,
-        opportunity.companyId,
+        offer.companyId,
         'offer_answered',
-        `${offer.title} · ${opportunity.title}`,
-        opportunity.id,
+        opportunity ? `${offer.title} · ${opportunity.title}` : offer.title,
+        opportunity?.id ?? offer.id,
       );
       repo.commit();
-      return offerView(offer, ctx, opportunity);
+      return offerView(offer, ctx, opportunity, hasDocument(data, ctx, offer.id));
     },
 
     listForOpportunity(ctx: CrmContext, opportunityId: string) {
@@ -277,7 +317,7 @@ export function createOfferService(repo: CrmRepository) {
       return inOrg(data.offers, ctx)
         .filter((o) => o.opportunityId === opportunityId)
         .sort((a, b) => (b.sentAt ?? b.createdAt).localeCompare(a.sentAt ?? a.createdAt))
-        .map((o) => offerView(o, ctx, opportunity));
+        .map((o) => offerView(o, ctx, opportunity, hasDocument(data, ctx, o.id)));
     },
 
     /** FEEDBACK OVERVIEW as of an instant (now, or the end of a past period). */

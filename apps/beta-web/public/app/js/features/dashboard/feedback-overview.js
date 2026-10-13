@@ -1,6 +1,6 @@
 // FEEDBACK OVERVIEW (Home): sent offers still waiting for the customer, most
 // urgent first, with the wait as a day badge: 1–4D yellow, 5–9D red, 10D+ black.
-// A row opens the offer's opportunity (on its customer's profile); "Svi" opens
+// A row opens the offer (Follow-up Engine, when it has a PDF) or its opportunity; "Svi" opens
 // every offer of the period (/feedback-overview).
 import { h } from '../../ui/dom.js';
 import { spriteIcon } from './sprite.js';
@@ -8,10 +8,12 @@ import { spriteIcon } from './sprite.js';
 const BAND_LABEL = { yellow: 'čeka', red: 'potreban follow-up', black: 'hitan follow-up' };
 
 /**
- * Where an offer opens: its opportunity on the customer's profile, with the
- * offer marked (an offer has no page of its own).
+ * Where an offer opens: its page in the Follow-up Engine when it has a PDF
+ * (link, views, history); otherwise its opportunity on the customer's profile,
+ * with the offer marked.
  */
 export function offerHref(item) {
+  if (item.hasDocument) return `/follow-up/${encodeURIComponent(item.offerId)}`;
   return `/customers/${encodeURIComponent(item.companyId)}?offer=${encodeURIComponent(item.offerId)}#prilike`;
 }
 

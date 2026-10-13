@@ -1,0 +1,138 @@
+/* Customer offer viewer: the Renvara look (white, red accent), system fonts only
+   (no third-party requests from a page that carries a secret link). */
+:root {
+  --ov-red: #e32222;
+  --ov-red-text: #c81e1e;
+  --ov-ink: #111111;
+  --ov-muted: #5f6670;
+  --ov-border: #eceef1;
+  --ov-bg: #f6f7f8;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ov-bg);
+  color: var(--ov-ink);
+  font:
+    15px/1.45 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.ov-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.ov-header__brand {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ov-main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 16px 16px 24px;
+}
+
+.ov-card {
+  background: #ffffff;
+  border: 1px solid var(--ov-border);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(17, 17, 17, 0.04),
+    0 4px 14px rgba(17, 17, 17, 0.04);
+  padding: 18px;
+}
+
+.ov-eyebrow {
+  margin: 0 0 4px;
+  color: var(--ov-red-text);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.ov-title,
+.ov-message h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.ov-meta,
+.ov-message p {
+  margin: 6px 0 0;
+  color: var(--ov-muted);
+  font-size: 14px;
+}
+
+.ov-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--ov-red);
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ov-download:focus-visible {
+  outline: 2px solid var(--ov-red);
+  outline-offset: 2px;
+}
+
+.ov-status {
+  margin: 16px 2px;
+  color: var(--ov-muted);
+}
+
+.ov-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pdf-page {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(17, 17, 17, 0.12);
+}
+
+.ov-footer {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  color: var(--ov-muted);
+  font-size: 12px;
+}
+
+.ov-footer p {
+  margin: 0;
+}

@@ -9,11 +9,14 @@
 //     store is unavailable, they stay in this browser only.
 //   - Login accepts any username and password; nothing is sent anywhere.
 import { createCrmApi } from '../server/crm/dispatch.js';
+import { createFollowUpApi, VIEWER_PAGE } from '../server/crm/follow-up-api.js';
 import { createCrmServices } from '../server/crm/index.js';
 import { emptyData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
+import { deriveShareKey } from '../server/crm/share-token.js';
 import { DEMO_CONTENT } from '../app/js/core/edition.js';
 import { databaseStore } from './database-store.js';
+import { indexedDbDocumentStore } from './document-store-idb.js';
 import { LOADERS, PAGES, STYLES } from './pages.js';
 
 const ORIGIN = 'https://demo.renvara.app';
@@ -34,6 +37,9 @@ const COLLECTIONS = [
   'activities',
   'leads',
   'offers',
+  'offerDocuments',
+  'offerShareLinks',
+  'offerEvents',
   'reminders',
 ];
 const LATENCY_MS = 140; // makes loading states visible, like a real request
@@ -164,10 +170,19 @@ const repo = {
     }
   },
 };
+// Follow-up Engine: PDFs in this browser's IndexedDB. The link key is fixed and
+// public (it is in this page): demo links protect nothing and open only here.
+const services = createCrmServices(repo, {
+  followUp: {
+    documents: indexedDbDocumentStore(),
+    shareKey: deriveShareKey('renvara-demo-share-links:not-a-secret:v1'),
+  },
+});
 // No server behind the demo: reminders are saved, push is never delivered (and says so).
-const api = createCrmApi(createCrmServices(repo), {
+const api = createCrmApi(services, {
   push: { configured: false, publicKey: null, demo: true },
 });
+const followUpApi = createFollowUpApi(services);
 
 async function answer(method, path, query, body) {
   if (path === '/api/auth/session') {
@@ -213,6 +228,91 @@ async function answer(method, path, query, body) {
   return [result.status, result.body];
 }
 
+/** Saves after a write that succeeded; on failure continues from what the store holds. */
+async function persist(before) {
+  try {
+    await store.save(data);
+    return null;
+  } catch (error) {
+    console.error('Test database write failed', error);
+    data = store.current ? store.current() : JSON.parse(before);
+    return [503, { success: false, message: SAVE_FAILED }];
+  }
+}
+
+/** What the server reads from a request's headers to tell people from scanners. */
+const clientHeaders = () => ({ userAgent: navigator.userAgent, purpose: null });
+
+/**
+ * Follow-up Engine requests (/api/follow-up/…, /o/{token}/…): the same API as
+ * the BETA server, with files and binary bodies. Links are relative (/o/…):
+ * the demo has no public address, so they open only inside this demo.
+ */
+async function answerFollowUp(method, path, query, headers, bytes) {
+  const hit = followUpApi.match(method, path);
+  if (hit.kind === 'none') return [404, followUpApi.badRequest];
+  if (hit.kind === 'method_not_allowed') return [405, followUpApi.badRequest];
+  let json = null;
+  if (hit.route.body === 'json') {
+    try {
+      json = bytes?.length ? JSON.parse(new TextDecoder().decode(bytes)) : {};
+    } catch {
+      return [400, followUpApi.badRequest];
+    }
+  }
+  const before = JSON.stringify(data);
+  const result = await followUpApi.run(hit, {
+    method,
+    path,
+    query,
+    ctx: isSignedIn() ? context() : null,
+    json,
+    bytes: hit.route.body === 'pdf' ? bytes : null,
+    headers: {
+      contentType: headers.get('Content-Type'),
+      fileName: headers.get('X-File-Name'),
+      ...clientHeaders(),
+    },
+    internal: false, // in the demo the viewer plays the customer
+    origin: '',
+    now: new Date(),
+  });
+  if (method !== 'GET' && result.status < 400 && JSON.stringify(data) !== before) {
+    const failed = await persist(before);
+    if (failed) return failed;
+  }
+  if ('bytes' in result) {
+    return [
+      result.status,
+      new Response(result.bytes, {
+        status: result.status,
+        headers: { 'Content-Type': 'application/pdf' },
+      }),
+    ];
+  }
+  return [result.status, result.json];
+}
+
+/** Opening /o/{token} counts as "link opened", as on the server (saved like a write). */
+function recordViewerAccess(token) {
+  writes = writes.then(async () => {
+    const before = JSON.stringify(data);
+    try {
+      await followUpApi.pageAccess(token, {
+        method: 'GET',
+        headers: clientHeaders(),
+        now: new Date(),
+        internal: false,
+      });
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+    if (JSON.stringify(data) !== before) await persist(before);
+  });
+  return writes;
+}
+
 const jsonResponse = (status, payload) =>
   new Response(JSON.stringify(payload), {
     status,
@@ -221,13 +321,31 @@ const jsonResponse = (status, payload) =>
 
 let writes = Promise.resolve(); // writes run one at a time, like a single server process
 const realFetch = window.fetch.bind(window);
+const isFollowUp = (url) => url.startsWith('/api/follow-up/') || url.startsWith('/o/');
 window.fetch = (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
-  if (!url.startsWith('/api/')) return realFetch(input, init);
+  if (!url.startsWith('/api/') && !url.startsWith('/o/')) return realFetch(input, init);
   const method = (init.method ?? 'GET').toUpperCase();
   const run = async () => {
     await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
     const parsed = new URL(url, ORIGIN);
+    if (isFollowUp(url)) {
+      let bytes = null;
+      if (init.body !== undefined && init.body !== null) {
+        bytes =
+          typeof init.body === 'string'
+            ? new TextEncoder().encode(init.body)
+            : new Uint8Array(await new Response(init.body).arrayBuffer());
+      }
+      const [status, payload] = await answerFollowUp(
+        method,
+        parsed.pathname,
+        parsed.searchParams,
+        new Headers(init.headers ?? {}),
+        bytes,
+      );
+      return payload instanceof Response ? payload : jsonResponse(status, payload);
+    }
     let body = {};
     try {
       body = init.body ? JSON.parse(init.body) : {};
@@ -258,7 +376,8 @@ const ROUTES = {
   '/leads': 'leads',
   '/leads/new': 'lead-new',
   '/feedback-overview': 'feedback-overview',
-  '/follow-up': 'module',
+  '/follow-up': 'follow-up',
+  '/follow-up/new': 'follow-up-new',
   '/reports': 'module',
   '/more': 'module',
 };
@@ -268,6 +387,9 @@ const PATTERNS = [
   [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form'],
   [/^\/leads\/[A-Za-z0-9_-]{1,64}$/, 'lead'],
   [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert'],
+  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}$/, 'follow-up-offer'],
+  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}\/preview$/, 'follow-up-preview'],
+  [VIEWER_PAGE, 'viewer'], // the customer's link: no sign-in
 ];
 
 let nav = { stack: ['/login'], states: [null], index: 0 };
@@ -416,7 +538,7 @@ function pageFor(pathname) {
 
 const STORE_NOTE = {
   database:
-    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Kupci, kontakti, prilike, zadaci i leadovi spremaju se u testnu bazu ovog demoa.',
+    'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Kupci, kontakti, prilike, zadaci, leadovi i ponude spremaju se u testnu bazu ovog demoa; PDF dokumenti ponuda ostaju samo u ovom pregledniku.',
   browser: DEMO_CONTENT
     ? 'Demo s primjerima podataka: prijava prihvaća bilo koje korisničko ime i lozinku. Promjene se spremaju samo u ovom pregledniku, a primjeri se svaki dan vraćaju na početno stanje.'
     : 'Demo: prijava prihvaća bilo koje korisničko ime i lozinku. Testna baza ovdje nije dostupna, pa se podaci spremaju samo u ovom pregledniku.',
@@ -429,7 +551,7 @@ async function render() {
   const page = pageFor(pathname);
   // What the server does: unknown → dashboard, protected → login, login while signed in → dashboard.
   if (!page) return navigate('/dashboard', 'replace');
-  if (page !== 'login' && !isSignedIn()) return navigate('/login', 'replace');
+  if (page !== 'login' && page !== 'viewer' && !isSignedIn()) return navigate('/login', 'replace');
   if (page === 'login' && isSignedIn()) return navigate('/dashboard', 'replace');
   if (pathname === '/') return navigate(`/${page}`, 'replace');
 
@@ -443,6 +565,12 @@ async function render() {
     if (!['SCRIPT', 'STYLE', 'TITLE', 'META'].includes(node.tagName)) node.remove();
   }
   document.documentElement.classList.remove('rv-scroll-lock');
+
+  if (page === 'viewer') {
+    const token = VIEWER_PAGE.exec(pathname)?.[1] ?? '';
+    await recordViewerAccess(token);
+    if (run !== generation) return;
+  }
 
   const def = PAGES[page];
   useStyles(def.styles);

@@ -18,6 +18,7 @@ import { resolveStaticFile, sendFile } from './http/static.ts';
 import { createCrmServices, type CrmServices } from './crm/index.ts';
 import { createMemoryRepository } from './crm/repository.ts';
 import type { PushConfig } from './crm/dispatch.ts';
+import { applyViewerCsp, createFollowUpRoutes } from './crm/follow-up-routes.ts';
 import { createCrmRoutes, type CrmRouteOptions } from './crm/routes.ts';
 import { seedDemoData } from './crm/seed.ts';
 import type { CrmContext } from './crm/types.ts';
@@ -59,8 +60,9 @@ const CRM_PAGES: Record<string, string> = {
   '/leads': 'leads.html',
   '/leads/new': 'lead-new.html',
   '/feedback-overview': 'feedback-overview.html',
+  '/follow-up': 'follow-up.html',
+  '/follow-up/new': 'follow-up-new.html',
   // Primary modules not built yet: navigation shells.
-  '/follow-up': 'module.html',
   '/reports': 'module.html',
   '/more': 'module.html',
 };
@@ -70,6 +72,8 @@ const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
   [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form.html'],
   [/^\/leads\/[A-Za-z0-9_-]{1,64}$/, 'lead.html'],
   [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert.html'],
+  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}$/, 'follow-up-offer.html'],
+  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}\/preview$/, 'follow-up-preview.html'],
 ];
 
 const BRAND_ICONS = new Set([
@@ -151,6 +155,7 @@ export function createApp(
     publicOrigin,
   });
   const now = crm.now ?? (() => new Date());
+  const followUpRoutes = createFollowUpRoutes(crm.services, { publicOrigin, now });
   const logoFile = resolve(paths.dashboardDir, 'assets/renvara-logo.png');
 
   const sessionToken = (req: IncomingMessage) =>
@@ -284,6 +289,9 @@ export function createApp(
     const path = url.pathname;
     const method = req.method === 'HEAD' ? 'GET' : (req.method ?? 'GET');
 
+    // ---- Follow-up Engine: its API, the customer's offer viewer (/o/…) ----
+    if (await followUpRoutes.handle(req, res, url, () => crmContext(req))) return;
+
     // ---- API -------------------------------------------------------------
     if (path.startsWith('/api/')) {
       if (await crmRoutes.handle(req, res, path, url.searchParams, () => crmContext(req))) return;
@@ -350,6 +358,8 @@ export function createApp(
     if (crmPage) {
       if (!requireAuth(req, res)) return;
       noStore(res);
+      // The internal offer preview renders the PDF with pdf.js (worker, WebAssembly).
+      if (crmPage === 'follow-up-preview.html') applyViewerCsp(res);
       return sendFile(res, resolve(paths.appDir, 'pages', crmPage));
     }
     if (path.startsWith('/app/')) {

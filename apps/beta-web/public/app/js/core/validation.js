@@ -37,7 +37,34 @@ export const MESSAGES = Object.freeze({
   reminderInvalid: 'Odaberite datum i vrijeme podsjetnika.',
   opportunityClosed: 'Prilika je već zatvorena (dobivena ili izgubljena).',
   offerNotWaiting: 'Ponuda ne čeka odgovor.',
+  // Follow-up Engine: offer documents and share links
+  documentRequired: 'Odaberite PDF dokument.',
+  documentUnsupported: 'Trenutno je podržano učitavanje PDF dokumenata.',
+  documentTooLarge: 'Datoteka premašuje dopuštenu veličinu.',
+  documentEmpty: 'Odabrana datoteka je prazna.',
+  documentInvalid: 'Odabrana datoteka nije ispravan PDF dokument.',
+  documentEncrypted: 'PDF je zaštićen lozinkom pa ga kupac ne bi mogao otvoriti.',
+  documentUploadFailed: 'Dokument nije moguće učitati. Pokušajte ponovno.',
+  linkFailed: 'Poveznicu nije moguće generirati.',
+  linkActive: 'Ponuda već ima aktivnu poveznicu.',
+  offerAlreadySent: 'Ponuda je već označena kao poslana.',
+  sentInFuture: 'Vrijeme slanja ne može biti u budućnosti.',
+  sentTooOld: 'Odaberite vrijeme slanja unutar zadnjih godinu dana.',
 });
+
+/** Follow-up Engine document limits (the server checks them again). */
+export const DOCUMENT_TYPES = Object.freeze(['application/pdf']);
+export const DEFAULT_MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+
+/** A file the user picked: PDF only, not empty, within the size limit. Null when acceptable. */
+export function documentFileError({ name, type, size }, maxBytes = DEFAULT_MAX_DOCUMENT_BYTES) {
+  const isPdfName = /\.pdf$/i.test(String(name ?? ''));
+  // Some pickers report no MIME type; then the name decides (the server checks the content).
+  if (type ? !DOCUMENT_TYPES.includes(type) : !isPdfName) return MESSAGES.documentUnsupported;
+  if (!size) return MESSAGES.documentEmpty;
+  if (size > maxBytes) return MESSAGES.documentTooLarge;
+  return null;
+}
 
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
 const allowed = (list, value) => list.some((item) => item.value === value);
@@ -363,6 +390,26 @@ export function validateOffer(input, { today }) {
     else if (String(input.sentDate) > today)
       errors.sentDate = 'Ponuda ne može biti poslana u budućnosti.';
   }
+  return errors;
+}
+
+/**
+ * Follow-up Engine "Nova ponuda": an uploaded PDF, a title and a customer;
+ * opportunity and contact optional (they must belong to the customer, checked
+ * by the server); an internal note.
+ */
+export function validateFollowUpOffer(input) {
+  const errors = {};
+  if (blank(input.uploadId)) errors.document = MESSAGES.documentRequired;
+  else if (badId(input.uploadId)) errors.document = MESSAGES.documentUploadFailed;
+  if (!text(input.title)) errors.title = REQUIRED;
+  maxLength(errors, input, 'title', 300);
+  if (blank(input.companyId)) errors.companyId = MESSAGES.customerRequired;
+  else if (badId(input.companyId)) errors.companyId = MESSAGES.unavailable;
+  for (const key of ['opportunityId', 'contactId']) {
+    if (badId(input[key])) errors[key] = MESSAGES.unavailable;
+  }
+  maxLength(errors, input, 'note', 5000);
   return errors;
 }
 

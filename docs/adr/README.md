@@ -13,3 +13,4 @@ marked *Proposed*.
 | [0005](0005-derived-data-and-metadata.md) | Compute derived data first; JSONB only for type-specific activity details | Accepted |
 | [0006](0006-deletion-strategy.md) | Archive/close for users, hard delete with defined cascades; no generic soft delete | Accepted |
 | [0007](0007-provider-independent-ai-and-billing.md) | AI and billing behind provider-neutral ports | Accepted (design only) |
+| [0008](0008-follow-up-engine-offer-sharing.md) | Follow-up Engine: private offer PDFs, sealed bearer links, two engagement event types | Accepted |

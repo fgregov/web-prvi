@@ -254,6 +254,58 @@ closes the deal as won with its final amount (`wonValue`, when it differs from
 the estimate); **Izgubljeno** closes it as lost with a reason. Each writes an
 activity. Closing cancels the deal's pending reminder.
 
+### Follow-up Engine: offer PDFs and customer links
+
+`/follow-up` (bottom navigation) lists every offer, unresolved first, with
+filters **Sve / Čeka odgovor / Pregledano / Riješeno** (no period: an offer
+waiting since last quarter is still waiting). Each card shows the customer,
+offer, opportunity, sending date, recorded views and the wait badge
+(1–4D yellow, 5–9D red, 10D+ black; the sending day is day 1; a view never
+resets the wait). Design and security decisions: ADR-0008.
+
+1. **+ Attach new document** (`/follow-up/new`): pick a PDF (PDF only, up to
+   20 MB, checked in the browser and again on the server: type, size, `%PDF-`
+   header, parsed with pdf.js, password-protected PDFs refused). It uploads at
+   once with progress ("Učitavanje dokumenta... 68%") into private storage.
+   Name, customer (required), opportunity and contact (optional, same
+   customer), internal note.
+2. **Spremi i generiraj link** creates the offer (a draft), its document and a
+   secret link in one transaction: **PONUDA USPJEŠNO DODANA** with **Kopiraj
+   link**, **Pregledaj ponudu**, **Označi kao poslano**. Renvara sends no
+   e-mail: the salesperson pastes the link into their own e-mail.
+3. **Označi kao poslano** (now, or an earlier date and time, never in the
+   future): the wait starts there; a recorded sending is never overwritten.
+   **Označi odgovorenim** resolves it. **Opozovi link** stops the link at once
+   (the offer, document and history stay); **Generiraj novi link** issues a
+   new one.
+4. The customer opens `/o/{token}` without an account: the offer's title and
+   PDF (rendered with pdf.js, download offered), nothing internal. A view is
+   recorded when the first page has been visible for 2 s ("Pregled ponude
+   zabilježen" on the offer and the customer's timeline): a signal that the
+   offer was opened, not proof that it was read.
+
+Links: 32 random bytes (256 bits, base64url), stored only as a SHA-256 hash
+(lookup) and sealed with AES-256-GCM (so the link can be copied again); they
+expire after `RENVARA_SHARE_LINK_DAYS` (90) and can be revoked. Whoever has an
+active link can open the offer (bearer access), as the UI says. Viewer and
+public routes: `noindex`, `Referrer-Policy: no-referrer`, `no-store`, a strict
+CSP, rate limits (120 requests/min per IP, 30 view events/min per IP); the PDF
+is sent only to a valid token, never from a public file URL.
+
+Engagement: `link_access` (the link was requested; mail scanners do this too)
+and `document_view` (rendered and visible) are kept apart. Scanners, link
+previews, prefetch, `HEAD`, missing user agents, automated browsers and
+repeats within 3 s count as **Mogući automatski pristup**, never as views.
+Views from one viewing session within 30 minutes count once; the salesperson's
+own preview and any request with a Renvara session are not counted. Stored per
+event: time, type, a random per-tab session id, a coarse client family
+("Safari · iOS"), suspected-bot reason. No IP address, no raw user agent, no
+cookies; events older than `RENVARA_EVENT_RETENTION_DAYS` (365) are deleted.
+The detail screen refreshes every 30 s while open.
+
+Offers with a PDF open in the Follow-up Engine from Ponude and the Home
+feedback list; opportunity cards link them and offer **Priloži PDF ponude**.
+
 ### Push reminders
 
 Tasks (create/edit form), leads (New Lead, "Postavi podsjetnik" on the lead)
@@ -320,6 +372,9 @@ Renvara, Focus) decide how they are shown.
 | `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
 | `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |
 | `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` | New lead, Lead Detail, Pretvori u kupca                |
+| `/follow-up?filter=all\|waiting\|viewed\|resolved`  | FOLLOW-UP ENGINE (offer overview)                      |
+| `/follow-up/new`, `/follow-up/{id}`, `/follow-up/{id}/preview` | Attach new document, offer detail (`?new=1`: success), own preview (not counted) |
+| `/o/{token}` (public, no session)                 | The customer's offer viewer                            |
 
 ### API (session required; writes: JSON, same origin)
 
@@ -343,6 +398,11 @@ Renvara, Focus) decide how they are shown.
 | `PUT /api/tasks\|leads\|opportunities/{id}/reminder` (`{reminderAt: ISO \| null}`)                         | Set, move or remove a reminder                  |
 | `GET /api/push/status`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe`                      | Push availability, this device on/off           |
 | `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |
+| `POST /api/follow-up/uploads` (raw `application/pdf` body, `X-File-Name`; `415`, `413`)                   | Stage a PDF (validated, private, 1 h)           |
+| `GET /api/follow-up/offers?filter=all\|waiting\|viewed\|resolved`, `POST /api/follow-up/offers` (`{uploadId, title, companyId, opportunityId?, contactId?, note?}`) | Follow-up list with counts; create offer + document + link |
+| `GET /api/follow-up/offers/{id}`, `GET /api/follow-up/offers/{id}/document`                               | Offer detail (link, engagement, history), its PDF |
+| `POST /api/follow-up/offers/{id}/sent` (`{sentAt?}`), `…/answered`, `…/link/revoke`, `…/link`             | Mark sent / answered, revoke link, new link     |
+| Public: `GET /o/{token}/info`, `GET /o/{token}/document`, `POST /o/{token}/events` (`{type: "view", sessionId}`) | Viewer data, PDF, view event (`404` "Ova poveznica više nije dostupna." for unknown, revoked or expired links) |
 
 Create and update of tasks, leads and opportunities also accept `reminderAt`;
 the record and its reminder are saved together or not at all.
@@ -357,7 +417,11 @@ Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan.
   `opportunity-service.ts`, `task-service.ts`, `calendar-service.ts`,
   `lead-service.ts`, `dashboard-service.ts`, `offer-service.ts`,
   `reminder-service.ts`, `push-subscription-service.ts`, `dispatch.ts`
-  (transport-neutral API), `routes.ts`, `repository.ts`, `seed.ts`) and
+  (transport-neutral API), `routes.ts`, `repository.ts`, `seed.ts`; Follow-up
+  Engine: `follow-up-service.ts`, `follow-up-api.ts` (async, binary bodies),
+  `follow-up-routes.ts` (HTTP: headers, limits, viewer), `share-token.ts`,
+  `engagement.ts`, `document-store.ts`/`file-document-store.ts`,
+  `pdf-inspect.ts`), `public/viewer/` (customer viewer, pdf.js renderer) and
   `src/notifications/` (Web Push sender, reminder scheduler). Rules shared with the browser come
   from `public/app/js/core/validation.js`. Next action and timezone logic come
   from `@renvara/domain`.
@@ -376,6 +440,12 @@ Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan.
 | `RENVARA_BETA_ORG_ID`  | `org-beta`       | Organization of the BETA account              |
 | `RENVARA_ORG_TIMEZONE` | `Europe/Zagreb`  | Interprets dates ("today", date-only entries) |
 | `RENVARA_DATA_FILE`    | `.data/crm.json` | BETA data file                                |
+| `RENVARA_DOCUMENTS_DIR` | `.data/offer-documents` | Private folder of offer PDFs (0700/0600) |
+| `RENVARA_MAX_DOCUMENT_MB` | `20`           | Largest PDF (1–50)                            |
+| `RENVARA_SHARE_LINK_DAYS` | `90`           | Days a customer link stays valid              |
+| `RENVARA_EVENT_RETENTION_DAYS` | `365`     | Days engagement events are kept               |
+| `RENVARA_SHARE_LINK_KEY` | from the session secret | Seals link tokens (≥ 32 characters). Changing it keeps links working but they can no longer be shown again |
+| `RENVARA_PUBLIC_ORIGIN` | the request's host | Origin of customer links (use the HTTPS address customers can reach) |
 
 ### Editions: presentation demo or clean start
 
@@ -410,6 +480,14 @@ username and password sign in.
   wait (10 s, one retry) so an unanswered call can never block later saves,
   and on a failure puts back what that save had written. (Before this, a write
   that never got an answer froze every later save: the "Lead → Task" freeze.)
+- Follow-up Engine in the demo: offer records go to the same store
+  (`offers/`, `offerDocuments/`, `offerShareLinks/`, `offerEvents/`), the PDF
+  files only to this browser's IndexedDB (never into the database). There is
+  no public address, so a link is a path (`/o/{token}`) that opens the
+  customer viewer inside the demo, where opening it counts as a customer view
+  so the engine can be seen working. pdf.js (same version, legacy build)
+  loads from jsDelivr. The demo's link key is fixed and public: demo links
+  protect nothing.
 - Reminders can be saved in the demo, but the artifact page cannot register a
   service worker and has no server, so they are never delivered; the reminder
   switch says so.
@@ -447,7 +525,11 @@ as-of views); `test/push-reminders.test.ts` covers Web Push encryption against
 RFC 8291's known answer, VAPID, scheduling, retries, cancellation and an HTTP
 round trip to a local push service; `test/demo-database-store.test.ts` covers
 the demo database faults (no answer, quota, partial writes);
-`test/lead-service.test.ts` includes the Lead → Task regression cases. The tests generate a random password each run, so
+`test/lead-service.test.ts` includes the Lead → Task regression cases;
+`test/follow-up.test.ts` covers upload validation, offer + document + link,
+relations, tenant isolation, sending and wait bands, filters, the public link,
+view and bot events, internal views, revocation and expiry, and the HTTP layer
+(session, CSRF, `415`/`413`, headers, rate limits, assets). The tests generate a random password each run, so
 no real credential is stored in the repository.
 
 ## Manual acceptance test
@@ -487,6 +569,17 @@ no real credential is stored in the repository.
   battery saving) can still delay or hide them. Times use the browser's timezone for input and
   the organization's timezone for "today" and date-only entries; in the BETA
   both are Europe/Zagreb.
+
+- Follow-up Engine: PDFs are stored on the server's disk (BETA); production
+  uses the private Supabase bucket `offer-documents` (migration
+  `20261014120000_follow_up_engine.sql`). There is no malware scanning of
+  uploads yet (only PDF validation), no automatic e-mail, no push
+  notification for views, and staged uploads are kept in memory (lost on
+  restart: pick the file again). Customer links need a public HTTPS address
+  (`RENVARA_PUBLIC_ORIGIN`); behind a proxy the per-IP limits see the proxy.
+  View counts are signals: a scanner that runs a full browser can look like a
+  person, and a person who blocks scripts is not counted. The privacy text in
+  the viewer and the retention period need review for your GDPR obligations.
 
 ## Migration to Supabase Auth
 

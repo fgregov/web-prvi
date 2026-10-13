@@ -109,6 +109,31 @@ for (const file of walk(APP_SRC)) {
 // The edition switch is read by the browser code and the bundled server alike.
 if (EMPTY) write('app/js/core/edition.js', 'export const DEMO_CONTENT = false;\n');
 
+// The customer's offer viewer (/o/{token}): pdf.js from jsDelivr (same version, legacy build).
+const PDFJS_VERSION = JSON.parse(readFileSync(resolve(APP, 'package.json'), 'utf8')).dependencies[
+  'pdfjs-dist'
+];
+const VIEWER_SRC = resolve(APP, 'public/viewer');
+write(
+  'viewer/viewer.js',
+  toRunnablePage(
+    redirectNavigation(readFileSync(join(VIEWER_SRC, 'viewer.js'), 'utf8'), 'viewer.js'),
+    'viewer.js',
+  ),
+);
+const pdfPages = readFileSync(join(VIEWER_SRC, 'pdf-pages.js'), 'utf8');
+const CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}`;
+const pdfPagesDemo = pdfPages
+  .replace("export const PDFJS_BASE = '/viewer/pdfjs';", `export const PDFJS_BASE = '${CDN}';`)
+  .replace(
+    'export const PDFJS_BUILD = `${PDFJS_BASE}/build`;',
+    'export const PDFJS_BUILD = `${PDFJS_BASE}/legacy/build`;',
+  );
+if (pdfPagesDemo === pdfPages || !pdfPagesDemo.includes('/legacy/build'))
+  throw new Error('pdf-pages.js: pdf.js location not replaced');
+write('viewer/pdf-pages.js', pdfPagesDemo);
+cpSync(join(VIEWER_SRC, 'viewer.css'), join(OUT, 'viewer/viewer.css'));
+
 cpSync(join(HOME, 'styles.css'), join(OUT, 'home/styles.css'));
 write(
   'home/app.js',
@@ -142,7 +167,16 @@ function stripModule(
 
 const CRM_SRC = resolve(APP, 'src/crm');
 for (const name of readdirSync(CRM_SRC)) {
-  if (['routes.ts', 'file-repository.ts', 'config.ts'].includes(name)) continue; // Node only
+  // Node only: HTTP routes, files on disk, config, the server's pdf.js check.
+  const nodeOnly = [
+    'routes.ts',
+    'file-repository.ts',
+    'config.ts',
+    'follow-up-routes.ts',
+    'file-document-store.ts',
+    'pdf-inspect.ts',
+  ];
+  if (nodeOnly.includes(name)) continue;
   write(
     `server/crm/${name.replace(/\.ts$/, '.js')}`,
     stripModule(join(CRM_SRC, name), name, [
@@ -175,8 +209,9 @@ type Script = { kind: 'module' | 'classic'; src: string };
 const pages: Record<string, { title: string; styles: string[]; html: string; scripts: Script[] }> =
   {};
 
-function mapUrl(url: string, base: 'home' | 'app' | 'login'): string {
+function mapUrl(url: string, base: 'home' | 'app' | 'login' | 'viewer'): string {
   if (url.startsWith('/app/')) return url.slice(1);
+  if (url.startsWith('/viewer/')) return url.slice(1);
   if (url === '/dashboard/styles.css') return 'home/styles.css';
   if (url.startsWith('/login/')) return url.slice(1);
   if (url === '/brand/renvara-logo.png' || url === 'assets/renvara-logo.png') return LOGO;
@@ -189,7 +224,7 @@ function mapUrl(url: string, base: 'home' | 'app' | 'login'): string {
 function addPage(
   name: string,
   file: string,
-  base: 'home' | 'app' | 'login',
+  base: 'home' | 'app' | 'login' | 'viewer',
   edit = (h: string) => h,
 ) {
   const html = readFileSync(file, 'utf8');
@@ -242,6 +277,20 @@ addPage('dashboard', join(HOME, 'index.html'), 'home');
 for (const file of readdirSync(resolve(APP, 'public/app/pages'))) {
   addPage(file.replace('.html', ''), resolve(APP, 'public/app/pages', file), 'app');
 }
+addPage('viewer', join(VIEWER_SRC, 'index.html'), 'viewer', (html) => {
+  const out = html
+    .replace(
+      '<span class="ov-header__brand">RENVARA</span>',
+      '<span class="ov-header__brand">RENVARA</span>\n      <a href="/follow-up" style="margin-left:auto;color:#c81e1e;font-weight:700;font-size:14px;text-decoration:none">← Natrag u demo</a>',
+    )
+    .replace(
+      /<footer class="ov-footer">[\s\S]*?<\/footer>/,
+      '<footer class="ov-footer"><p>Demo: ovako kupac vidi ponudu. Otvaranje ovdje bilježi se kao pregled kupca kako bi se vidio Follow-up Engine na djelu. U demou poveznica radi samo u ovom pregledniku; na BETA serveru kupac je otvara na svom uređaju, bez prijave.</p></footer>',
+    );
+  if (!out.includes('Natrag u demo') || !out.includes('Demo: ovako kupac'))
+    throw new Error('viewer page: demo notes not inserted');
+  return out;
+});
 // Stylesheets in the cascade order of the real pages; inlined into the bundle.
 const STYLE_FILES = [
   'login/login.css',
@@ -250,6 +299,8 @@ const STYLE_FILES = [
   'app/css/pages.css',
   'app/css/screen.css',
   'app/css/leads.css',
+  'app/css/follow-up.css',
+  'viewer/viewer.css',
 ];
 const styles = Object.fromEntries(
   STYLE_FILES.map((file) => [file, readFileSync(join(OUT, file), 'utf8')]),
@@ -274,6 +325,7 @@ write(
 );
 cpSync(resolve(APP, 'demo/runtime.js'), join(OUT, 'demo/runtime.js'));
 cpSync(resolve(APP, 'demo/database-store.js'), join(OUT, 'demo/database-store.js'));
+cpSync(resolve(APP, 'demo/document-store-idb.js'), join(OUT, 'demo/document-store-idb.js'));
 
 // ------------------------------------------------------------------ verify
 for (const file of walk(OUT).filter((f) => f.endsWith('.js'))) {

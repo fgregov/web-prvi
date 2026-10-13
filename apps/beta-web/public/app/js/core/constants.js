@@ -142,6 +142,7 @@ export const ACTIVITY_META = {
   opportunity_lost: { label: 'Prilika izgubljena', icon: 'x', tone: 'neutral' },
   offer_sent: { label: 'Ponuda poslana', icon: 'file', tone: 'red' },
   offer_answered: { label: 'Odgovor na ponudu', icon: 'check', tone: 'green' },
+  offer_viewed: { label: 'Pregled ponude zabilježen', icon: 'file', tone: 'neutral' },
   task_created: { label: 'Kreiran zadatak', icon: 'check-square', tone: 'neutral' },
   task_completed: { label: 'Zadatak dovršen', icon: 'check', tone: 'green' },
   task_reopened: { label: 'Zadatak ponovno otvoren', icon: 'check-square', tone: 'neutral' },

@@ -1,7 +1,7 @@
 // BETA server storage: one JSON file, written atomically.
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { emptyData, type CrmRepository } from './repository.ts';
+import { normalizeData, type CrmRepository } from './repository.ts';
 import type { CrmData } from './types.ts';
 
 /**
@@ -12,7 +12,7 @@ export function createFileRepository(file: string, seed: () => CrmData): CrmRepo
   let current: CrmData;
   try {
     const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<CrmData>;
-    current = parsed.version === 2 ? { ...emptyData(), ...parsed } : seed();
+    current = parsed.version === 2 ? normalizeData(parsed) : seed();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     current = seed();

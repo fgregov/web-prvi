@@ -38,6 +38,7 @@ export const ACTIVITY_TYPES = [
   'note',
   'offer_sent',
   'offer_answered',
+  'offer_viewed',
   'follow_up',
   'status_change',
   'other',
@@ -114,6 +115,10 @@ export type LeadLostReason = (typeof LEAD_LOST_REASONS)[number];
  */
 export const OFFER_STATUSES = ['draft', 'sent', 'answered', 'withdrawn'] as const;
 export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+/** Follow-up Engine engagement signals (ADR-0008): a link request vs. a rendered view. */
+export const OFFER_EVENT_TYPES = ['link_access', 'document_view'] as const;
+export type OfferEventType = (typeof OFFER_EVENT_TYPES)[number];
 
 /** Push reminder delivery (public.reminders): pending → processing → sent | failed; or cancelled. */
 export const REMINDER_STATUSES = ['pending', 'processing', 'sent', 'failed', 'cancelled'] as const;

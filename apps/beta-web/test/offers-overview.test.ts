@@ -45,7 +45,10 @@ function setup(organizationId = 'org-a') {
     const offer: Offer = {
       id: `raw-${++n}`,
       organizationId,
+      companyId: crm.repo.data().opportunities.find((o) => o.id === opportunityId)?.companyId ?? '',
       opportunityId,
+      contactId: null,
+      note: '',
       title: 'Ponuda',
       status: 'draft',
       sentAt: null,

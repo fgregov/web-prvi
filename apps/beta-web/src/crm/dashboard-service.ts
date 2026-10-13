@@ -137,7 +137,10 @@ export function createDashboardService(
     // Negotiations: one count per opportunity, whatever the number of events in the period.
     const negotiating = new Set<string>(created.map((o) => o.id));
     for (const offer of inOrg(data.offers ?? [], ctx)) {
-      if (inside(offer.sentAt) || inside(offer.answeredAt)) negotiating.add(offer.opportunityId);
+      // An offer outside a deal (Follow-up Engine, customer only) is no negotiation of one.
+      if (offer.opportunityId && (inside(offer.sentAt) || inside(offer.answeredAt))) {
+        negotiating.add(offer.opportunityId);
+      }
     }
 
     const allTasks = inOrg(data.tasks, ctx);
