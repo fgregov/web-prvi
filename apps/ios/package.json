@@ -1,0 +1,18 @@
+{
+  "name": "@renvara/ios",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Renvara iOS app (Capacitor shell) for TestFlight test builds",
+  "scripts": {
+    "web": "node scripts/prepare-web.mjs",
+    "sync": "node scripts/prepare-web.mjs && cap sync ios",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
+}

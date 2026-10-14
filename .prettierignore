@@ -2,3 +2,5 @@ pnpm-lock.yaml
 supabase/
 *.md
 .github/workflows/main.yml
+# Xcode project (managed by Xcode and the Capacitor CLI)
+apps/ios/ios/

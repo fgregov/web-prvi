@@ -13,6 +13,8 @@ tooling and docs. No user-facing app yet.
 
 ```
 apps/                 mobile (Expo) and web (Next.js), added in later phases
+  beta-web/           BETA web app (Node server, browser pages, in-browser demo build)
+  ios/                iOS test build for TestFlight (Capacitor shell, apps/ios/README.md)
 packages/
   domain/             @renvara/domain: pure business rules (next action, lifecycle, time, permissions)
   database/           @renvara/database: generated DB types and the domain↔DB enum contract

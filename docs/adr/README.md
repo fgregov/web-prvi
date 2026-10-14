@@ -16,3 +16,4 @@ marked *Proposed*.
 | [0008](0008-follow-up-engine-offer-sharing.md) | Follow-up Engine: private offer PDFs, sealed bearer links, two engagement event types | Accepted |
 | [0009](0009-lead-first-sales.md) | Lead-first sales: opportunities of a lead without a customer; WON before conversion | Accepted |
 | [0010](0010-mobile-notification-preferences.md) | Mobile notifications: seven per-user types, prospective, exactly once | Accepted |
+| [0011](0011-ios-testflight-shell.md) | iOS test builds: Capacitor shell around the web app, TestFlight only | Accepted |
