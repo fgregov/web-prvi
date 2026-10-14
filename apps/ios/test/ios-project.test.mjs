@@ -112,3 +112,32 @@ test('bundled build: the whole app in www/index.html, no server secret inside', 
     : [];
   for (const [name, value] of secrets) assert.equal(index.includes(value), false, name);
 });
+
+test('demo-app-ios is an up-to-date copy of the Xcode project (pnpm run export)', () => {
+  const OUT = resolve(ROOT, '../../demo-app-ios');
+  for (const file of [
+    'App/App.xcodeproj/project.pbxproj',
+    'App/App/Info.plist',
+    'App/App/AppDelegate.swift',
+    'App/App/SceneDelegate.swift',
+    'App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png',
+    'App/App/Base.lproj/LaunchScreen.storyboard',
+    'App/CapApp-SPM/Package.swift',
+    'debug.xcconfig',
+  ]) {
+    assert.deepEqual(
+      readFileSync(resolve(OUT, file)),
+      readFileSync(resolve(ROOT, 'ios', file)),
+      file,
+    );
+  }
+  // Built-in content and config are present (the repo's ios/ keeps them out of git).
+  assert.match(readFileSync(resolve(OUT, 'App/App/public/index.html'), 'utf8'), /^<!doctype html>/);
+  assert.equal(
+    JSON.parse(readFileSync(resolve(OUT, 'App/App/capacitor.config.json'), 'utf8')).server.url,
+    undefined,
+  );
+  for (const variant of ['prazni-pocetak', 'demo-s-primjerima']) {
+    assert.equal(existsSync(resolve(OUT, `sadrzaj/${variant}/index.html`)), true, variant);
+  }
+});

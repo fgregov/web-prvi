@@ -1,0 +1,15 @@
+{
+	"appId": "app.renvara.beta",
+	"appName": "Renvara",
+	"webDir": "www",
+	"backgroundColor": "#ffffff",
+	"ios": {
+		"contentInset": "never",
+		"scrollEnabled": true,
+		"allowsLinkPreview": false
+	},
+	"server": {
+		"errorPath": "offline.html"
+	},
+	"packageClassList": []
+}

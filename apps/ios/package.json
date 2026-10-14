@@ -6,6 +6,7 @@
   "scripts": {
     "web": "node scripts/prepare-web.mjs",
     "sync": "node scripts/prepare-web.mjs && cap sync ios",
+    "export": "node scripts/export-project.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

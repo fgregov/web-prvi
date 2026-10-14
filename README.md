@@ -21,6 +21,8 @@ packages/
 supabase/
   migrations/         PostgreSQL schema, RLS, invariants (source of truth)
   tests/database/     pgTAP tests: tenant isolation, roles, invariants
+demo-app/             the demo as pages that open from disk (README in Croatian)
+demo-app-ios/         the iOS demo as a standalone Xcode project for one iPhone (README in Croatian)
 docs/
   architecture/       how the system is built (start here)
   adr/                architecture decision records

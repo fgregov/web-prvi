@@ -1,7 +1,8 @@
 name: iOS
 
 # Renvara iOS app (apps/ios), on macOS with Xcode 26:
-#   - a push that changes apps/ios: unsigned simulator build (does it compile?)
+#   - a push that changes apps/ios: unsigned simulator build (does it compile?),
+#     and the standalone demo-app-ios with Xcode alone (no Node, no pnpm)
 #   - a tag ios-* or "Run workflow": archive, sign and upload to TestFlight
 #     (needs the App Store Connect secrets; see apps/ios/README.md)
 on:
@@ -10,6 +11,7 @@ on:
     tags: ['ios-*']
     paths:
       - 'apps/ios/**'
+      - 'demo-app-ios/**'
       - '.github/workflows/ios.yml'
   workflow_dispatch:
     inputs:
@@ -42,6 +44,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: xcodebuild -version
       - run: apps/ios/scripts/testflight.sh check
+
+  standalone:
+    name: demo-app-ios with Xcode alone (simulator, unsigned)
+    if: github.event_name == 'push' && github.ref_type == 'branch'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - run: xcodebuild -version
+      - run: |
+          xcodebuild -project demo-app-ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" CODE_SIGNING_ALLOWED=NO build
 
   testflight:
     name: Archive and upload to TestFlight

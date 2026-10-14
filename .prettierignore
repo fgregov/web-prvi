@@ -6,3 +6,5 @@ supabase/
 apps/ios/ios/
 # Demo app folder (built by apps/beta-web/demo/folder.ts)
 demo-app/*.html
+# Standalone iOS project (exported by apps/ios/scripts/export-project.mjs)
+demo-app-ios/

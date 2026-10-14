@@ -28,6 +28,17 @@ Not in this test build (honest list):
   lozinka?" are not working features, and the demo texts ("Demo: prijava
   prihvaća…") are shown as in the web demo.
 
+## One iPhone, no App Store Connect (`demo-app-ios/`)
+
+`pnpm run export` writes `<repo>/demo-app-ios/`: this Xcode project with the
+built-in web content already inside (clean start in `public/`, both variants
+under `sadrzaj/`), so a Mac needs only Xcode. Open `App/App.xcodeproj`, pick a
+Personal Team (free Apple ID) and a unique bundle ID, and Run on the connected
+iPhone: the development profile contains only that device. With a free Apple
+ID the app runs 7 days per install. Steps in Croatian:
+`demo-app-ios/README.md`. A test fails when `ios/` changes without a new
+export; CI builds the folder with Xcode alone.
+
 ## Before the first upload (once, in your Apple account)
 
 1. **Apple Developer Program** membership (paid, yearly) for the account that
@@ -113,6 +124,7 @@ is for testing only.
 | `capacitor.config.js` | App name, web content, server address (env) |
 | `scripts/prepare-web.mjs` | Builds `www/` (the web content) |
 | `scripts/testflight.sh` | check / archive / sign / upload (macOS) |
+| `scripts/export-project.mjs` | Standalone copy for one iPhone (`demo-app-ios/`) |
 | `ios/App` | Xcode project (Info.plist, icon, launch screen) |
 | `test/ios-project.test.mjs` | Checks the project and the web content (`pnpm test`) |
 
