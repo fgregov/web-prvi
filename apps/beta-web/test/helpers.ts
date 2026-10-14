@@ -50,6 +50,7 @@ export async function startTestServer(
     createApp(auth, {
       logger,
       publicOrigin: config.publicOrigin,
+      trustProxy: config.trustProxy,
       ...(options.crm ? { crm: options.crm } : {}),
     }),
   );

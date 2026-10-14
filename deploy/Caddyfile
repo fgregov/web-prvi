@@ -1,0 +1,8 @@
+# HTTPS in front of Renvara (deploy/docker-compose.yml). Caddy obtains the
+# certificate for the domain, redirects http to https and passes the client's
+# address in X-Forwarded-For (replacing whatever the client sent).
+{$RENVARA_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy renvara:3000
+}

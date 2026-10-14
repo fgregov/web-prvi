@@ -14,6 +14,8 @@ export interface AuthConfig {
   readonly secureCookies: boolean;
   /** The https address users open, when it differs from the Host the server sees (tunnel, proxy). */
   readonly publicOrigin: string | null;
+  /** RENVARA_TRUST_PROXY: one reverse proxy in front (cloud), so the client is in X-Forwarded-For. */
+  readonly trustProxy: boolean;
 }
 
 export class ConfigError extends Error {
@@ -59,6 +61,10 @@ export function loadAuthConfig(env: Env): AuthConfig {
   }
   const secureCookies =
     secureOverride !== undefined ? secureOverride === 'true' : env.NODE_ENV === 'production';
+  const trustProxy = env.RENVARA_TRUST_PROXY;
+  if (trustProxy !== undefined && trustProxy !== 'true' && trustProxy !== 'false') {
+    throw new ConfigError('RENVARA_TRUST_PROXY must be "true" or "false" when set.');
+  }
 
   return {
     username,
@@ -68,6 +74,7 @@ export function loadAuthConfig(env: Env): AuthConfig {
     sessionTtlSeconds: SESSION_TTL_SECONDS,
     secureCookies,
     publicOrigin: parsePublicOrigin(env.RENVARA_PUBLIC_ORIGIN),
+    trustProxy: trustProxy === 'true',
   };
 }
 

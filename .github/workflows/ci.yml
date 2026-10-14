@@ -26,6 +26,27 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+  docker:
+    name: Docker image (cloud deployment, deploy/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -f apps/beta-web/Dockerfile -t renvara-beta .
+      - name: Starts, serves the login page, protects the app, keeps data in /data
+        run: |
+          docker run -d --name renvara -p 3000:3000 \
+            -e RENVARA_BETA_USERNAME=ci \
+            -e RENVARA_BETA_PASSWORD="$(openssl rand -hex 16)" \
+            -e RENVARA_SESSION_SECRET="$(openssl rand -base64 48)" \
+            renvara-beta
+          for i in $(seq 1 30); do curl -fs -o /dev/null http://localhost:3000/login && break; sleep 1; done
+          curl -fs -o /dev/null http://localhost:3000/login
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/dashboard)" = 302
+          docker exec renvara sh -c 'test "$(id -un)" = node && test -s /data/crm.json'
+          docker exec renvara grep -q 'DEMO_CONTENT = false' apps/beta-web/public/app/js/core/edition.js
+      - if: always()
+        run: docker logs renvara || true
+
   database:
     name: Database (migrations, RLS & invariant tests, generated types)
     runs-on: ubuntu-latest

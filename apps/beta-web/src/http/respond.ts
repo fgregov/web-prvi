@@ -99,3 +99,21 @@ export function isSameOrigin(req: IncomingMessage, publicOrigin: string | null =
     return false;
   }
 }
+
+/**
+ * The client's address for the failed-login limiter. Behind one reverse proxy
+ * (RENVARA_TRUST_PROXY=true: Caddy, Fly.io, …) every connection comes from the
+ * proxy, so the address the proxy itself appended to X-Forwarded-For (the last
+ * one) is used; earlier entries come from the client and are not trusted.
+ */
+export function clientAddress(req: IncomingMessage, trustProxy = false): string {
+  const socket = req.socket.remoteAddress ?? 'unknown';
+  if (!trustProxy) return socket;
+  const header = req.headers['x-forwarded-for'];
+  const last = (Array.isArray(header) ? header.join(',') : (header ?? ''))
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .at(-1);
+  return last && last.length <= 64 ? last : socket;
+}

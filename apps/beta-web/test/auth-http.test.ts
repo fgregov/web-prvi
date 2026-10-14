@@ -109,6 +109,16 @@ describe('POST /api/auth/login', () => {
     expect((await login(server.url, USERNAME, PASSWORD)).status).toBe(200);
   });
 
+  it('without RENVARA_TRUST_PROXY a client cannot dodge the limit with X-Forwarded-For', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const spoofed = { 'X-Forwarded-For': `203.0.113.${i}` };
+      expect((await login(server.url, USERNAME, `wrong-${i}`, spoofed)).status).toBe(401);
+    }
+    const next = { 'X-Forwarded-For': '203.0.113.99' };
+    expect((await login(server.url, USERNAME, PASSWORD, next)).status).toBe(429);
+    server.clock.now += 60_000;
+  });
+
   it('never logs the password and never sends CORS headers', async () => {
     const response = await login(server.url, USERNAME, `${PASSWORD}-typo`);
     await login(server.url, USERNAME, PASSWORD);
@@ -309,5 +319,39 @@ describe('production cookies', () => {
     const cookie = response.headers.get('set-cookie') ?? '';
     expect(cookie).toMatch(/^__Host-renvara_session=/);
     expect(cookie).toContain('Secure');
+  });
+});
+
+describe('behind a reverse proxy (RENVARA_TRUST_PROXY=true)', () => {
+  let proxied: TestServer;
+  beforeEach(async () => {
+    proxied = await startTestServer(testEnv({ RENVARA_TRUST_PROXY: 'true' }));
+  });
+  afterEach(() => proxied.close());
+
+  // Every request reaches the server from the proxy; the proxy appends the client last.
+  const via = (client: string, sent?: string) => ({
+    'X-Forwarded-For': sent ? `${sent}, ${client}` : client,
+  });
+
+  it('limits each client separately, so one client cannot lock everyone out', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      expect((await login(proxied.url, USERNAME, `wrong-${i}`, via('198.51.100.7'))).status).toBe(
+        401,
+      );
+    }
+    expect((await login(proxied.url, USERNAME, PASSWORD, via('198.51.100.7'))).status).toBe(429);
+    expect((await login(proxied.url, USERNAME, PASSWORD, via('198.51.100.8'))).status).toBe(200);
+  });
+
+  it('uses the address the proxy appended, not one the client sent', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const headers = via('198.51.100.7', `203.0.113.${i}`); // client-chosen entry varies
+      expect((await login(proxied.url, USERNAME, `wrong-${i}`, headers)).status).toBe(401);
+    }
+    expect(
+      (await login(proxied.url, USERNAME, PASSWORD, via('198.51.100.7', '1.2.3.4'))).status,
+    ).toBe(429);
+    expect(proxied.logs.some((line) => line.includes('"ip":"198.51.100.7"'))).toBe(true);
   });
 });

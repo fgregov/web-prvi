@@ -51,6 +51,12 @@ describe('loadAuthConfig', () => {
     expect(loadAuthConfig(testEnv({ NODE_ENV: 'production' })).secureCookies).toBe(true);
     expect(loadAuthConfig(testEnv({ RENVARA_COOKIE_SECURE: 'true' })).secureCookies).toBe(true);
   });
+
+  it('trusts a proxy only when told to, with "true" or "false"', () => {
+    expect(loadAuthConfig(testEnv()).trustProxy).toBe(false);
+    expect(loadAuthConfig(testEnv({ RENVARA_TRUST_PROXY: 'true' })).trustProxy).toBe(true);
+    expect(() => loadAuthConfig(testEnv({ RENVARA_TRUST_PROXY: 'yes' }))).toThrow(ConfigError);
+  });
 });
 
 describe('BETA provider (the single credential check)', () => {

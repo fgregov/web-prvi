@@ -38,8 +38,29 @@ default credentials.
 | `HOST`, `PORT`              | no       | Listen address. Defaults to `127.0.0.1:3000`                  |
 | `RENVARA_VAPID_*` (3)       | no       | Push reminders; all three or none (see **Push reminders**)    |
 | `RENVARA_PUBLIC_ORIGIN`     | no       | The https address users open behind a tunnel or proxy         |
+| `RENVARA_TRUST_PROXY`       | no       | `true` behind exactly one reverse proxy (cloud, see below)    |
 
 `.env` files are git-ignored. Only `.env.example` (no values) is committed.
+
+## Run it in the cloud
+
+`apps/beta-web/Dockerfile` builds the server as one container (Node 22,
+production dependencies only, runs as `node`, records and offer PDFs in the
+`/data` volume, health check on `/login`). `RENVARA_EDITION=clean` (default)
+starts empty; `demo` seeds the presentation demo. Two ready setups, with
+steps in Croatian in [`deploy/README.md`](../../deploy/README.md):
+
+- **Fly.io**: `fly.toml` at the repository root (one always-on machine,
+  volume `renvara_data`, Frankfurt, `https://<app>.fly.dev`).
+- **Own server**: `deploy/docker-compose.yml` with Caddy (automatic HTTPS for
+  `RENVARA_DOMAIN`, HSTS, http → https).
+
+Both set `RENVARA_TRUST_PROXY=true`: every connection then comes from the
+proxy, so the failed-login limit counts per client using the last
+`X-Forwarded-For` entry (the one the proxy itself adds; client-sent entries
+before it are ignored). Without it, behind a proxy, ten wrong passwords from
+anyone would block every sign-in for a minute. Run one instance only: the
+records are one JSON file and the reminder scheduler runs in the process.
 
 ## Routes
 

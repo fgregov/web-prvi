@@ -81,13 +81,15 @@ const server = createServer(
       pushTest: (ctx) => scheduler.sendTest(ctx.organizationId, ctx.user.id),
     },
     publicOrigin: config.publicOrigin,
+    trustProxy: config.trustProxy,
   }),
 );
 server.listen(port, host, () => {
   console.log(
     `[renvara-beta] Listening on http://${host === '127.0.0.1' ? 'localhost' : host}:${port} ` +
       `(secure cookies: ${config.secureCookies ? 'on' : 'off'}, push reminders: ${sender.configured ? 'on' : 'off'}` +
-      `${config.publicOrigin ? `, public address: ${config.publicOrigin}` : ''})`,
+      `${config.publicOrigin ? `, public address: ${config.publicOrigin}` : ''}` +
+      `${config.trustProxy ? ', behind a proxy' : ''})`,
   );
 });
 

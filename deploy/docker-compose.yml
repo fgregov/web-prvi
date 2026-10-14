@@ -1,0 +1,46 @@
+# Renvara on one Linux server with Docker: the app plus Caddy, which gets and
+# renews the HTTPS certificate (Let's Encrypt) for RENVARA_DOMAIN by itself.
+# Settings in deploy/.env (copy .env.example). From the repository root:
+#
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# One app container only: records are one file on the renvara-data volume.
+name: renvara
+
+services:
+  renvara:
+    build:
+      context: ..
+      dockerfile: apps/beta-web/Dockerfile
+      args:
+        RENVARA_EDITION: ${RENVARA_EDITION:-clean}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RENVARA_TRUST_PROXY: 'true'
+      RENVARA_PUBLIC_ORIGIN: https://${RENVARA_DOMAIN:?set RENVARA_DOMAIN in deploy/.env}
+    volumes:
+      - renvara-data:/data
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      - renvara
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      RENVARA_DOMAIN: ${RENVARA_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  renvara-data:
+  caddy-data:
+  caddy-config:

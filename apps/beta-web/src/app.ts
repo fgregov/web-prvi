@@ -6,6 +6,7 @@ import { parseCookies, serializeCookie } from './http/cookies.ts';
 import {
   applySecurityHeaders,
   BodyError,
+  clientAddress,
   isJsonRequest,
   isSameOrigin,
   noStore,
@@ -144,12 +145,15 @@ export function createApp(
     crm?: CrmOptions;
     /** RENVARA_PUBLIC_ORIGIN: the https address users open behind a tunnel or proxy. */
     publicOrigin?: string | null;
+    /** RENVARA_TRUST_PROXY: the client address comes from the proxy's X-Forwarded-For. */
+    trustProxy?: boolean;
   } = {},
 ): RequestListener {
   const paths = options.paths ?? defaultPaths;
   const logger = options.logger ?? consoleLogger;
   const crm = options.crm ?? inMemoryCrm();
   const publicOrigin = options.publicOrigin ?? null;
+  const trustProxy = options.trustProxy ?? false;
   const crmRoutes = createCrmRoutes(crm.services, {
     ...(crm.push ? { push: crm.push } : {}),
     ...(crm.pushTest ? { pushTest: crm.pushTest } : {}),
@@ -214,7 +218,7 @@ export function createApp(
     if (!credentials.ok)
       return sendJson(res, 400, { success: false, message: credentials.message });
 
-    const ip = req.socket.remoteAddress ?? 'unknown';
+    const ip = clientAddress(req, trustProxy);
     const outcome = auth.login(credentials.username, credentials.password, ip);
 
     if (outcome.kind === 'rate_limited') {
