@@ -5,6 +5,7 @@ import { confirmDialog } from './confirm.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { goBack } from './navigation.js';
+import { mountWebNav } from './tabbar.js';
 
 /** Sticky header with a back button and the screen title. */
 export function MobilePageHeader({ title, onBack }) {
@@ -24,6 +25,7 @@ export function MobilePageHeader({ title, onBack }) {
     { class: 'rv-screen__header' },
     h('div', { class: 'rv-screen__header-inner' }, back, heading),
   );
+  mountWebNav();
   return { element, back, heading };
 }
 

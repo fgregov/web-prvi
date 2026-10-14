@@ -553,6 +553,24 @@ without `reactivate`.
 | `RENVARA_SHARE_LINK_KEY` | from the session secret | Seals link tokens (≥ 32 characters). Changing it keeps links working but they can no longer be shown again |
 | `RENVARA_PUBLIC_ORIGIN` | the request's host | Origin of customer links (use the HTTPS address customers can reach) |
 
+### Web layout: phones, tablets, computers
+
+The pages are designed for the phone; `public/app/css/web.css`, loaded last on
+every page, adapts them to wider screens without touching the phone design
+(everything is inside `min-width` queries, guarded by `test/web-layout.test.ts`):
+
+| Width | Navigation | Content |
+| --- | --- | --- |
+| < 768 px (phones) | bottom navigation, as designed | unchanged |
+| 768 px+ (tablets) | rail on the left, icon over label | KPI cards in one row; forms on a centred card; sign-in on a card (`login/login.css`) |
+| 1024 px+ | rail | Home: Sales Kalendar beside Prioritetni zadaci, pipeline and Feedback Overview below |
+| 1200 px+ (computers) | sidebar, icon beside label | Home up to 1120 px wide; CRM pages up to 1200 px |
+
+CRM pages and forms have no bottom navigation on phones; on the web
+`mountWebNav()` (ui/tabbar.js) shows the same five items as a rail there too,
+with Kupci, Prilike, Zadaci and Kalendar under Više. Bottom sheets (Quick Add)
+and confirmations open as dialogs in the middle from 600 px.
+
 ### Editions: presentation demo or clean start
 
 One switch, `public/app/js/core/edition.js` (`DEMO_CONTENT`), read by the
@@ -620,6 +638,15 @@ page. It keeps data in the browser only (no artifact database).
 Nothing in the app's sources changes for the demo: the build redirects
 `window.location`/`history` to an in-page router and fails if it finds any it
 does not handle.
+
+### Public test address (GitHub Pages)
+
+`.github/workflows/pages.yml` publishes the in-browser build at
+`https://<owner>.github.io/<repo>/` (`/` with demo data, `/prazno/` clean start,
+`/mobilni/` phone frame) on every change. It needs, once, Settings → Pages →
+Source: **GitHub Actions**, and for a branch other than the default one
+Settings → Environments → `github-pages` → that branch; until then the site is
+built and the publish step is skipped.
 
 ## Tests
 

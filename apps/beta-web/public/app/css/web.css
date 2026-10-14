@@ -1,0 +1,221 @@
+/* =============================================================================
+   Renvara · web layout for tablets and computers (loaded last on every page).
+
+   Phones (< 768 px) keep the mobile design exactly: everything below is inside
+   a min-width query, except hiding the web-only navigation on phones.
+     768 px+   the bottom navigation becomes a rail on the left (icon over
+               label), on every page; content uses the width: KPI cards in one
+               row, forms on a card (sign-in: login/login.css, public).
+     1024 px+  Home modules in two columns.
+     1200 px+  the rail becomes a sidebar (icon beside label).
+   Colours are the app's own (light only, as on the phone).
+   ========================================================================== */
+
+:root {
+  --web-rail: 0px;
+  --web-ink: #111111;
+  --web-muted: #6b7079;
+  --web-red: #e32222;
+  --web-red-text: #c81e1e;
+  --web-red-soft: #fff1f1;
+  --web-border: #eceef1;
+  --web-canvas: #f6f7f8;
+  --web-bg: #ffffff;
+  --web-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 12px 32px rgba(17, 17, 17, 0.06);
+}
+
+/* CRM pages and forms have no bottom navigation on phones; on the web they get the rail. */
+@media (max-width: 767.98px) {
+  .tabbar--web {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --web-rail: 96px;
+    --app-max: 1120px;
+    --page-x: 24px;
+  }
+
+  /* ------------------------------------------------- navigation rail --- */
+  body:has(.tabbar) {
+    padding-left: var(--web-rail);
+  }
+
+  .tabbar {
+    position: fixed;
+    z-index: 25;
+    inset: 0 auto 0 0;
+    transform: none;
+    width: var(--web-rail);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: calc(env(safe-area-inset-top, 0px) + 20px) 10px 20px;
+    overflow-y: auto;
+    background: var(--web-bg);
+    border: 0;
+    border-right: 1px solid var(--web-border);
+    box-shadow: none;
+  }
+
+  .tabbar .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 68px;
+    padding: 8px 4px;
+    border-radius: 14px;
+    color: var(--web-muted);
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .tabbar .tab:hover {
+    background: var(--web-canvas);
+    color: var(--web-ink);
+  }
+
+  .tabbar .tab.is-active {
+    background: var(--web-red-soft);
+    color: var(--web-red-text);
+    font-weight: 600;
+  }
+
+  .tabbar .tab .icon {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tabbar .tab .icon--filled {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .tabbar .tab__label {
+    text-align: center;
+    line-height: 1.15;
+  }
+
+  /* --------------------------------- Home, Leads, Follow-up, Obavijesti --- */
+  .app {
+    max-width: var(--app-max);
+  }
+
+  .app-header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 28px);
+  }
+
+  .content {
+    padding-bottom: 104px;
+  }
+
+  .quick-add {
+    right: 32px;
+    bottom: 32px;
+  }
+
+  .toast {
+    left: calc(50% + var(--web-rail) / 2);
+    bottom: 32px;
+    max-width: 480px;
+  }
+
+  /* KPI cards: all in one row instead of a sideways scroller. */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 12px;
+    margin: 0;
+    padding: 2px 0 6px;
+    overflow: visible;
+  }
+
+  .metric {
+    min-width: 0;
+  }
+
+  /* ------------------------------------- forms (Novi zadatak, Novi lead…) --- */
+  body:has(.rv-screen) {
+    background: var(--web-canvas);
+  }
+
+  .rv-screen__header {
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .rv-screen__header-inner {
+    max-width: 760px;
+    padding: 0 16px;
+  }
+
+  .rv-screen__body {
+    max-width: 760px;
+    margin: 28px auto 56px;
+    padding: 32px 36px 36px;
+    background: var(--web-bg);
+    border: 1px solid var(--web-border);
+    border-radius: 20px;
+    box-shadow: var(--web-shadow);
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Home: Sales Kalendar beside Prioritetni zadaci; pipeline and Feedback Overview below. */
+  .dashboard-view:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .dashboard-view > .split {
+    grid-column: 1 / -1;
+    gap: var(--gap-lg);
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --web-rail: 232px;
+    --page-x: 32px;
+  }
+
+  .tabbar {
+    gap: 2px;
+    padding: calc(env(safe-area-inset-top, 0px) + 28px) 16px 24px;
+  }
+
+  .tabbar .tab {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 12px;
+    font-size: 0.9375rem;
+  }
+
+  .tabbar .tab__label {
+    text-align: left;
+  }
+
+  /* "Follow-up / Engine" on one line. */
+  .tabbar .tab__label br {
+    display: none;
+  }
+}

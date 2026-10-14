@@ -302,6 +302,7 @@ const STYLE_FILES = [
   'app/css/follow-up.css',
   'app/css/notifications.css',
   'viewer/viewer.css',
+  'app/css/web.css', // last: the web layout (tablets, computers) wins over the mobile rules
 ];
 const styles = Object.fromEntries(
   STYLE_FILES.map((file) => [file, readFileSync(join(OUT, file), 'utf8')]),

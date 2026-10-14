@@ -1,0 +1,81 @@
+name: Web test address (GitHub Pages)
+
+# Renvara in the browser at https://<owner>.github.io/<repo>/, a public test
+# address with no server: the in-browser build (apps/beta-web/demo), records
+# kept in the visitor's browser.
+#   /           with demo data (back to the examples every day)
+#   /prazno/    clean start: only what the visitor enters
+#   /mobilni/   with demo data in a phone frame (for presenting on a computer)
+# Needs, once (repository owner): Settings → Pages → Source: GitHub Actions; for
+# a branch other than the default one also Settings → Environments →
+# github-pages → add the branch. Until Pages is on, the deploy is skipped.
+on:
+  push:
+    branches: ['main', 'claude/renvara-technical-foundation-afyzr2']
+    paths:
+      - 'apps/beta-web/**'
+      - 'prototypes/**'
+      - 'packages/domain/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build the test site
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.pages.outputs.enabled }}
+    steps:
+      - name: Is GitHub Pages on (source GitHub Actions)?
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -s -o pages.json -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pages")
+          if [ "$code" = 200 ] && grep -q '"build_type": *"workflow"' pages.json; then
+            echo enabled=true >> "$GITHUB_OUTPUT"
+          else
+            echo enabled=false >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is off (Settings → Pages → Source: GitHub Actions): the site is built but not published."
+          fi
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @renvara/beta-web demo:folder
+      - name: Site folder
+        run: |
+          mkdir -p site/prazno site/mobilni
+          cp demo-app/renvara-demo.html site/index.html
+          cp demo-app/renvara-prazni-pocetak.html site/prazno/index.html
+          cp demo-app/renvara-mobilni-prikaz.html site/mobilni/index.html
+      - if: steps.pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publish
+    needs: build
+    if: needs.build.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

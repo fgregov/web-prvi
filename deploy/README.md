@@ -20,6 +20,22 @@ podaci su na trajnom disku (`/data`). Dva načina:
 Oba načina se plaćaju kod pružatelja (mali poslužitelj i 1 GB diska); cijene
 provjerite kod njih.
 
+## Javna testna adresa bez poslužitelja (GitHub Pages)
+
+Za testiranje bez računa i bez poslužitelja: Renvara u pregledniku na
+`https://fgregov.github.io/web-prvi/` (s primjerima podataka; `/prazno/` prazni
+početak, `/mobilni/` okvir mobitela). Podaci ostaju u pregledniku posjetitelja.
+Uključuje se jednom, na GitHubu (vlasnik repozitorija):
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. Dok se radi na grani `claude/renvara-technical-foundation-afyzr2`:
+   **Settings → Environments → github-pages → Deployment branches and tags →
+   Add → tu granu** (za granu `main` nije potrebno).
+3. **Actions → Web test address → zadnje pokretanje → Re-run all jobs** (ili
+   pričekajte sljedeću promjenu koda).
+
+Svaka sljedeća promjena aplikacije objavljuje se sama.
+
 ## Postavke (tajne)
 
 | Naziv | Što je |

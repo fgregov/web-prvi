@@ -3,6 +3,7 @@ import { initials } from '../core/format.js';
 import { getCurrentUser } from '../core/session.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
+import { mountWebNav } from './tabbar.js';
 
 const NAV = [
   { href: '/customers', label: 'Kupci', key: 'customers' },
@@ -46,6 +47,7 @@ export function renderShell(active) {
     ),
   );
   document.getElementById('shell').replaceChildren(bar);
+  mountWebNav();
   getCurrentUser()
     .then((u) => {
       user.textContent = initials(u.displayName);
