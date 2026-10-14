@@ -54,7 +54,9 @@ describe('Home header (UPDATE 08)', () => {
     const menu = header.slice(header.indexOf('id="account-menu"'));
     expect(menu).not.toContain('data-notifications');
     expect(
-      [...menu.matchAll(/role="menuitem"[^>]*>[\s\S]*?<\/svg>([^<]+)</g)].map((m) => m[1].trim()),
+      [...menu.matchAll(/role="menuitem"[^>]*>[\s\S]*?<\/svg>([^<]+)</g)].map((m) =>
+        (m[1] ?? '').trim(),
+      ),
     ).toEqual(['Odjava']);
     expect(menu).toContain('data-account-name');
   });
