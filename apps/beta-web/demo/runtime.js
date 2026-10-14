@@ -28,7 +28,12 @@ const USER = {
   role: 'beta_admin',
 };
 const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Zagreb';
-const KEYS = { data: 'renvara.demo.crm.v1', auth: 'renvara.demo.auth', nav: 'renvara.demo.nav' };
+// Storage per edition: pages opened from disk share one browser storage, so the
+// clean start and the presentation demo must not overwrite each other.
+const PREFIX = DEMO_CONTENT ? 'renvara.demo' : 'renvara.clean';
+const KEYS = { data: `${PREFIX}.crm.v1`, auth: `${PREFIX}.auth`, nav: `${PREFIX}.nav` };
+/** Where the clean start kept its records before it had a key of its own. */
+const SHARED_DATA_KEY = 'renvara.demo.crm.v1';
 const COLLECTIONS = [
   'customers',
   'contacts',
@@ -100,7 +105,11 @@ function browserStore() {
     kind: 'browser',
     async load() {
       try {
-        const saved = JSON.parse(local.get(KEYS.data) ?? 'null');
+        let saved = JSON.parse(local.get(KEYS.data) ?? 'null');
+        if (!saved && !DEMO_CONTENT) {
+          const shared = JSON.parse(local.get(SHARED_DATA_KEY) ?? 'null');
+          if (shared?.edition === 'clean') saved = shared; // taken over once, then kept apart
+        }
         const current = DEMO_CONTENT ? saved?.seededOn === todayKey() : true;
         // Data saved before a collection existed (e.g. leads) gets it empty.
         if (current && (saved?.edition ?? 'demo') === EDITION && saved.data?.version === 2)

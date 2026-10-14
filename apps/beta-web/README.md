@@ -548,12 +548,20 @@ browser code and the server alike:
 pnpm --filter @renvara/beta-web demo:build         # → apps/beta-web/dist/demo/index.html (presentation demo)
 pnpm --filter @renvara/beta-web demo:build:empty   # → the same file as a clean start (no demo data)
 pnpm --filter @renvara/beta-web demo:build:mobile  # → dist/demo-mobile/index.html (presentation demo, phone frame)
+pnpm --filter @renvara/beta-web demo:folder        # → demo-app/: all three as pages that open from disk
 ```
 
 Builds a clickable demo as **one self-contained page** (scripts, styles and
 images inlined; sources staged in `dist/demo-src`): the same pages and the same
 CRM services, with the API answered in the browser (`demo/runtime.js`). Any
 username and password sign in.
+
+`demo-app/` (repository root) holds the three builds as complete pages to open
+by double-click (`file://`), with a README in Croatian. Outside an artifact the
+records stay in the browser's storage; the clean start (`renvara.clean.*`) and
+the presentation demo (`renvara.demo.*`) use separate keys, because pages
+opened from disk share one storage. Clean-start records saved under the old
+shared key are taken over once.
 
 - Published as a claude.ai artifact with the `db` capability, records are kept
   in the artifact's test database, one document per record

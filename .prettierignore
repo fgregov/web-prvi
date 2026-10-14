@@ -4,3 +4,5 @@ supabase/
 .github/workflows/main.yml
 # Xcode project (managed by Xcode and the Capacitor CLI)
 apps/ios/ios/
+# Demo app folder (built by apps/beta-web/demo/folder.ts)
+demo-app/*.html
