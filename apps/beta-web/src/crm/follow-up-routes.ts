@@ -35,9 +35,9 @@ import {
 import type { CrmServices } from './index.ts';
 import type { Body } from './scope.ts';
 import type { CrmContext } from './types.ts';
+import { APP_DIR } from '../app-dir.ts';
 
 const MAX_JSON_BYTES = 32 * 1024;
-const APP_DIR = resolve(import.meta.dirname, '../..');
 const VIEWER_DIR = resolve(APP_DIR, 'public/viewer');
 const PDFJS_DIR = resolve(APP_DIR, 'node_modules/pdfjs-dist');
 /** pdf.js files the viewer may load (nothing else of the package is served). */

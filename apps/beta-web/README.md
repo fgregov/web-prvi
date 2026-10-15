@@ -31,7 +31,8 @@ default credentials.
 | Variable                    | Required | Purpose                                                       |
 | --------------------------- | -------- | ------------------------------------------------------------- |
 | `RENVARA_BETA_USERNAME`     | yes      | The first owner's username (case-sensitive)                   |
-| `RENVARA_BETA_PASSWORD`     | yes      | Its password (case-sensitive, never trimmed)                  |
+| `RENVARA_BETA_PASSWORD`     | yes\*    | Its password (case-sensitive, never trimmed)                  |
+| `RENVARA_BETA_PASSWORD_HASH` | \*      | Instead of the password: its scrypt hash (`scrypt$N$r$p$salt$key`, as the localhost package writes it) |
 | `RENVARA_BETA_EMAIL`        | no       | The first owner may also sign in with this e-mail             |
 | `RENVARA_IDENTITY_FILE`     | no       | Members' credentials, links, session cut-offs (default: next to the data) |
 | `RENVARA_IDENTITY`          | no       | `local` (default) or `supabase` (see **Korisnici**)           |
@@ -618,6 +619,26 @@ browser code and the server alike:
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `true` (default)           | Presentation demo: demo records on first start, fixed demo numbers on Home (KPIs per quarter, pipeline totals), offers waiting in "Feedback overview", the notification dot, prefilled "Novi kupac", "Vrati demo podatke" (`POST /api/demo/reset`).                  |
 | `false` (`demo:build:empty`) | Clean start for real use: no records, every number counts only what was entered, no examples, a blank "Novi kupac", no demo reset (the route does not exist). All functions are the same. |
+
+## On one computer (localhost package)
+
+`pnpm --filter @renvara/beta-web localhost:build` (`localhost/build.ts`) makes
+`dist/renvara-localhost/` and `dist/renvara-localhost.zip`: the real server in
+one file (`program/apps/beta-web/server/renvara.mjs`, bundled with rolldown,
+clean edition), the pages, the pdf.js files it uses, and launchers that need
+only Node.js 20.11+ (no `pnpm install`, no network):
+
+| File | Purpose |
+| ---- | ------- |
+| `Pokreni-Renvaru-Windows.bat`, `Pokreni-Renvaru-Mac.command`, `pokreni-renvaru-linux.sh` | Double-click: start, open the browser |
+| `program/start.mjs` (`localhost/start.mjs`) | First start: asks the owner's name, username, e-mail and password; keeps only its scrypt hash (`RENVARA_BETA_PASSWORD_HASH`), a session secret and VAPID keys in `podaci/postavke.json` (0600). Then starts the server on `127.0.0.1` (port 3000 or the next free one) with data in `podaci/`. `--nova-lozinka`, `--port=`, `--bez-preglednika` |
+| `PROCITAJ-ME.txt` | Instructions for users (Croatian) |
+
+The server finds its files from its own location (`src/app-dir.ts`), so the
+layout below `program/` mirrors the repository. The CI job "Localhost package"
+unzips it outside the repository, runs the first start and signs in; the
+Pages workflow publishes the ZIP (`/renvara-localhost.zip`) and attaches it to
+the run.
 
 ## Static demo
 

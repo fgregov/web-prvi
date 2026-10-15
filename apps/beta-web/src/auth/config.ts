@@ -7,7 +7,10 @@
 
 export interface AuthConfig {
   readonly username: string;
-  readonly password: string;
+  /** RENVARA_BETA_PASSWORD; null when only its scrypt hash is configured. */
+  readonly password: string | null;
+  /** RENVARA_BETA_PASSWORD_HASH (`scrypt$N$r$p$salt$hash`): the password is never kept in plain text. */
+  readonly passwordHash: string | null;
   readonly displayName: string;
   readonly sessionSecret: string;
   readonly sessionTtlSeconds: number;
@@ -28,13 +31,19 @@ export const REQUIRED_ENV = [
   'RENVARA_SESSION_SECRET',
 ] as const;
 
+/** scrypt$N$r$p$salt$key (base64url), as written by identity/local-accounts.ts hashPassword. */
+const PASSWORD_HASH = /^scrypt\$(\d+)\$(\d+)\$(\d+)\$[A-Za-z0-9_-]{16,}\$[A-Za-z0-9_-]{32,}$/;
+
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 export const MIN_SECRET_LENGTH = 32;
 
 type Env = Readonly<Record<string, string | undefined>>;
 
 export function loadAuthConfig(env: Env): AuthConfig {
-  const missing = REQUIRED_ENV.filter((key) => !env[key]);
+  // The owner's password may be given as its scrypt hash instead (the local app does).
+  const missing = REQUIRED_ENV.filter(
+    (key) => !env[key] && !(key === 'RENVARA_BETA_PASSWORD' && env.RENVARA_BETA_PASSWORD_HASH),
+  );
   if (missing.length > 0) {
     throw new ConfigError(
       `Missing required server configuration: ${missing.join(', ')}. ` +
@@ -43,8 +52,33 @@ export function loadAuthConfig(env: Env): AuthConfig {
   }
 
   const username = env.RENVARA_BETA_USERNAME as string;
-  const password = env.RENVARA_BETA_PASSWORD as string;
+  const password = env.RENVARA_BETA_PASSWORD || null;
+  const passwordHash = env.RENVARA_BETA_PASSWORD_HASH?.trim() || null;
   const sessionSecret = env.RENVARA_SESSION_SECRET as string;
+
+  if (password && passwordHash) {
+    throw new ConfigError('Set RENVARA_BETA_PASSWORD or RENVARA_BETA_PASSWORD_HASH, not both.');
+  }
+  if (passwordHash) {
+    const match = PASSWORD_HASH.exec(passwordHash);
+    const [n, r, p] = match ? match.slice(1).map(Number) : [];
+    const sound =
+      n !== undefined &&
+      r !== undefined &&
+      p !== undefined &&
+      n >= 2 ** 14 &&
+      n <= 2 ** 20 &&
+      (n & (n - 1)) === 0 &&
+      r >= 8 &&
+      r <= 16 &&
+      p >= 1 &&
+      p <= 4;
+    if (!sound) {
+      throw new ConfigError(
+        'RENVARA_BETA_PASSWORD_HASH must be a scrypt hash (scrypt$N$r$p$salt$key, N at least 2^14).',
+      );
+    }
+  }
 
   if (username !== username.trim()) {
     throw new ConfigError('RENVARA_BETA_USERNAME must not have leading or trailing whitespace.');
@@ -69,6 +103,7 @@ export function loadAuthConfig(env: Env): AuthConfig {
   return {
     username,
     password,
+    passwordHash,
     displayName: env.RENVARA_BETA_DISPLAY_NAME?.trim() || username,
     sessionSecret,
     sessionTtlSeconds: SESSION_TTL_SECONDS,

@@ -4,6 +4,7 @@ import { createBetaAuthProvider } from '../src/auth/beta-provider.ts';
 import { ConfigError, loadAuthConfig } from '../src/auth/config.ts';
 import { FailedLoginLimiter } from '../src/auth/rate-limit.ts';
 import { createSessionToken, verifySessionToken } from '../src/auth/session.ts';
+import { hashPassword } from '../src/identity/local-accounts.ts';
 import { MESSAGES } from '../src/messages.ts';
 import { PASSWORD, SECRET, testEnv, USERNAME } from './helpers.ts';
 
@@ -21,6 +22,29 @@ describe('loadAuthConfig', () => {
       expect(() => loadAuthConfig(testEnv({ [key]: undefined }))).toThrow(new RegExp(key));
     },
   );
+
+  it('takes the owner password as a scrypt hash instead (never both, never a weak hash)', async () => {
+    const hash = await hashPassword(PASSWORD);
+    const env = testEnv({ RENVARA_BETA_PASSWORD: undefined, RENVARA_BETA_PASSWORD_HASH: hash });
+    const config = loadAuthConfig(env);
+    expect(config).toMatchObject({ password: null, passwordHash: hash });
+    const provider = createBetaAuthProvider(config);
+    expect(provider.authenticate(USERNAME, PASSWORD)).toMatchObject({ id: `beta-${USERNAME}` });
+    expect(provider.authenticate(USERNAME, `${PASSWORD}x`)).toBeNull();
+    expect(provider.authenticate('someone', PASSWORD)).toBeNull();
+    expect(() => loadAuthConfig(testEnv({ RENVARA_BETA_PASSWORD_HASH: hash }))).toThrow(/not both/);
+    for (const bad of [
+      'plain-text',
+      hash.replace('scrypt$32768', 'scrypt$1024'),
+      'scrypt$32768$8$1$x$y',
+    ]) {
+      expect(() =>
+        loadAuthConfig(
+          testEnv({ RENVARA_BETA_PASSWORD: undefined, RENVARA_BETA_PASSWORD_HASH: bad }),
+        ),
+      ).toThrow(/scrypt hash/);
+    }
+  });
 
   it('rejects a weak session secret', () => {
     expect(() => loadAuthConfig(testEnv({ RENVARA_SESSION_SECRET: 'short' }))).toThrow(/32/);

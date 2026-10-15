@@ -38,7 +38,7 @@ export async function createLocalIdentityLayer(options: {
   /** RENVARA_IDENTITY_FILE */
   file: string;
   /** The first owner from the server settings (null: none, e.g. tests that create members). */
-  config: Pick<AuthConfig, 'username' | 'password' | 'displayName'> | null;
+  config: Pick<AuthConfig, 'username' | 'password' | 'passwordHash' | 'displayName'> | null;
   /** RENVARA_BETA_EMAIL: the first owner may also sign in with this address. */
   ownerEmail?: string | null;
   now?: () => Date;

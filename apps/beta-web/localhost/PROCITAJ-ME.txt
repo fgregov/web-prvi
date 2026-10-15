@@ -1,0 +1,96 @@
+RENVARA NA VAŠEM RAČUNALU (localhost)
+=====================================
+
+Ovo je prava Renvara (isti server kao BETA u oblaku), pokrenuta na vašem
+računalu. Otvarate je u pregledniku na adresi http://localhost:3000.
+Radi bez interneta, a podaci ostaju samo na ovom računalu.
+
+
+1. ŠTO TREBA (jednom)
+---------------------
+Node.js, verzija LTS (besplatno): https://nodejs.org
+Preuzmite instalacijski program za svoj sustav i instalirajte ga
+(sve zadane postavke). Ništa drugo nije potrebno.
+
+
+2. POKRETANJE
+-------------
+Raspakirajte ZIP u mapu po želji (npr. Dokumenti\Renvara), pa:
+
+  Windows:  dvoklik na  Pokreni-Renvaru-Windows.bat
+            (ako se pojavi "Windows je zaštitio računalo": Više informacija
+             → Svejedno pokreni)
+
+  Mac:      dvoklik na  Pokreni-Renvaru-Mac.command
+            (prvi put: desni klik → Otvori → Otvori, jer datoteka nije
+             iz App Storea)
+
+  Linux:    ./pokreni-renvaru-linux.sh
+
+Otvorit će se prozor (terminal). PRVI PUT pita:
+  - ime i prezime vlasnika,
+  - korisničko ime za prijavu,
+  - e-mail (neobavezno: tada se možete prijaviti i e-mailom),
+  - lozinku (najmanje 12 znakova, slova i brojke; dok tipkate ne prikazuje se).
+
+Zatim se Renvara pokrene i sama otvori preglednik na
+http://localhost:3000 (ako je port zauzet, sljedeći slobodan: adresa piše
+u prozoru). Prijavite se korisničkim imenom (ili e-mailom) i lozinkom.
+
+VAŽNO: ne zatvarajte prozor dok radite. Kraj rada: zatvorite prozor ili
+pritisnite Ctrl+C. Sljedeći put opet dvoklik: podaci su sačuvani.
+
+
+3. KORISNICI
+------------
+Vi ste vlasnik organizacije (sva prava). Ostale korisnike dodajete u
+izborniku Korisnici → Dodaj. Novi korisnik ne dobiva lozinku od vas:
+Renvara pokaže jednokratnu poveznicu (vrijedi 72 sata) koju mu pošaljete.
+Na njoj sam postavi lozinku.
+
+Napomena: poveznica i adresa http://localhost rade samo na OVOM računalu.
+Drugi korisnici se mogu prijaviti samo na ovom računalu (npr. dijeljeno
+računalo u uredu). Za rad više ljudi s različitih uređaja koristite BETA u
+oblaku (deploy/README.md u repozitoriju).
+
+
+4. PODACI I SIGURNOSNA KOPIJA
+-----------------------------
+Sve je u mapi  podaci  (pokraj mape program):
+  crm.json         kupci, kontakti, leadovi, prilike, zadaci, ponude, korisnici
+  identity.json    lozinke korisnika (samo scrypt hash), jednokratne poveznice
+  ponude\          PDF dokumenti ponuda
+  postavke.json    vlasnik (lozinka samo kao hash), ključ sesija, ključevi za
+                   obavijesti
+
+Sigurnosna kopija: zatvorite Renvaru i kopirajte cijelu mapu  podaci.
+Vraćanje: kopiju vratite na isto mjesto.
+Mapu podaci ne šaljite drugima: u njoj su vaši poslovni podaci i ključevi.
+
+
+5. ZABORAVLJENA LOZINKA VLASNIKA
+--------------------------------
+  Windows:  u ovoj mapi otvorite naredbeni redak i upišite
+              node program\start.mjs --nova-lozinka
+  Mac/Linux: u Terminalu, u ovoj mapi:
+              node program/start.mjs --nova-lozinka
+Lozinke ostalih korisnika mijenja vlasnik u Korisnici → korisnik →
+Lozinka i sigurnost (ili im pošalje poveznicu za novu lozinku).
+
+
+6. NOVA VERZIJA
+---------------
+Raspakirajte novi ZIP i u njega premjestite svoju mapu  podaci  (ili
+zamijenite samo mapu  program  u postojećoj mapi). Podaci ostaju.
+
+
+7. DOBRO JE ZNATI
+-----------------
+- Renvara sluša samo na ovom računalu (127.0.0.1): drugi uređaji u mreži
+  ne mogu joj pristupiti.
+- Obavijesti (podsjetnici) u pregledniku rade dok je Renvara pokrenuta i
+  dok ste ih dopustili u pregledniku.
+- Follow-up poveznice za kupce (pregled ponude) otvaraju se samo na ovom
+  računalu: kupac ih s localhosta ne može otvoriti. Za slanje kupcima
+  potreban je server s javnom https adresom (BETA u oblaku).
+- Ovo nije sustav za sigurnosnu kopiju: kopirajte mapu podaci redovito.

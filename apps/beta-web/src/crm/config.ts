@@ -1,5 +1,6 @@
 import { dirname, resolve } from 'node:path';
 import { assertValidTimeZone } from '@renvara/domain';
+import { APP_DIR } from '../app-dir.ts';
 
 /**
  * BETA tenancy: the single BETA account works in one organization. With
@@ -13,8 +14,6 @@ export interface CrmConfig {
   /** Local identity: accounts, password links, session cut-offs (next to the data, never in it). */
   readonly identityFile: string;
 }
-
-const APP_DIR = resolve(import.meta.dirname, '../..');
 
 export function loadCrmConfig(env: Record<string, string | undefined>): CrmConfig {
   const timeZone = env.RENVARA_ORG_TIMEZONE || 'Europe/Zagreb';

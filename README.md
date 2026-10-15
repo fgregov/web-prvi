@@ -22,6 +22,8 @@ supabase/
   tests/database/     pgTAP tests: tenant isolation, roles, invariants
 deploy/               the BETA web app in the cloud: Docker Compose + Caddy, Fly.io (README in Croatian)
 demo-app/             the demo as pages that open from disk (README in Croatian)
+                      the real app on one computer: `pnpm --filter @renvara/beta-web localhost:build`
+                      → apps/beta-web/dist/renvara-localhost.zip (needs only Node.js; README inside)
 docs/
   architecture/       how the system is built (start here)
   adr/                architecture decision records

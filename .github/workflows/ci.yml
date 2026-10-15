@@ -47,6 +47,38 @@ jobs:
       - if: always()
         run: docker logs renvara || true
 
+  localhost:
+    name: Localhost package (one folder, only Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @renvara/beta-web localhost:build
+      - name: From a fresh unzip outside the repository (setup, sign-in, pages)
+        run: |
+          mkdir -p "$RUNNER_TEMP/lh" && cd "$RUNNER_TEMP/lh"
+          unzip -q "$GITHUB_WORKSPACE/apps/beta-web/dist/renvara-localhost.zip"
+          cd renvara-localhost
+          test -x Pokreni-Renvaru-Mac.command && test -x pokreni-renvaru-linux.sh
+          pw="Ci$(openssl rand -hex 8)x1"
+          printf 'CI Vlasnik\nci.owner\n\n%s\n%s\n' "$pw" "$pw" > answers.txt
+          node program/start.mjs --bez-preglednika --port=3500 < answers.txt > run.log 2>&1 &
+          for i in $(seq 1 30); do grep -q 'Renvara radi' run.log && break; sleep 1; done
+          cat run.log
+          curl -fs -o /dev/null http://localhost:3500/login
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3500/dashboard)" = 302
+          ! grep -rqF "$pw" podaci
+          curl -s -c cookies.txt -H 'Content-Type: application/json' \
+            -d "{\"username\":\"ci.owner\",\"password\":\"$pw\"}" \
+            http://localhost:3500/api/auth/login | grep -q '"success":true'
+          test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/users)" = 200
+          test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/viewer/pdfjs/build/pdf.min.mjs)" = 200
+
   database:
     name: Database (migrations, RLS & invariant tests, generated types)
     runs-on: ubuntu-latest

@@ -34,6 +34,7 @@ import {
 import type { UserRecord } from './identity/directory.ts';
 import { createUserRoutes } from './identity/routes.ts';
 import { displayName, type ServiceActor, type UserService } from './identity/user-service.ts';
+import { APP_DIR } from './app-dir.ts';
 
 export interface AppPaths {
   /** Folder with the BETA login page (index.html, login.css, login.js). */
@@ -49,8 +50,6 @@ export interface Logger {
   warn(event: string, fields?: Record<string, unknown>): void;
   error(event: string, fields?: Record<string, unknown>): void;
 }
-
-const APP_DIR = resolve(import.meta.dirname, '..');
 
 export const defaultPaths: AppPaths = {
   loginDir: resolve(APP_DIR, 'public/login'),

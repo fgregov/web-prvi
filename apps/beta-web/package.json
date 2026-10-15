@@ -13,6 +13,7 @@
     "demo:build:empty": "node demo/build.ts --empty",
     "demo:build:mobile": "node demo/build.ts --mobile",
     "demo:folder": "node demo/folder.ts",
+    "localhost:build": "node localhost/build.ts",
     "push:keys": "node src/notifications/vapid-keys.ts"
   },
   "engines": {
