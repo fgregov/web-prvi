@@ -15,6 +15,7 @@ import {
   sendJson,
   sendText,
 } from './http/respond.ts';
+import { RequestLimiter } from './http/request-limiter.ts';
 import { resolveStaticFile, sendFile } from './http/static.ts';
 import { createCrmServices, type CrmServices } from './crm/index.ts';
 import { createMemoryRepository } from './crm/repository.ts';
@@ -24,6 +25,7 @@ import { createCrmRoutes, type CrmRouteOptions } from './crm/routes.ts';
 import { seedDemoData } from './crm/seed.ts';
 import type { CrmContext } from './crm/types.ts';
 import { MESSAGES } from './messages.ts';
+import { legacyPath, pageForPath } from '../public/app/js/core/routes.js';
 
 export interface AppPaths {
   /** Folder with the BETA login page (index.html, login.css, login.js). */
@@ -47,36 +49,6 @@ export const defaultPaths: AppPaths = {
   dashboardDir: resolve(APP_DIR, '../../prototypes/home'),
   appDir: resolve(APP_DIR, 'public/app'),
 };
-
-/** Protected CRM pages → HTML shell in public/app/pages. Exact paths win over the patterns. */
-const CRM_PAGES: Record<string, string> = {
-  '/customers': 'customers.html',
-  '/customers/new': 'customer-new.html',
-  '/contacts/new': 'contact-new.html',
-  '/opportunities': 'opportunities.html',
-  '/opportunities/new': 'opportunity-new.html',
-  '/tasks': 'tasks.html',
-  '/tasks/new': 'task-form.html',
-  '/calendar': 'calendar.html',
-  '/leads': 'leads.html',
-  '/leads/new': 'lead-new.html',
-  '/feedback-overview': 'feedback-overview.html',
-  '/follow-up': 'follow-up.html',
-  '/follow-up/new': 'follow-up-new.html',
-  '/notifications': 'notifications.html',
-  // Primary modules not built yet: navigation shells.
-  '/reports': 'module.html',
-  '/more': 'module.html',
-};
-const CRM_PAGE_PATTERNS: Array<[RegExp, string]> = [
-  [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer.html'],
-  [/^\/tasks\/[A-Za-z0-9_-]{1,64}$/, 'task.html'],
-  [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form.html'],
-  [/^\/leads\/[A-Za-z0-9_-]{1,64}$/, 'lead.html'],
-  [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert.html'],
-  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}$/, 'follow-up-offer.html'],
-  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}\/preview$/, 'follow-up-preview.html'],
-];
 
 const BRAND_ICONS = new Set([
   '/brand/icon-192.png',
@@ -107,6 +79,31 @@ export const consoleLogger: Logger = {
       JSON.stringify({ level: 'error', event, at: new Date().toISOString(), ...fields }),
     ),
 };
+
+/**
+ * API request budgets, by what an endpoint does (fixed windows, per process).
+ * Signed-in calls count per user, others per client address. Uploads, the
+ * customer's offer link and failed sign-ins have their own, stricter limits
+ * (follow-up-routes.ts, auth). A budget a person reaches by hand would be a bug:
+ * these stop scripts and runaway loops.
+ */
+export interface ApiLimits {
+  /** GET: lists, records, dashboard numbers. */
+  readonly read: RequestLimiter;
+  /** POST/PATCH/PUT: creating and changing records. */
+  readonly write: RequestLimiter;
+  /** "Pošalji probnu obavijest": each one reaches the user's devices. */
+  readonly pushTest: RequestLimiter;
+  /** Any /api/ call without a session (sign-in included), per client address. */
+  readonly anonymous: RequestLimiter;
+}
+
+export const defaultApiLimits = (): ApiLimits => ({
+  read: new RequestLimiter(1200, 60_000),
+  write: new RequestLimiter(240, 60_000),
+  pushTest: new RequestLimiter(5, 10 * 60_000),
+  anonymous: new RequestLimiter(60, 60_000),
+});
 
 const LOGIN_PATH = '/login';
 const DASHBOARD_PATH = '/dashboard';
@@ -147,6 +144,8 @@ export function createApp(
     publicOrigin?: string | null;
     /** RENVARA_TRUST_PROXY: the client address comes from the proxy's X-Forwarded-For. */
     trustProxy?: boolean;
+    /** API request budgets (tests use small ones). */
+    apiLimits?: ApiLimits;
   } = {},
 ): RequestListener {
   const paths = options.paths ?? defaultPaths;
@@ -160,7 +159,22 @@ export function createApp(
     publicOrigin,
   });
   const now = crm.now ?? (() => new Date());
-  const followUpRoutes = createFollowUpRoutes(crm.services, { publicOrigin, now });
+  const followUpRoutes = createFollowUpRoutes(crm.services, { publicOrigin, now, trustProxy });
+  const apiLimits = options.apiLimits ?? defaultApiLimits();
+
+  /** Seconds to wait when this API call is over its budget, else 0. */
+  function apiBudget(req: IncomingMessage, method: string, path: string): number {
+    const at = Date.now();
+    const session = currentSession(req);
+    const [limiter, key] = !session
+      ? [apiLimits.anonymous, clientAddress(req, trustProxy)]
+      : path === '/api/push/test'
+        ? [apiLimits.pushTest, session.user.id]
+        : method === 'GET'
+          ? [apiLimits.read, session.user.id]
+          : [apiLimits.write, session.user.id];
+    return limiter.allow(key, at) ? 0 : limiter.retryAfterSeconds(key, at);
+  }
   const logoFile = resolve(paths.dashboardDir, 'assets/renvara-logo.png');
 
   const sessionToken = (req: IncomingMessage) =>
@@ -294,6 +308,16 @@ export function createApp(
     const path = url.pathname;
     const method = req.method === 'HEAD' ? 'GET' : (req.method ?? 'GET');
 
+    // ---- API budgets (the customer's offer link /o/… has its own) --------
+    if (path.startsWith('/api/')) {
+      const wait = apiBudget(req, method, path);
+      if (wait > 0) {
+        logger.warn('api_rate_limited', { path, method });
+        res.setHeader('Retry-After', String(wait));
+        return sendJson(res, 429, { success: false, message: MESSAGES.tooManyRequests });
+      }
+    }
+
     // ---- Follow-up Engine: its API, the customer's offer viewer (/o/…) ----
     if (await followUpRoutes.handle(req, res, url, () => crmContext(req))) return;
 
@@ -357,15 +381,14 @@ export function createApp(
       return serveDashboard(req, res, path);
     }
 
-    // ---- Demo CRM (protected) -------------------------------------------
-    const crmPage =
-      CRM_PAGES[path] ?? CRM_PAGE_PATTERNS.find(([pattern]) => pattern.test(path))?.[1] ?? null;
+    // ---- CRM pages (protected): one address per page, core/routes.js ----
+    const crmPage = pageForPath(path);
     if (crmPage) {
       if (!requireAuth(req, res)) return;
       noStore(res);
       // The internal offer preview renders the PDF with pdf.js (worker, WebAssembly).
-      if (crmPage === 'follow-up-preview.html') applyViewerCsp(res);
-      return sendFile(res, resolve(paths.appDir, 'pages', crmPage));
+      if (crmPage === 'follow-up-preview') applyViewerCsp(res);
+      return sendFile(res, resolve(paths.appDir, 'pages', `${crmPage}.html`));
     }
     if (path.startsWith('/app/')) {
       if (!requireAuth(req, res)) return;
@@ -374,7 +397,15 @@ export function createApp(
       return file ? sendFile(res, file) : sendText(res, 404, 'Not found');
     }
 
-    return sendText(res, 404, 'Not found');
+    // Old addresses and a trailing slash → the page's address (query kept).
+    // Always a path on this site: a fixed prefix, or a page address.
+    const trimmed = path.replace(/(.)\/+$/, '$1');
+    const moved =
+      legacyPath(trimmed) ?? (trimmed !== path && pageForPath(trimmed) ? trimmed : null);
+    if (moved) return redirect(res, `${moved}${url.search}`, 301);
+
+    noStore(res);
+    return sendFile(res, resolve(paths.loginDir, 'not-found.html'), { status: 404 });
   }
 
   return (req, res) => {

@@ -72,6 +72,7 @@ records are one JSON file and the reminder scheduler runs in the process.
 | `POST /api/auth/logout`          | public      | Revokes the session, clears the cookie → `200 {success, redirectTo: "/login"}`            |
 | `GET /api/auth/session`          | public      | `{authenticated, user?}`. Identity only                                                   |
 | `GET /dashboard`, `/dashboard/*` | **session** | The approved dashboard (`prototypes/home`), served unchanged                              |
+| Every other page | **session** | One address per page, see **Pages** below; old addresses → `301`, unknown → `404` page    |
 
 ## How it works
 
@@ -90,13 +91,20 @@ records are one JSON file and the reminder scheduler runs in the process.
   `/dashboard` request, including CSS, JS and images. A missing, tampered,
   revoked or expired token gets a `302` to `/login`. An expired one goes to
   `/login?reason=expired`, which shows "Vaša sesija je istekla."
-- **Logout and Back.** Logout revokes the session id on the server. Protected
-  responses are `Cache-Control: no-store`. The dashboard also re-checks the
-  session when the browser restores it from the back/forward cache.
+- **Logout and Back.** Logout (**Odjava** in the sidebar) revokes the session id
+  on the server. Protected responses are `Cache-Control: no-store`. Every page
+  also re-checks the session when the browser restores it from the
+  back/forward cache.
 - **CSRF.** POST endpoints accept only `application/json` from the same origin
   (`Origin` and `Sec-Fetch-Site` are checked). Combined with `SameSite=Lax`,
   cross-site forms cannot log anyone in or out. No CORS headers are sent.
-- **Rate limit.** 10 failed logins per IP per minute → `429` with `Retry-After`.
+- **Rate limits by endpoint kind** (`429` with `Retry-After`): 10 failed logins
+  per client per minute; any `/api/` call without a session 60 per client per
+  minute; signed-in API reads 1200 and writes 240 per user per minute; the test
+  notification 5 per user per 10 minutes; PDF uploads 30 per user per 10
+  minutes; the customer's offer link 120 (its view events 30) per client per
+  minute. Details and the gaps before a public production:
+  [docs/architecture/06-web-security-review.md](../../docs/architecture/06-web-security-review.md).
 - **Logging.** Events only (`login_failed`, `login_succeeded`, `logout`) with
   IP and time. Never bodies, passwords, tokens or cookies.
 
@@ -109,18 +117,18 @@ the caller's organization, which the server takes from its own configuration
 
 ### Quick Add
 
-The dashboard's **+** opens a bottom sheet with exactly five actions. Each
+**+ Novo** (top of the sidebar; **+** in the top bar below 1024 px) opens a sheet with exactly five actions. Each
 opens its own screen (same tab). After saving, Novi kupac opens the customer
 profile and Novi lead opens the new lead; the others return to where they were
 opened:
 
 | Action       | Screen               |
 | ------------ | -------------------- |
-| Novi kupac   | `/customers/new`     |
-| Nova prilika | `/opportunities/new` |
-| Novi kontakt | `/contacts/new`      |
-| Novi zadatak | `/tasks/new`         |
-| Novi lead    | `/leads/new`         |
+| Novi kupac   | `/sales/customers/new`     |
+| Nova prilika | `/sales/opportunities/new` |
+| Novi kontakt | `/sales/contacts/new`      |
+| Novi zadatak | `/sales/tasks/new`         |
+| Novi lead    | `/sales/leads/new`         |
 
 The sheet closes on selection, on a tap outside it, on Esc and on a swipe down.
 **Nova prilika** asks first "Poveži priliku s: Lead | Kupac" (ADR-0009): a
@@ -143,7 +151,7 @@ lead's deal needs no customer.
 - **Overdue** = open and past its deadline. **Prioritetni zadaci** on Home: open HIGH
   first, then overdue, then due today; tasks completed today stay ticked.
 - `FOLLOW_UP` is a task type. There is no follow-up engine yet.
-- Context comes from the query: `/tasks/new?companyId=…&contactId=…&opportunityId=…&type=…&calendar=1&date=YYYY-MM-DD&returnTo=/path`.
+- Context comes from the query: `/sales/tasks/new?companyId=…&contactId=…&opportunityId=…&type=…&calendar=1&date=YYYY-MM-DD&returnTo=/path`.
 
 ### Leads
 
@@ -160,7 +168,7 @@ conversion → new or existing customer (ACTIVE). No customer is ever created
 automatically.
 
 - **Kreiraj priliku** on Lead Detail opens the New opportunity form linked to
-  the lead (`/opportunities/new?leadId=…`); no customer is needed. A lead can
+  the lead (`/sales/opportunities/new?leadId=…`); no customer is needed. A lead can
   have several opportunities, each with its own outcome; Lead Detail lists
   them (`#prilike`) with the same card and actions as a customer's
   (offers, PDF offers, tasks, Dobiveno / Izgubljeno). Lost leads get no new
@@ -173,7 +181,7 @@ automatically.
   ovaj lead u kupca?" — KREIRAJ KUPCA / POVEŽI S POSTOJEĆIM KUPCEM / KASNIJE.
   KASNIJE leaves the lead WON with "Čeka pretvaranje u kupca" and
   **PRETVORI U KUPCA** on Lead Detail ("Čeka kupca" in the list).
-- **Conversion** (`/leads/{id}/convert`, "Pretvori lead u kupca"): only a WON
+- **Conversion** (`/sales/leads/{id}/convert`, "Pretvori lead u kupca"): only a WON
   lead; a NEW customer (prefilled from the lead, created ACTIVE, so it is in
   Aktivni and Svi) or an EXISTING one (an inactive customer only after
   "Ponovno aktiviraj"). One idempotent transaction: a repeated call returns
@@ -231,13 +239,13 @@ in the organization's timezone, each count by its own event date):
 | PROSPECTS                    | Leads that first became prospects (stage Kvalificiran, `qualifiedAt`) in the period; "Označi kao Prospect" on New Lead     |
 | NEGOTIATIONS                 | Distinct opportunities with a commercial event in the period: created, offer sent or answered, a task of it completed       |
 | BUYERS YYYY                  | Distinct customers with a won opportunity from 1 January of the period's end year up to the end of the period               |
-| SALES KALENDAR               | The period's calendar tasks (the same tasks as `/calendar`; no separate calendar records)                                   |
+| SALES KALENDAR               | The period's calendar tasks (the same tasks as `/sales-calendar`; no separate calendar records)                                   |
 | FEEDBACK OVERVIEW            | Sent offers still waiting: waiting days counted from the sending day (= 1D), 1–4D yellow, 5–9D red, 10D+ black            |
 
 A past period shows the same widgets as of its end (BUYERS and FEEDBACK "Stanje
 na d.m."). The OPPORTUNITY PIPELINE card (its title, every row and "Full
-dashboard") and the OPPORTUNITY card open Prilike (`/opportunities`): the same
-screen as Više → Prilike and the top bar's "Prilike", with the stages closed.
+dashboard") and the OPPORTUNITY card open the Opportunity Pipeline
+(`/opportunity-pipeline`, sidebar: Prikaz više → Opportunity pipeline), with the stages closed.
 The FEEDBACK OVERVIEW card (its title and "Svi") opens Ponude. Task priority
 colours: LOW yellow, MEDIUM red, HIGH black (always with the label).
 
@@ -252,9 +260,9 @@ in Q3 and sent on 2 October is not waiting in the Q3 view. Only a sent offer
 that is still waiting has a day badge (same bands, counted from sending);
 drafts, answered, withdrawn offers and offers of closed deals show their state
 instead. Waiting offers come first, most urgent first. A row opens the offer on
-its customer's opportunity card (`/customers/{id}?offer={offerId}#prilike`,
+its customer's opportunity card (`/sales/customers/{id}?offer={offerId}#prilike`,
 the offer marked), as offers have no page of their own. The task module on
-Home is **PRIORITETNI ZADACI**, its link "Pogledaj sve zadatke" (→ `/tasks`).
+Home is **PRIORITETNI ZADACI**, its link "Pogledaj sve zadatke" (→ `/sales/tasks`).
 
 ### Customer Detail
 
@@ -268,7 +276,7 @@ refreshes after an action. A link to a section (`#pregled`, `#prilike`,
 `#kontakti` …, or an offer from Feedback overview) opens that one. The sections have no create buttons of
 their own; creating stays in the header card.
 
-The **Opportunity Pipeline** (`/opportunities`) shows its five stages the same
+The **Opportunity Pipeline** (`/opportunity-pipeline`) shows its five stages the same
 way; "Nova prilika" stays at the top, with the period button next to it
 (`[ Q4 2026 ▾ ] [ + Nova prilika ]`). The period is Home's (shared with Home
 and Ponude, kept for the session, so coming Back from an opportunity keeps it):
@@ -280,7 +288,7 @@ show where a deal stood at its end, and the page says so. The demo's static
 stage totals (42 / 28 / 18 / 11 / 6) belong to the current quarter only. A
 period without open opportunities says "Nema evidentiranih prilika za odabrani
 period." Choosing a period only reads; a new opportunity is always created
-today. **Zadaci** (`/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
+today. **Zadaci** (`/sales/tasks`) works the same way: DANAS, NADOLAZEĆE and DOVRŠENO are
 accordions with their number of tasks, closed on every visit and
 open while the page stays open. "Novi zadatak" stays at the top of the page.
 On both pages, coming Back (e.g. from a task) shows the sections that were
@@ -295,14 +303,14 @@ brings the same record back. Nothing else changes: contacts, tasks,
 opportunities, offers, reminders and leads stay as they are, and reports keep
 counting the customer's history. Activation (`status`: active / inactive, with
 `deactivatedAt` / `deactivatedBy`) is separate from the commercial type
-(customer / prospect). `/customers` shows **Aktivni** by default, with
+(customer / prospect). `/sales/customers` shows **Aktivni** by default, with
 **Neaktivni** and **Svi** (`?status=`); search stays within the chosen filter.
 Customer pickers in forms still list every customer.
 
 ### Offers and closing deals
 
-On an opportunity card (`/customers/{id}#prilike`, or a lead's deal on
-`/leads/{id}#prilike`): **Ponuda
+On an opportunity card (`/sales/customers/{id}#prilike`, or a lead's deal on
+`/sales/leads/{id}#prilike`): **Ponuda
 poslana** (title, sending date) records an offer; **Odgovor primljen** marks
 it answered (it leaves the feedback list, the record stays); **Dobiveno**
 closes the deal as won with its final amount (`wonValue`, when it differs from
@@ -311,7 +319,7 @@ activity. Closing cancels the deal's pending reminder.
 
 ### Follow-up Engine: offer PDFs and customer links
 
-`/follow-up` (bottom navigation) lists the offers of the selected period,
+`/follow-up` (sidebar: Follow-up engine) lists the offers of the selected period,
 unresolved first, with filters **Sve / Čeka odgovor / Pregledano / Riješeno**
 and their counts. The period is the shared one (Home, Opportunity Pipeline,
 Ponude): its button sits with **+ Attach new document** (side by side where
@@ -399,11 +407,10 @@ turned on.
   page provides `manifest.webmanifest` and `sw.js`). Native app push
   (APNs/FCM) is not part of this BETA; `push_subscriptions` already has
   `platform`/`provider` for it.
-- **Check it:** **Obavijesti** in the bottom navigation (MOBILNE OBAVIJESTI)
+- **Check it:** **Postavke** in the sidebar (MOBILNE OBAVIJESTI)
   shows whether this device receives push and turns it on here (**Uključi na
   ovom uređaju**; the permission prompt comes from that tap, as iOS requires).
-  The Home header has no notification bell and the avatar menu has no
-  Obavijesti entry (UPDATE 08); the server's test notification
+  The Home header has no notification bell (UPDATE 08); the server's test notification
   (`POST /api/push/test`, signed-in session) is unchanged but no screen offers
   a button for it.
 - Reminders are delivered while **Podsjetnik** is on in MOBILNE OBAVIJESTI
@@ -411,8 +418,8 @@ turned on.
 
 ### MOBILNE OBAVIJESTI
 
-**Obavijesti** in the bottom navigation (between Leads and Više; Izvještaji
-moved under **Više**) opens `/notifications`: seven switches, each saved on
+**Postavke** at the bottom of the sidebar opens `/settings` (old address
+`/notifications`), with MOBILNE OBAVIJESTI: seven switches, each saved on
 the server for the signed-in user only (all off for a new user), plus the time
 used for deadlines given as a date only. Design: ADR-0010.
 
@@ -461,22 +468,35 @@ Renvara, Focus) decide how they are shown.
 
 ### Pages
 
-| Route                                             | Page                                                   |
-| ------------------------------------------------- | ------------------------------------------------------ |
-| `/customers`, `/customers/new`, `/customers/{id}` | List with search, New Customer, Customer Detail        |
-| `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) |
-| `/contacts/new`                                   | New contact (customer required)                        |
-| `/opportunities`, `/opportunities/new` (`?companyId=` or `?leadId=`) | Pipeline (stages as accordions, Home's period) with next actions, New opportunity (Lead \| Kupac) |
-| `/tasks`                                          | Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO (accordions)       |
-| `/tasks/new`, `/tasks/{id}`, `/tasks/{id}/edit`   | New task, task detail, edit task                       |
-| `/calendar?week=YYYY-MM-DD`                       | Sales Kalendar (week view; earlier weeks show history) |
-| `/leads?status=active\|won\|lost`                  | Leads (bottom navigation): Svi / Aktivni / Won / Lost  |
-| `/leads/new`, `/leads/{id}`, `/leads/{id}/convert` (`?mode=existing&opportunityId=`) | New lead, Lead Detail (with its opportunities), Pretvori lead u kupca (WON leads) |
-| `/follow-up?filter=all\|waiting\|viewed\|resolved`  | FOLLOW-UP ENGINE (offer overview, the shared period)   |
-| `/notifications`                                  | MOBILNE OBAVIJESTI (bottom navigation "Obavijesti")    |
-| `/reports`                                        | Izvještaji (from Više; module shell)                   |
-| `/follow-up/new`, `/follow-up/{id}`, `/follow-up/{id}/preview` | Attach new document, offer detail (`?new=1`: success), own preview (not counted) |
-| `/o/{token}` (public, no session)                 | The customer's offer viewer                            |
+Every page has its own address (ADR-0013); one table, `public/app/js/core/routes.js`,
+serves the BETA server and the in-browser demo. Every page needs a session.
+
+| Route | Page | Sidebar |
+| --- | --- | --- |
+| `/dashboard` | Početna (Home) | Početna |
+| `/follow-up?filter=all\|waiting\|viewed\|resolved` | FOLLOW-UP ENGINE (offer overview, the shared period) | Follow-up engine |
+| `/follow-up/new`, `/follow-up/{id}`, `/follow-up/{id}/preview` | Attach new document, offer detail (`?new=1`: success), own preview (not counted) | Follow-up engine |
+| `/sales/leads?status=active\|won\|lost` | Leads: Svi / Aktivni / Won / Lost | Prodaja → Leads |
+| `/sales/leads/new`, `/sales/leads/{id}`, `/sales/leads/{id}/convert` (`?mode=existing&opportunityId=`) | New lead, Lead Detail (with its opportunities), Pretvori lead u kupca (WON leads) | Prodaja → Leads |
+| `/sales/opportunities?status=active\|won\|lost\|all&q=` | Prilike: every opportunity, filter and search kept in the address | Prodaja → Prilike |
+| `/sales/opportunities/new` (`?companyId=` or `?leadId=`), `/sales/opportunities/{id}` | New opportunity (Lead \| Kupac), one opportunity with its card and actions | Prodaja → Prilike |
+| `/sales/tasks` | Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO (accordions) | Prodaja → Zadaci |
+| `/sales/tasks/new`, `/sales/tasks/{id}`, `/sales/tasks/{id}/edit` | New task, task detail, edit task | Prodaja → Zadaci |
+| `/sales/customers?status=`, `/sales/customers/new`, `/sales/customers/{id}` | List with search, New Customer, Customer Detail | Prodaja → Kupci |
+| `/sales/contacts/new` | New contact (customer required) | Prodaja → Kupci |
+| `/sales-calendar?week=YYYY-MM-DD` | Sales Kalendar (week view; earlier weeks show history) | Prikaz više → Sales kalendar |
+| `/opportunity-pipeline` | Pipeline (stages as accordions, Home's period) with next actions | Prikaz više → Opportunity pipeline |
+| `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) | Prikaz više → Feedback overview |
+| `/reports`, `/users` | Izvještaji, Korisnici: "U produkciji – uskoro." (no data yet) | Izvještaji, Korisnici |
+| `/settings` | Postavke: MOBILNE OBAVIJESTI | Postavke |
+| `/o/{token}` (public, no session) | The customer's offer viewer | — |
+
+Old addresses answer **301** with the new one and the same query (the browser
+keeps `#section`): `/customers…`, `/contacts/new`, `/tasks…`, `/leads…` →
+`/sales/…`; `/opportunities` → `/opportunity-pipeline`; `/opportunities/new` →
+`/sales/opportunities/new`; `/calendar` → `/sales-calendar`; `/notifications` →
+`/settings`; `/more` → `/dashboard`. A trailing slash is dropped the same way.
+Any other address gets the page-not-found screen (404, `login/not-found.html`).
 
 ### API (session required; writes: JSON, same origin)
 
@@ -538,7 +558,7 @@ without `reactivate`.
 - Storage (BETA): one JSON file, written atomically, `RENVARA_DATA_FILE`
   (default `apps/beta-web/.data/crm.json`, git-ignored). In the presentation
   edition it is seeded with demo data dated relative to the first start, and
-  "Vrati demo podatke" on `/customers` re-seeds it (see **Editions** below). The schema mirrors `supabase/migrations`, so the repository can be
+  "Vrati demo podatke" on `/sales/customers` re-seeds it (see **Editions** below). The schema mirrors `supabase/migrations`, so the repository can be
   swapped for Supabase without touching the services.
 
 | Variable               | Default          | Purpose                                       |
@@ -553,23 +573,28 @@ without `reactivate`.
 | `RENVARA_SHARE_LINK_KEY` | from the session secret | Seals link tokens (≥ 32 characters). Changing it keeps links working but they can no longer be shown again |
 | `RENVARA_PUBLIC_ORIGIN` | the request's host | Origin of customer links (use the HTTPS address customers can reach) |
 
-### Web layout: phones, tablets, computers
+### Web layout: computers first, tablets and phones
 
-The pages are designed for the phone; `public/app/css/web.css`, loaded last on
-every page, adapts them to wider screens without touching the phone design
-(everything is inside `min-width` queries, guarded by `test/web-layout.test.ts`):
+Renvara is a web app used in the browser (ADR-0013). Every signed-in page
+shows the same navigation (`ui/app-shell.js`, styles in `public/app/css/web.css`,
+loaded last on every page):
 
 | Width | Navigation | Content |
 | --- | --- | --- |
-| < 768 px (phones) | bottom navigation, as designed | unchanged |
-| 768 px+ (tablets) | rail on the left, icon over label | KPI cards in one row; forms on a centred card; sign-in on a card (`login/login.css`) |
-| 1024 px+ | rail | Home: Sales Kalendar beside Prioritetni zadaci, pipeline and Feedback Overview below |
-| 1200 px+ (computers) | sidebar, icon beside label | Home up to 1120 px wide; CRM pages up to 1200 px |
+| 1024 px+ (computers, laptops) | Sidebar on the left (256 px); **Sažmi izbornik** narrows it to icons (remembered in this browser), lists then open as a panel beside the icon | Home: KPI cards in one row, Sales Kalendar beside Prioritetni zadaci, pipeline and Feedback overview below; lists up to 1360 px, Home up to 1440 px; forms on a centred card |
+| < 1024 px (tablets, phones) | Top bar: menu button, RENVARA, **+**; the menu opens the same sidebar as a drawer (Esc, the ✕ or a tap outside closes it) | One column; forms on a card from 768 px |
 
-CRM pages and forms have no bottom navigation on phones; on the web
-`mountWebNav()` (ui/tabbar.js) shows the same five items as a rail there too,
-with Kupci, Prilike, Zadaci and Kalendar under Više. Bottom sheets (Quick Add)
-and confirmations open as dialogs in the middle from 600 px.
+Sidebar: Početna, Follow-up engine, **Prodaja** ▾ (Leads, Prilike, Zadaci,
+Kupci), **Prikaz više** ▾ (Sales kalendar, Opportunity pipeline, Feedback
+overview), Izvještaji, Korisnici; at the bottom the signed-in user, Postavke
+and Odjava. Prodaja and Prikaz više only open and close their lists (never a
+page); a list is open on its own pages, otherwise as the user left it in this
+tab. The page you are on is marked (red, `aria-current="page"`). There is no
+bottom navigation and no floating **+**. On a form with unsaved input, a
+sidebar or Quick Add link asks first ("Želite li odbaciti unesene podatke?"),
+like Back. Sheets (Quick Add) and confirmations open as dialogs in the middle
+from 600 px. No page scrolls sideways from 320 px to 1920 px (checked in the
+browser).
 
 ### Editions: presentation demo or clean start
 
@@ -670,7 +695,10 @@ the demo database faults (no answer, quota, partial writes);
 `test/follow-up.test.ts` covers upload validation, offer + document + link,
 relations, tenant isolation, sending and wait bands, filters, the public link,
 view and bot events, internal views, revocation and expiry, and the HTTP layer
-(session, CSRF, `415`/`413`, headers, rate limits, assets). The tests generate a random password each run, so
+(session, CSRF, `415`/`413`, headers, rate limits, assets);
+`test/rate-limits.test.ts` covers the API budgets by endpoint kind;
+`test/web-layout.test.ts` covers the sidebar items and addresses, the route
+table, old addresses and that no page links to them. The tests generate a random password each run, so
 no real credential is stored in the repository.
 
 ## Manual acceptance test
@@ -686,7 +714,8 @@ no real credential is stored in the repository.
    generic message.
 4. **Direct access.** In a private window, open
    http://localhost:3000/dashboard. You are redirected to `/login`.
-5. **Logout.** Signed in, tap the avatar (top right), then **Odjava**. You land
+5. **Logout.** Signed in, choose **Odjava** at the bottom of the sidebar (below
+   1024 px: the menu button, top left, then **Odjava**). You land
    on `/login`. Opening `/dashboard` or pressing Back leads to `/login` again.
 
 ## Known limitations (BETA)
@@ -695,8 +724,9 @@ no real credential is stored in the repository.
   password lives only in the server's environment.
 - Logout revocations and rate-limit counters are kept in memory. A restart
   forgets them, and they are not shared across multiple server instances.
-- Behind a reverse proxy, rate limiting sees the proxy's IP, because
-  `X-Forwarded-For` is deliberately not trusted yet.
+- Behind a reverse proxy, the limits count the client only with
+  `RENVARA_TRUST_PROXY=true` (exactly one proxy in front); otherwise they see
+  the proxy's address.
 - The login page needs JavaScript (it submits JSON).
 - "Zaboravljena lozinka?", Apple, Google and "Izradite račun" are visible, as
   in the approved design, but only show "not available in BETA".
@@ -723,7 +753,8 @@ no real credential is stored in the repository.
   uploads yet (only PDF validation), no automatic e-mail, no push
   notification for views, and staged uploads are kept in memory (lost on
   restart: pick the file again). Customer links need a public HTTPS address
-  (`RENVARA_PUBLIC_ORIGIN`); behind a proxy the per-IP limits see the proxy.
+  (`RENVARA_PUBLIC_ORIGIN`); behind a proxy the per-client limits need
+  `RENVARA_TRUST_PROXY=true`.
   View counts are signals: a scanner that runs a full browser can look like a
   person, and a person who blocks scripts is not counted. The privacy text in
   the viewer and the retention period need review for your GDPR obligations.

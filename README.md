@@ -12,9 +12,8 @@ tooling and docs. No user-facing app yet.
 ## Repository layout
 
 ```
-apps/                 mobile (Expo) and web (Next.js), added in later phases
-  beta-web/           BETA web app (Node server, browser pages, in-browser demo build)
-  ios/                iOS test build for TestFlight (Capacitor shell, apps/ios/README.md)
+apps/
+  beta-web/           the web app (browser, every device; ADR-0013): Node server, pages, in-browser demo build
 packages/
   domain/             @renvara/domain: pure business rules (next action, lifecycle, time, permissions)
   database/           @renvara/database: generated DB types and the domain↔DB enum contract
@@ -23,7 +22,6 @@ supabase/
   tests/database/     pgTAP tests: tenant isolation, roles, invariants
 deploy/               the BETA web app in the cloud: Docker Compose + Caddy, Fly.io (README in Croatian)
 demo-app/             the demo as pages that open from disk (README in Croatian)
-demo-app-ios/         the iOS demo as a standalone Xcode project for one iPhone (README in Croatian)
 docs/
   architecture/       how the system is built (start here)
   adr/                architecture decision records

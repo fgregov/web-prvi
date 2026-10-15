@@ -163,6 +163,43 @@ const ICONS = {
     ['circle', { cx: 12, cy: 12, r: 10 }],
     ['path', 'm4.9 4.9 14.2 14.2'],
   ],
+  'briefcase-business': [
+    ['path', 'M12 12h.01M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M22 13a18.15 18.15 0 0 1-20 0'],
+    ['rect', { width: 20, height: 14, x: 2, y: 6, rx: 2 }],
+  ],
+  'chart-column': [['path', 'M3 3v16a2 2 0 0 0 2 2h16M18 17V9M13 17V5M8 17v-3']],
+  'layout-grid': [
+    ['rect', { width: 7, height: 7, x: 3, y: 3, rx: 1 }],
+    ['rect', { width: 7, height: 7, x: 14, y: 3, rx: 1 }],
+    ['rect', { width: 7, height: 7, x: 14, y: 14, rx: 1 }],
+    ['rect', { width: 7, height: 7, x: 3, y: 14, rx: 1 }],
+  ],
+  kanban: [
+    ['rect', { width: 18, height: 18, x: 3, y: 3, rx: 2 }],
+    ['path', 'M8 7v7M12 7v4M16 7v9'],
+  ],
+  'message-square': [['path', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z']],
+  settings: [
+    [
+      'path',
+      'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z',
+    ],
+    ['circle', { cx: 12, cy: 12, r: 3 }],
+  ],
+  'log-out': [['path', 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9']],
+  menu: [['path', 'M4 6h16M4 12h16M4 18h16']],
+  'panel-left-close': [
+    ['rect', { width: 18, height: 18, x: 3, y: 3, rx: 2 }],
+    ['path', 'M9 3v18M16 15l-3-3 3-3'],
+  ],
+  'panel-left-open': [
+    ['rect', { width: 18, height: 18, x: 3, y: 3, rx: 2 }],
+    ['path', 'M9 3v18M14 9l3 3-3 3'],
+  ],
+  search: [
+    ['circle', { cx: 11, cy: 11, r: 8 }],
+    ['path', 'm21 21-4.3-4.3'],
+  ],
 };
 
 export function icon(name, className = 'rv-icon') {

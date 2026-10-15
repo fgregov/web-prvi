@@ -1347,49 +1347,58 @@ a {
   color: var(--red);
 }
 
-/* ------------------------------------------------- module shells --- */
-.module-shell__body {
+/* ------------------------------ modules in production (/reports, /users) --- */
+.module-status {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  font-size: var(--fs-md);
-  line-height: 1.45;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px 40px;
+  text-align: center;
 }
 
-.module-shell__body p {
+.module-status__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--red-soft);
+  color: var(--red-text);
+}
+
+.module-status__icon .icon {
+  width: 30px;
+  height: 30px;
+}
+
+.module-status__title {
+  margin: 6px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.module-status__text {
   margin: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--green-soft);
+  color: var(--green-text);
+  font-size: var(--fs-md);
+  font-weight: 600;
 }
 
-.module-shell__period {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-muted);
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-
-.module-shell__period strong {
-  color: var(--text);
-}
-
-.module-shell__back {
+.module-status__back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 40px;
+  margin-top: 8px;
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--red);
-}
-
-.module-shell__link {
-  grid-template-columns: 24px minmax(0, 1fr) 0 18px;
-  min-height: 56px;
-  padding: 8px 14px;
+  text-decoration: none;
 }
 
 /* -------------------------------------------------------------- toast --- */

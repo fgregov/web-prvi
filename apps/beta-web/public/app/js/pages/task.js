@@ -1,4 +1,4 @@
-// /tasks/{id} · Task detail: what, when, for whom; complete, reopen, edit or cancel.
+// /sales/tasks/{id} · Task detail: what, when, for whom; complete, reopen, edit or cancel.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { labelOf, TASK_TYPES } from '../core/constants.js';
 import { formatDateTime, formatDue, formatSchedule } from '../core/format.js';
@@ -12,9 +12,9 @@ import { goBack, here, withParams } from '../ui/navigation.js';
 import { MobilePageHeader } from '../ui/screen.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
-const taskId = decodeURIComponent(window.location.pathname.split('/')[2] ?? '');
+const taskId = decodeURIComponent(window.location.pathname.split('/')[3] ?? '');
 const root = document.getElementById('screen');
-const header = MobilePageHeader({ title: 'Zadatak', onBack: () => goBack('/tasks') });
+const header = MobilePageHeader({ title: 'Zadatak', onBack: () => goBack('/sales/tasks') });
 const body = h('main', { class: 'rv-screen__body' });
 root.replaceChildren(header.element, body);
 
@@ -39,7 +39,9 @@ function actionButton(label, variant, handler) {
 function render(task) {
   document.title = `Renvara · ${task.title}`;
   const open = task.status === 'open';
-  const editHref = withParams(`/tasks/${encodeURIComponent(task.id)}/edit`, { returnTo: here() });
+  const editHref = withParams(`/sales/tasks/${encodeURIComponent(task.id)}/edit`, {
+    returnTo: here(),
+  });
   body.replaceChildren(
     h(
       'article',
@@ -68,7 +70,7 @@ function render(task) {
           task.customerName
             ? h(
                 'a',
-                { href: `/customers/${encodeURIComponent(task.companyId)}` },
+                { href: `/sales/customers/${encodeURIComponent(task.companyId)}` },
                 task.customerName,
               )
             : task.leadName
@@ -78,7 +80,7 @@ function render(task) {
         row(
           'Lead',
           task.leadName
-            ? h('a', { href: `/leads/${encodeURIComponent(task.leadId)}` }, task.leadName)
+            ? h('a', { href: `/sales/leads/${encodeURIComponent(task.leadId)}` }, task.leadName)
             : null,
         ),
         row('Kontakt', task.contactName),
@@ -128,7 +130,7 @@ async function load() {
         'div',
         { class: 'rv-card rv-empty rv-empty--page' },
         h('h2', {}, error instanceof ApiError ? error.message : MESSAGES.unavailable),
-        h('a', { class: 'rv-btn rv-btn--secondary', href: '/tasks' }, 'Svi zadaci'),
+        h('a', { class: 'rv-btn rv-btn--secondary', href: '/sales/tasks' }, 'Svi zadaci'),
       ),
     );
   }

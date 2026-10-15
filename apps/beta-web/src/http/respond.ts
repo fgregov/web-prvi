@@ -38,9 +38,10 @@ export function sendJson(res: ServerResponse, status: number, body: unknown): vo
   res.end(JSON.stringify(body));
 }
 
-export function redirect(res: ServerResponse, location: string): void {
+/** 302 by default; 301 for an address that moved for good (old page addresses). */
+export function redirect(res: ServerResponse, location: string, status: 301 | 302 = 302): void {
   noStore(res);
-  res.statusCode = 302;
+  res.statusCode = status;
   res.setHeader('Location', location);
   res.end();
 }

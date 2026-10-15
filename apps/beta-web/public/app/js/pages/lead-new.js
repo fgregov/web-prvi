@@ -1,4 +1,4 @@
-// /leads/new · NewLeadScreen (Quick Add → "Novi lead", or "+ Novi lead" on Leads).
+// /sales/leads/new · NewLeadScreen (Quick Add → "Novi lead", or "+ Novi lead" on Leads).
 //
 // A lead is not a customer: only the name is required, so it can be captured in
 // seconds. Organization, owner and status ACTIVE are set by the server. After
@@ -22,7 +22,7 @@ const screen = createFormScreen({
   root: document.getElementById('screen'),
   title: 'Novi lead',
   submitLabel: 'Spremi lead',
-  fallback: '/leads',
+  fallback: '/sales/leads',
   discardMessage: 'Uneseni podaci o leadu neće biti spremljeni.',
   onSubmit: save,
 });
@@ -104,7 +104,7 @@ async function save() {
     screen.allowLeave();
     setFlash('Lead je uspješno kreiran.');
     // replace(): Back from the lead returns to where "Novi lead" was opened, not to this form.
-    window.location.replace(`/leads/${encodeURIComponent(lead.id)}`);
+    window.location.replace(`/sales/leads/${encodeURIComponent(lead.id)}`);
   } catch (error) {
     // The entered values stay in the form.
     screen.setSaving(false);

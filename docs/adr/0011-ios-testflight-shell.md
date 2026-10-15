@@ -1,5 +1,8 @@
 # ADR-0011: iOS test builds through a Capacitor shell (TestFlight)
 
+**Status.** Superseded by ADR-0013 (web-first): `apps/ios`, `demo-app-ios` and
+the iOS workflow were removed. Kept for the record.
+
 **Context.** The product owner wants Renvara on iPhones through TestFlight to
 test it, before the final version. ADR-0001 plans the native app with Expo;
 that app does not exist yet, while the BETA web app (apps/beta-web) and its

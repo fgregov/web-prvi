@@ -5,8 +5,7 @@
 ```mermaid
 flowchart TB
   subgraph Clients["Clients (untrusted)"]
-    M["Mobile app<br/>Expo · React Native · Expo Router"]
-    W["Web app<br/>Next.js"]
+    W["Web app in the browser<br/>desktop first · tablets · phones (ADR-0013)"]
   end
 
   subgraph Shared["Shared TypeScript packages"]
@@ -22,18 +21,20 @@ flowchart TB
     ST["Storage"]
   end
 
-  M --> D & T
   W --> D & T
   EF --> D & T
-  M & W -->|JWT| API
-  M & W -->|JWT| EF
+  W -->|JWT| API
+  W -->|JWT| EF
   API --> PG
   EF --> PG
   AUTH --> PG
 ```
 
-Mobile and web share one backend: the same database, auth, organizations,
-permissions and data. Nothing is client-specific on the server.
+One web app, used in the browser on every device (ADR-0013), on one backend:
+the same database, auth, organizations, permissions and data. There is no
+native mobile app. Today the running web app (apps/beta-web) keeps its data
+on its own server; connecting it to this backend is the next step
+(see [06](06-web-security-review.md)).
 
 ## Where business logic lives
 
@@ -42,7 +43,7 @@ Each rule lives in exactly one authoritative place, chosen by what it protects.
 | Tier | Lives in | Responsible for | Examples |
 |---|---|---|---|
 | **1. Database** | `supabase/migrations` | Invariants that must hold no matter who writes: any client, an AI tool call, an import or a bug. | Tenant isolation (RLS), cross-tenant FK safety, `closed_at` ⇔ status, last-owner protection, authorship stamping, system timeline entries |
-| **2. Domain** | `packages/domain` | Deterministic rules and calculations with no I/O. Shared by mobile, web and edge functions, and unit-tested. | Opportunity transitions, next-action selection, attention reasons, due/overdue in the user's timezone, role → permission map |
+| **2. Domain** | `packages/domain` | Deterministic rules and calculations with no I/O. Shared by the web app and edge functions, and unit-tested. | Opportunity transitions, next-action selection, attention reasons, due/overdue in the user's timezone, role → permission map |
 | **3. Application services** | Later: `packages/services` / Edge Functions | Use cases that orchestrate I/O. | "Log a call and schedule a follow-up", AI tool handlers, invitations, offer tracking |
 | **4. UI** | `apps/*` | Presentation only. | Never decides authorization; may *hide* actions using `can()` |
 
@@ -54,7 +55,7 @@ for **what something means**: overdue, needs attention, allowed transitions.
 ## Packages
 
 ```
-apps/                     (reserved: mobile, web; added in later phases)
+apps/beta-web/            the web app (browser pages, Node server, in-browser demo)
 packages/
   domain/                 @renvara/domain: framework-free rules, zero runtime deps
   database/               @renvara/database: generated types plus the enum contract

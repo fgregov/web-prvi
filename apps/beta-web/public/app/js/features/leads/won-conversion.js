@@ -10,7 +10,7 @@ import { showToast } from '../../ui/toast.js';
 
 /** /leads/{id}/convert?mode=new|existing&opportunityId=… */
 export const conversionHref = (leadId, params = {}) =>
-  withParams(`/leads/${encodeURIComponent(leadId)}/convert`, params);
+  withParams(`/sales/leads/${encodeURIComponent(leadId)}/convert`, params);
 
 /**
  * @param {object} o  the won opportunity as the server returned it

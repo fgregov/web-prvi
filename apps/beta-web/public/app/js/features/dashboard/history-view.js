@@ -16,7 +16,8 @@ const shortDate = (iso) => {
   const d = new Date(iso);
   return `${d.getDate()}.${d.getMonth() + 1}.`;
 };
-const taskHref = (task) => withParams(`/tasks/${encodeURIComponent(task.id)}`, { returnTo: HOME });
+const taskHref = (task) =>
+  withParams(`/sales/tasks/${encodeURIComponent(task.id)}`, { returnTo: HOME });
 
 function moduleCard({
   id,
@@ -96,7 +97,7 @@ function calendarCard(summary, period) {
     id: 'hist-calendar-title',
     title: 'Sales Kalendar',
     iconName: 'calendar',
-    link: { label: 'Pogledaj kalendar', href: `/calendar?week=${monday}` },
+    link: { label: 'Pogledaj kalendar', href: `/sales-calendar?week=${monday}` },
     children: [
       summaryLine([
         [false, `${calendar.total} zakazanih aktivnosti`],
@@ -161,7 +162,7 @@ function tasksCard(summary) {
     id: 'hist-tasks-title',
     title: 'Prioritetni zadaci',
     iconName: 'square-check',
-    link: { label: 'Pogledaj sve zadatke', href: '/tasks' },
+    link: { label: 'Pogledaj sve zadatke', href: '/sales/tasks' },
     wrapHead: true,
     children: [
       summaryLine([
@@ -239,7 +240,7 @@ function leadsCard(summary, period) {
     id: 'hist-leads-title',
     title: 'Leadovi',
     iconName: 'users',
-    link: { label: 'Pogledaj', href: '/leads' },
+    link: { label: 'Pogledaj', href: '/sales/leads' },
     children: [
       h(
         'div',
@@ -304,10 +305,10 @@ function pipelineCard(summary, title) {
   return moduleCard({
     id: 'hist-pipeline-title',
     title: 'Opportunity Pipeline',
-    titleHref: '/opportunities',
+    titleHref: '/opportunity-pipeline',
     iconName: 'bars',
     compact: true,
-    link: { label: 'Full dashboard', href: '/opportunities' },
+    link: { label: 'Full dashboard', href: '/opportunity-pipeline' },
     children: [h('p', { class: 'hist-caption' }, title), list],
   });
 }

@@ -77,7 +77,7 @@ export function ReminderControl({ reminder: shown = null } = {}) {
       ),
       remindersOn
         ? null
-        : h('a', { class: 'rv-reminder__link', href: '/notifications' }, 'Mobilne obavijesti'),
+        : h('a', { class: 'rv-reminder__link', href: '/settings' }, 'Mobilne obavijesti'),
     );
   }
 

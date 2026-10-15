@@ -5,9 +5,8 @@ mobilne obavijesti) u tri datoteke koje se na računalu otvaraju **dvoklikom**
 u pregledniku. Bez instalacije, bez poslužitelja i bez računa.
 
 Provjereno u Chromeu (Edge radi na istoj osnovi); Safari i Firefox nisu
-provjereni. Na mobitelu se datoteka iz aplikacije Datoteke obično ne pokreće
-kao aplikacija; za mobitel koristite objavljeni demo ili iOS testnu verziju
-(`apps/ios`).
+provjereni. Na mobitelu se datoteka iz aplikacije Datoteke obično ne pokreće;
+na mobitelu otvorite objavljeni demo ili web adresu Renvare u pregledniku.
 
 | Datoteka | Što je |
 | --- | --- |

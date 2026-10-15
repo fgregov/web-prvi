@@ -11,9 +11,7 @@ coverage/
 # BETA CRM data (apps/beta-web, RENVARA_DATA_FILE)
 .data/
 
-# iOS app (apps/ios): generated web content, Xcode output, Apple keys
-apps/ios/www/
-apps/ios/build/
+# Signing keys and app packages never belong in the repository
 *.p8
 *.ipa
 *.mobileprovision

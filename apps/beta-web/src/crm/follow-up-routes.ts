@@ -13,6 +13,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   BodyError,
+  clientAddress,
   isJsonRequest,
   isSameOrigin,
   noStore,
@@ -110,6 +111,8 @@ const header = (req: IncomingMessage, name: string) => {
 export interface FollowUpRouteOptions {
   readonly publicOrigin: string | null;
   readonly now: () => Date;
+  /** RENVARA_TRUST_PROXY: public limits count the visitor, not the proxy in front. */
+  readonly trustProxy?: boolean;
 }
 
 export function createFollowUpRoutes(crm: CrmServices, options: FollowUpRouteOptions) {
@@ -220,7 +223,7 @@ export function createFollowUpRoutes(crm: CrmServices, options: FollowUpRouteOpt
 
     if (isPublic) {
       publicHeaders(res);
-      const ip = req.socket.remoteAddress ?? 'unknown';
+      const ip = clientAddress(req, options.trustProxy ?? false);
       if (!limits.public.allow(ip, Date.now())) {
         res.setHeader('Retry-After', '60');
         sendJson(res, 429, { success: false, message: MESSAGES.tooManyAttempts });
@@ -298,7 +301,10 @@ export function createFollowUpRoutes(crm: CrmServices, options: FollowUpRouteOpt
           return true;
         }
       } else {
-        if (isPublic && !limits.events.allow(req.socket.remoteAddress ?? 'unknown', Date.now())) {
+        if (
+          isPublic &&
+          !limits.events.allow(clientAddress(req, options.trustProxy ?? false), Date.now())
+        ) {
           sendJson(res, 429, { success: false, message: MESSAGES.tooManyAttempts });
           return true;
         }

@@ -283,7 +283,7 @@ describe('03 Rok zadatka and 04 Rok prilike', () => {
       {
         title: 'RENVARA — Rok zadatka',
         body: 'Vrijeme je za izvršenje zadatka: Poslati ponudu FERO-TERM',
-        url: `/tasks/${task.id}`,
+        url: `/sales/tasks/${task.id}`,
         tag: `task_deadline-${task.id}`,
       },
     ]);
@@ -341,7 +341,7 @@ describe('03 Rok zadatka and 04 Rok prilike', () => {
       {
         title: 'RENVARA — Rok prilike',
         body: 'Dosegnut je rok za priliku: Vending projekt 2 (očekivani datum zatvaranja)',
-        url: `/customers/${fero}#prilike`,
+        url: `/sales/opportunities/${deal.id}`,
         tag: `opportunity_deadline-${deal.id}`,
       },
     ]);

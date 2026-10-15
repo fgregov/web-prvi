@@ -22,7 +22,7 @@ import {
 import { offerParty } from '../features/dashboard/feedback-overview.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { renderTabbar } from '../ui/tabbar.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash } from '../ui/toast.js';
 
 const REFRESH_MS = 30_000;
@@ -40,7 +40,7 @@ const EMPTY = {
 };
 
 document.title = 'Renvara · Follow-up Engine';
-renderTabbar(document.getElementById('tabbar'), 'follow-up');
+mountAppShell();
 
 const params = new URLSearchParams(window.location.search);
 let filter = FILTERS.some((f) => f.value === params.get('filter')) ? params.get('filter') : 'all';

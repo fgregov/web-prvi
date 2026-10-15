@@ -1,145 +1,669 @@
 /* =============================================================================
-   Renvara · web layout for tablets and computers (loaded last on every page).
+   Renvara · web app layout (loaded last on every page; ADR-0013).
 
-   Phones (< 768 px) keep the mobile design exactly: everything below is inside
-   a min-width query, except hiding the web-only navigation on phones.
-     768 px+   the bottom navigation becomes a rail on the left (icon over
-               label), on every page; content uses the width: KPI cards in one
-               row, forms on a card (sign-in: login/login.css, public).
-     1024 px+  Home modules in two columns.
-     1200 px+  the rail becomes a sidebar (icon beside label).
-   Colours are the app's own (light only, as on the phone).
+   The navigation (ui/app-shell.js), the same items on every page:
+     1024 px+   a sidebar on the left (256 px, or 76 px with icons only)
+     < 1024 px  a top bar with the menu button; the sidebar slides in as a drawer
+   Content uses the width of the window: KPI cards in one row, Home modules in
+   two columns, forms on a card. No bottom navigation, no floating "+".
+   Colours: Renvara red (matte) with green accents, light only.
    ========================================================================== */
 
 :root {
-  --web-rail: 0px;
+  --web-side: 256px;
+  --web-side-narrow: 76px;
+  --web-bar: 56px;
   --web-ink: #111111;
   --web-muted: #6b7079;
   --web-red: #e32222;
+  --web-red-hover: #c91c1c;
   --web-red-text: #c81e1e;
   --web-red-soft: #fff1f1;
+  --web-green: #12ae55;
+  --web-green-soft: #eaf8ef;
   --web-border: #eceef1;
   --web-canvas: #f6f7f8;
   --web-bg: #ffffff;
   --web-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 12px 32px rgba(17, 17, 17, 0.06);
+  --web-shadow-panel: 0 16px 40px rgba(17, 17, 17, 0.16), 0 2px 6px rgba(17, 17, 17, 0.06);
+  --web-font:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', Arial, sans-serif;
 }
 
-/* CRM pages and forms have no bottom navigation on phones; on the web they get the rail. */
-@media (max-width: 767.98px) {
-  .tabbar--web {
-    display: none !important;
+/* ---------------------------------------------------------- page base --- */
+body:has(> .rv-side) {
+  min-height: 100dvh;
+  background: var(--web-canvas);
+}
+
+html:has(.rv-side.is-open) {
+  overflow: hidden;
+}
+
+.rv-skip {
+  position: fixed;
+  z-index: 1300;
+  top: 8px;
+  left: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--web-ink);
+  color: #ffffff;
+  font: 600 14px/1 var(--web-font);
+  text-decoration: none;
+  transform: translateY(-150%);
+}
+
+.rv-skip:focus {
+  transform: none;
+}
+
+/* ------------------------------------------------------------- sidebar --- */
+.rv-side {
+  position: fixed;
+  z-index: 900;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: var(--web-side);
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 14px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--web-bg);
+  border-right: 1px solid var(--web-border);
+  font-family: var(--web-font);
+  color: var(--web-ink);
+  -webkit-font-smoothing: antialiased;
+  scrollbar-width: thin;
+}
+
+.rv-side__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 4px 0 8px;
+}
+
+.rv-side__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--web-ink);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.rv-side__brand img {
+  flex: none;
+  width: auto;
+  height: 30px;
+}
+
+.rv-side__collapse,
+.rv-side__close,
+.rv-mobilebar__btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--web-muted);
+  cursor: pointer;
+}
+
+.rv-side__collapse:hover,
+.rv-side__close:hover,
+.rv-mobilebar__btn:hover {
+  background: var(--web-canvas);
+  color: var(--web-ink);
+}
+
+/* "+ Novo": Quick Add (Novi kupac, Nova prilika, Novi kontakt, Novi zadatak, Novi lead). */
+.rv-side__new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--web-red);
+  color: #ffffff;
+  font: 700 15px/1 var(--web-font);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(227, 34, 34, 0.25);
+  transition: background-color 0.15s ease;
+}
+
+.rv-side__new:hover {
+  background: var(--web-red-hover);
+}
+
+.rv-nav {
+  flex: 1 0 auto;
+}
+
+.rv-nav__list,
+.rv-nav__sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-nav__item,
+.rv-nav__subitem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3b3f45;
+  font: 500 15px/1.2 var(--web-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.rv-nav__item:hover,
+.rv-nav__subitem:hover {
+  background: var(--web-canvas);
+  color: var(--web-ink);
+}
+
+.rv-nav__item.is-active,
+.rv-nav__subitem.is-active {
+  background: var(--web-red-soft);
+  color: var(--web-red-text);
+  font-weight: 650;
+}
+
+/* The page you are on: a red bar at the edge. */
+.rv-nav__item.is-active::before,
+.rv-nav__subitem.is-active::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--web-red);
+}
+
+.rv-nav__toggle.has-active {
+  color: var(--web-ink);
+  font-weight: 650;
+}
+
+.rv-nav__icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rv-nav__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rv-nav__chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+
+.rv-nav__group.is-open > .rv-nav__toggle .rv-nav__chevron {
+  transform: rotate(180deg);
+}
+
+/* Dropdown lists: open and close smoothly (height from 0 to its content). */
+.rv-nav__sub {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+
+.rv-nav__group.is-open > .rv-nav__sub {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.2s ease,
+    visibility 0s;
+}
+
+.rv-nav__sublist {
+  min-height: 0;
+  overflow: hidden;
+  margin-left: 22px;
+  padding-left: 10px;
+  border-left: 1px solid var(--web-border);
+}
+
+/* Inside the clipped list, so a closed list takes no space at all. */
+.rv-nav__sublist > li:first-child {
+  margin-top: 2px;
+}
+
+.rv-nav__sublist > li:last-child {
+  margin-bottom: 4px;
+}
+
+.rv-nav__subitem {
+  min-height: 40px;
+  gap: 10px;
+  font-size: 14.5px;
+}
+
+.rv-nav__subitem .rv-nav__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.rv-side__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--web-border);
+}
+
+.rv-side__profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 8px 10px;
+}
+
+.rv-side__avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--web-ink);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Signed in: a green dot. */
+.rv-side__avatar::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--web-bg);
+  border-radius: 50%;
+  background: var(--web-green);
+}
+
+.rv-side__user {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rv-side__user-name,
+.rv-side__user-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rv-side__user-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rv-side__user-role {
+  color: var(--web-muted);
+  font-size: 12.5px;
+}
+
+.rv-side__logout:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.rv-side :focus-visible,
+.rv-mobilebar :focus-visible {
+  outline: 2px solid var(--web-red);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------ top bar (< 1024 px) --- */
+.rv-mobilebar {
+  position: sticky;
+  z-index: 60;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: calc(var(--web-bar) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 8px 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--web-border);
+  font-family: var(--web-font);
+}
+
+.rv-mobilebar .rv-side__brand {
+  font-size: 17px;
+}
+
+.rv-mobilebar .rv-side__brand img {
+  height: 26px;
+}
+
+.rv-mobilebar__btn:first-child {
+  margin-left: 0;
+}
+
+.rv-mobilebar__new {
+  background: var(--web-red);
+  color: #ffffff;
+}
+
+.rv-mobilebar__new:hover {
+  background: var(--web-red-hover);
+  color: #ffffff;
+}
+
+.rv-side-backdrop {
+  position: fixed;
+  z-index: 890;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.36);
+  animation: rv-fade-in 0.2s ease;
+}
+
+.rv-side-backdrop[hidden] {
+  display: none;
+}
+
+@keyframes rv-fade-in {
+  from {
+    opacity: 0;
   }
+}
+
+@media (max-width: 1023.98px) {
+  .rv-side {
+    width: min(304px, 86vw);
+    box-shadow: var(--web-shadow-panel);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition:
+      transform 0.22s ease,
+      visibility 0s linear 0.22s;
+  }
+
+  .rv-side.is-open {
+    transform: none;
+    visibility: visible;
+    transition:
+      transform 0.22s ease,
+      visibility 0s;
+  }
+
+  .rv-side__collapse {
+    display: none;
+  }
+
+  /* Forms and record pages: their own header stays under the top bar. */
+  body:has(> .rv-side) .rv-screen__header {
+    top: calc(var(--web-bar) + env(safe-area-inset-top, 0px));
+    padding-top: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rv-mobilebar,
+  .rv-side-backdrop,
+  .rv-side__close {
+    display: none;
+  }
+
+  body:has(> .rv-side) {
+    padding-left: var(--web-side);
+    transition: padding-left 0.2s ease;
+  }
+
+  /* --------------------------------------- narrow sidebar: icons only --- */
+  body:has(> .rv-side[data-collapsed]) {
+    padding-left: var(--web-side-narrow);
+  }
+
+  .rv-side[data-collapsed] {
+    width: var(--web-side-narrow);
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .rv-side[data-collapsed] .rv-side__top {
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+  }
+
+  .rv-side[data-collapsed] .rv-side__brand-name,
+  .rv-side[data-collapsed] .rv-nav__item > .rv-nav__label,
+  .rv-side[data-collapsed] .rv-side__new > .rv-nav__label,
+  .rv-side[data-collapsed] .rv-nav__toggle > .rv-nav__chevron,
+  .rv-side[data-collapsed] .rv-side__user {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .rv-side[data-collapsed] .rv-side__collapse {
+    margin: 0;
+  }
+
+  .rv-side[data-collapsed] .rv-side__new,
+  .rv-side[data-collapsed] .rv-nav__item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .rv-side[data-collapsed] .rv-side__profile {
+    justify-content: center;
+    padding: 6px 0 10px;
+  }
+
+  /* A list opens as a panel beside its icon (top set by ui/app-shell.js). */
+  .rv-side[data-collapsed] .rv-nav__sub {
+    position: fixed;
+    z-index: 950;
+    left: calc(var(--web-side-narrow) + 8px);
+    display: none;
+    width: 240px;
+    padding: 8px;
+    background: var(--web-bg);
+    border: 1px solid var(--web-border);
+    border-radius: 14px;
+    box-shadow: var(--web-shadow-panel);
+  }
+
+  .rv-side[data-collapsed] .rv-nav__group.is-open > .rv-nav__sub {
+    display: block;
+  }
+
+  .rv-side[data-collapsed] .rv-nav__sublist {
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .rv-side[data-collapsed] .rv-nav__sublist::before {
+    content: attr(aria-label);
+    padding: 6px 12px 8px;
+    color: var(--web-muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .rv-side[data-collapsed] .rv-nav__toggle.has-active {
+    background: var(--web-red-soft);
+    color: var(--web-red-text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-side,
+  .rv-nav__sub,
+  .rv-nav__chevron,
+  body:has(> .rv-side) {
+    transition: none !important;
+  }
+}
+
+/* =========================================================== content === */
+
+/* Home, Follow-up engine, Leads, Postavke, Izvještaji, Korisnici. */
+body:has(> .rv-side) .app {
+  max-width: 1440px;
+  min-height: 0;
+  background: transparent;
+}
+
+body:has(> .rv-side) .content {
+  padding-bottom: 56px;
+}
+
+.page-header {
+  padding: 24px var(--page-x, 16px) 16px;
+}
+
+.page-header__title {
+  margin: 0;
+  color: var(--web-ink);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.page-header__sub {
+  display: block;
+  margin-top: 4px;
+  color: var(--web-muted);
+  font-size: 14px;
+}
+
+/* Toasts: above the bottom edge (no bottom navigation any more). */
+body:has(> .rv-side) .toast,
+body:has(> .rv-side) .rv-toast {
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Customers, Prilike, Zadaci, Sales kalendar, pipeline, Feedback overview. */
+body:has(> .rv-side) .rv-page {
+  max-width: 1360px;
+}
+
+/* A record page's way back (to where it was opened from, else its list). */
+.rv-backlink {
+  display: inline-flex;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin: 0 0 8px -8px;
+  padding: 0 10px 0 6px;
+  border-radius: 10px;
+  color: var(--web-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rv-backlink:hover {
+  background: var(--web-bg);
+  color: var(--web-ink);
+}
+
+.rv-backlink .rv-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Forms and record pages: the header bar and the body card. */
+body:has(> .rv-side) .rv-screen__header {
+  background: rgba(255, 255, 255, 0.96);
 }
 
 @media (min-width: 768px) {
   :root {
-    --web-rail: 96px;
-    --app-max: 1120px;
     --page-x: 24px;
   }
 
-  /* ------------------------------------------------- navigation rail --- */
-  body:has(.tabbar) {
-    padding-left: var(--web-rail);
+  .page-header {
+    padding-top: 32px;
   }
 
-  .tabbar {
-    position: fixed;
-    z-index: 25;
-    inset: 0 auto 0 0;
-    transform: none;
-    width: var(--web-rail);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: calc(env(safe-area-inset-top, 0px) + 20px) 10px 20px;
-    overflow-y: auto;
-    background: var(--web-bg);
-    border: 0;
-    border-right: 1px solid var(--web-border);
-    box-shadow: none;
-  }
-
-  .tabbar .tab {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    min-height: 68px;
-    padding: 8px 4px;
-    border-radius: 14px;
-    color: var(--web-muted);
-    font-family: inherit;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .tabbar .tab:hover {
-    background: var(--web-canvas);
-    color: var(--web-ink);
-  }
-
-  .tabbar .tab.is-active {
-    background: var(--web-red-soft);
-    color: var(--web-red-text);
-    font-weight: 600;
-  }
-
-  .tabbar .tab .icon {
-    width: 24px;
-    height: 24px;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .tabbar .tab .icon--filled {
-    fill: currentColor;
-    stroke: none;
-  }
-
-  .tabbar .tab__label {
-    text-align: center;
-    line-height: 1.15;
-  }
-
-  /* --------------------------------- Home, Leads, Follow-up, Obavijesti --- */
-  .app {
-    max-width: var(--app-max);
-  }
-
-  .app-header {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 28px);
-  }
-
-  .content {
-    padding-bottom: 104px;
-  }
-
-  .quick-add {
-    right: 32px;
-    bottom: 32px;
-  }
-
-  .toast {
-    left: calc(50% + var(--web-rail) / 2);
-    bottom: 32px;
-    max-width: 480px;
+  .page-header__title {
+    font-size: 28px;
   }
 
   /* KPI cards: all in one row instead of a sideways scroller. */
   .metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
     gap: 12px;
     margin: 0;
     padding: 2px 0 6px;
@@ -150,22 +674,13 @@
     min-width: 0;
   }
 
-  /* ------------------------------------- forms (Novi zadatak, Novi lead…) --- */
-  body:has(.rv-screen) {
-    background: var(--web-canvas);
-  }
-
-  .rv-screen__header {
-    background: rgba(255, 255, 255, 0.96);
-  }
-
   .rv-screen__header-inner {
-    max-width: 760px;
+    max-width: 860px;
     padding: 0 16px;
   }
 
   .rv-screen__body {
-    max-width: 760px;
+    max-width: 860px;
     margin: 28px auto 56px;
     padding: 32px 36px 36px;
     background: var(--web-bg);
@@ -176,7 +691,11 @@
 }
 
 @media (min-width: 1024px) {
-  /* Home: Sales Kalendar beside Prioritetni zadaci; pipeline and Feedback Overview below. */
+  :root {
+    --page-x: 32px;
+  }
+
+  /* Home: Sales Kalendar beside Prioritetni zadaci; pipeline and Feedback overview below. */
   .dashboard-view:not([hidden]) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -187,35 +706,9 @@
     grid-column: 1 / -1;
     gap: var(--gap-lg);
   }
-}
 
-@media (min-width: 1200px) {
-  :root {
-    --web-rail: 232px;
-    --page-x: 32px;
-  }
-
-  .tabbar {
-    gap: 2px;
-    padding: calc(env(safe-area-inset-top, 0px) + 28px) 16px 24px;
-  }
-
-  .tabbar .tab {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 12px;
-    min-height: 48px;
-    padding: 0 14px;
-    border-radius: 12px;
-    font-size: 0.9375rem;
-  }
-
-  .tabbar .tab__label {
-    text-align: left;
-  }
-
-  /* "Follow-up / Engine" on one line. */
-  .tabbar .tab__label br {
-    display: none;
+  .rv-page {
+    padding-right: 32px;
+    padding-left: 32px;
   }
 }

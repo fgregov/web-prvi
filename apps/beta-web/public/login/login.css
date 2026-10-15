@@ -353,3 +353,11 @@ input::placeholder {
       0 12px 32px rgba(17, 17, 17, 0.06);
   }
 }
+
+/* "Na Početnu" on the page-not-found screen (login/not-found.html): the button, as a link. */
+.primary--link {
+  display: grid;
+  place-items: center;
+  margin-top: 0;
+  text-decoration: none;
+}

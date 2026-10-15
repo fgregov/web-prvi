@@ -18,7 +18,7 @@ import { customerOverview } from './profile/customer-overview.js';
 import { customerTasks } from './profile/customer-tasks.js';
 
 export function customerActions(profile, reload) {
-  const here = `/customers/${encodeURIComponent(profile.id)}`;
+  const here = `/sales/customers/${encodeURIComponent(profile.id)}`;
   const go = (path, params) =>
     window.location.assign(withParams(path, { companyId: profile.id, ...params, returnTo: here }));
   const after = (message) => async () => {
@@ -42,12 +42,12 @@ export function customerActions(profile, reload) {
     changing = false;
   }
   return {
-    meeting: () => go('/tasks/new', { type: 'meeting', calendar: '1' }),
-    opportunity: () => go('/opportunities/new'),
-    task: () => go('/tasks/new'),
-    contact: () => go('/contacts/new'),
+    meeting: () => go('/sales/tasks/new', { type: 'meeting', calendar: '1' }),
+    opportunity: () => go('/sales/opportunities/new'),
+    task: () => go('/sales/tasks/new'),
+    contact: () => go('/sales/contacts/new'),
     nextActionFor: (opportunityId) =>
-      withParams('/tasks/new', { opportunityId, type: 'follow_up', returnTo: here }),
+      withParams('/sales/tasks/new', { opportunityId, type: 'follow_up', returnTo: here }),
     note: () => openNoteForm({ profile, onSaved: after('Bilješka dodana.') }),
     email: () => openEmailForm({ profile, onSaved: after('E-mail zabilježen u aktivnostima.') }),
     edit: () => openCustomerForm({ profile, onSaved: after('Podaci kupca spremljeni.') }),

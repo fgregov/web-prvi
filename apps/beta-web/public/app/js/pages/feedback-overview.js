@@ -18,7 +18,7 @@ import { offerHref, offerParty } from '../features/dashboard/feedback-overview.j
 import { accordionSection, openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { renderShell } from '../ui/shell.js';
+import { mountAppShell } from '../ui/app-shell.js';
 
 /** Offers that are not waiting: their state in words (never a timer). */
 const STANDING = {
@@ -73,7 +73,7 @@ const openSections = openSectionsState(
   linked?.id ?? null,
 );
 
-renderShell('offers');
+mountAppShell();
 const root = document.getElementById('app');
 const summary = h('p', { class: 'rv-muted' }, ' ');
 const periodSlot = h('div', { class: 'rv-period-slot' });

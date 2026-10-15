@@ -1,4 +1,4 @@
-// /tasks/new and /tasks/{id}/edit · New / edit task screen.
+// /sales/tasks/new and /sales/tasks/{id}/edit · New / edit task screen.
 //
 // A task stands on its own; customer, contact and opportunity are optional
 // links. Its date is required; "Dodaj u Sales Kalendar" puts it in the
@@ -36,8 +36,9 @@ import { createFormScreen } from '../ui/screen.js';
 import { setFlash } from '../ui/toast.js';
 
 const params = new URLSearchParams(window.location.search);
-const editId = /^\/tasks\/([A-Za-z0-9_-]+)\/edit$/.exec(window.location.pathname)?.[1] ?? null;
-const fallback = editId ? `/tasks/${editId}` : '/tasks';
+const editId =
+  /^\/sales\/tasks\/([A-Za-z0-9_-]+)\/edit$/.exec(window.location.pathname)?.[1] ?? null;
+const fallback = editId ? `/sales/tasks/${editId}` : '/sales/tasks';
 
 const screen = createFormScreen({
   root: document.getElementById('screen'),
@@ -274,7 +275,7 @@ async function save() {
           ? 'Zadatak je spremljen i dodan u Sales Kalendar.'
           : 'Zadatak je spremljen.',
     );
-    leaveTo(returnTarget(editId ? `/tasks/${editId}` : '/tasks'));
+    leaveTo(returnTarget(editId ? `/sales/tasks/${editId}` : '/sales/tasks'));
   } catch (error) {
     screen.setSaving(false);
     if (error instanceof ApiError && error.status === 422) {

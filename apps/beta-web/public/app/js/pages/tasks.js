@@ -1,14 +1,14 @@
-// /tasks · Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO as accordions (the Customer
+// /sales/tasks · Zadaci: DANAS, NADOLAZEĆE, DOVRŠENO as accordions (the Customer
 // Detail principle). Every task has a date; completed tasks stay as history.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { taskRow } from '../features/tasks/task-row.js';
 import { accordionSection, openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { renderShell } from '../ui/shell.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
-renderShell('tasks');
+mountAppShell();
 const root = document.getElementById('app');
 
 const SECTIONS = [
@@ -53,7 +53,7 @@ function render(sections) {
       ),
       h(
         'a',
-        { class: 'rv-btn rv-btn--primary', href: '/tasks/new?returnTo=/tasks' },
+        { class: 'rv-btn rv-btn--primary', href: '/sales/tasks/new?returnTo=/sales/tasks' },
         icon('plus'),
         'Novi zadatak',
       ),
@@ -73,7 +73,7 @@ function render(sections) {
                 'ul',
                 { class: 'rv-tasks', role: 'list' },
                 sections[key].map((task) =>
-                  taskRow(task, { onToggle: toggle, returnTo: '/tasks' }),
+                  taskRow(task, { onToggle: toggle, returnTo: '/sales/tasks' }),
                 ),
               )
             : h('p', { class: 'rv-muted rv-task-group__empty' }, empty),

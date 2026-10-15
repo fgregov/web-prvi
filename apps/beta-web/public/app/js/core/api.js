@@ -35,9 +35,11 @@ async function request(method, path, body) {
     window.location.replace('/login?reason=expired');
     throw new ApiError(401, 'Sesija je istekla.');
   }
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload.success === false) {
-    const { success, message, errors, ...details } = payload;
+  const payload = await response.json().catch(() => null);
+  // A success without its body (e.g. the page was left mid-request) is not a success.
+  if (payload === null && response.ok) throw new ApiError(0, NETWORK_ERROR);
+  if (!response.ok || payload?.success === false) {
+    const { success, message, errors, ...details } = payload ?? {};
     throw new ApiError(response.status, message ?? NETWORK_ERROR, errors ?? {}, details);
   }
   notifyChange(method);
@@ -202,7 +204,7 @@ function uploadOfferDocument(file, onProgress = () => {}) {
       throw new ApiError(401, 'Sesija je istekla.');
     }
     if (status < 200 || status >= 300 || payload.success === false) {
-      const { success, message, errors, ...details } = payload;
+      const { success, message, errors, ...details } = payload ?? {};
       throw new ApiError(status, message ?? NETWORK_ERROR, errors ?? {}, details);
     }
     return payload.upload;

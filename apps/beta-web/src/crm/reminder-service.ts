@@ -204,7 +204,7 @@ export function createReminderService(repo: CrmRepository) {
           ? {
               title: 'RENVARA — Podsjetnik',
               body: `Vrijeme je za zadatak: ${task.title}`,
-              url: `/tasks/${encodeURIComponent(task.id)}`,
+              url: `/sales/tasks/${encodeURIComponent(task.id)}`,
               tag,
             }
           : null;
@@ -215,7 +215,7 @@ export function createReminderService(repo: CrmRepository) {
           ? {
               title: 'RENVARA — Podsjetnik',
               body: `Podsjetnik za lead: ${[lead.name, lead.companyName].filter(Boolean).join(' · ')}`,
-              url: `/leads/${encodeURIComponent(lead.id)}`,
+              url: `/sales/leads/${encodeURIComponent(lead.id)}`,
               tag,
             }
           : null;
@@ -229,10 +229,7 @@ export function createReminderService(repo: CrmRepository) {
       return {
         title: 'RENVARA — Podsjetnik',
         body: `Podsjetnik za priliku: ${[opportunity.title, customer?.companyName ?? dealLead?.name].filter(Boolean).join(' — ')}`,
-        // A lead's deal (no customer yet) lives on the lead.
-        url: opportunity.companyId
-          ? `/customers/${encodeURIComponent(opportunity.companyId)}#prilike`
-          : `/leads/${encodeURIComponent(opportunity.leadId ?? '')}#prilike`,
+        url: `/sales/opportunities/${encodeURIComponent(opportunity.id)}`,
         tag,
       };
     },

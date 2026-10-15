@@ -100,41 +100,16 @@
       <symbol id="i-activity" viewBox="0 0 24 24">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
       </symbol>
-      <symbol id="i-log-out" viewBox="0 0 24 24">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-        <path d="m16 17 5-5-5-5M21 12H9" />
-      </symbol>
     </svg>
 
     <div class="app">
-      <!-- 1–2 · Header + date -->
-      <header class="app-header">
-        <div class="brand">
-          <img class="brand__logo" src="assets/renvara-logo.png" alt="" width="44" height="51" />
-          <div class="brand__text">
-            <span class="brand__name">RENVARA</span>
-            <time class="brand__date" datetime="2025-04-24">Četvrtak, 24. travnja 2025.</time>
-          </div>
-        </div>
-        <div class="header-actions">
-          <div class="account">
-            <button
-              class="avatar"
-              type="button"
-              aria-label="Moj profil"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              aria-controls="account-menu"
-            >
-              <img src="assets/avatar-placeholder.svg" alt="" width="48" height="48" />
-            </button>
-            <div class="account-menu" id="account-menu" role="menu" aria-label="Račun" hidden>
-              <p class="account-menu__name" data-account-name>Moj račun</p>
-              <button type="button" role="menuitem" data-logout>
-                <svg class="icon"><use href="#i-log-out" /></svg>Odjava
-              </button>
-            </div>
-          </div>
+      <!-- 1–2 · Page title + date (navigation, profile and Odjava: the sidebar, ui/app-shell.js) -->
+      <header class="app-header page-header">
+        <div>
+          <h1 class="page-header__title">Početna</h1>
+          <time class="page-header__sub" id="home-date" datetime="2025-04-24"
+            >Četvrtak, 24. travnja 2025.</time
+          >
         </div>
       </header>
 
@@ -154,7 +129,7 @@
                 ><svg class="icon"><use href="#i-calendar" /></svg
               ></span>
               <h2 class="module__title" id="danas-title">Sales Kalendar</h2>
-              <a class="module__link" href="/calendar"
+              <a class="module__link" href="/sales-calendar"
                 >Pogledaj kalendar<svg class="icon"><use href="#i-chevron-right" /></svg
               ></a>
             </div>
@@ -170,7 +145,7 @@
                 ><svg class="icon"><use href="#i-target" /></svg
               ></span>
               <h2 class="module__title" id="prioriteti-title">Prioritetni zadaci</h2>
-              <a class="module__link" href="/tasks"
+              <a class="module__link" href="/sales/tasks"
                 >Pogledaj sve zadatke<svg class="icon"><use href="#i-chevron-right" /></svg
               ></a>
             </div>
@@ -187,9 +162,11 @@
                   ><svg class="icon"><use href="#i-bars" /></svg
                 ></span>
                 <h2 class="module__title" id="pipeline-title">
-                  <a class="module__title-link" href="/opportunities">Opportunity Pipeline</a>
+                  <a class="module__title-link" href="/opportunity-pipeline"
+                    >Opportunity Pipeline</a
+                  >
                 </h2>
-                <a class="module__link" href="/opportunities"
+                <a class="module__link" href="/opportunity-pipeline"
                   >Full dashboard<svg class="icon"><use href="#i-chevron-right" /></svg
                 ></a>
               </div>
@@ -220,22 +197,6 @@
         <!-- Past quarter or custom period: the historical dashboard -->
         <div class="dashboard-view" id="dashboard-history" hidden></div>
       </main>
-
-      <!-- Quick add: "+" opens the Quick Add bottom sheet (/app/js/features/quick-add) -->
-      <div class="quick-add">
-        <button
-          class="fab"
-          type="button"
-          aria-label="Brzo dodavanje"
-          aria-haspopup="dialog"
-          aria-expanded="false"
-        >
-          <svg class="icon"><use href="#i-plus" /></svg>
-        </button>
-      </div>
-
-      <!-- 7 · Bottom navigation (rendered by /app/js/ui/tabbar.js) -->
-      <nav class="tabbar" aria-label="Glavna navigacija"></nav>
 
       <div class="toast" role="status" aria-live="polite" hidden></div>
     </div>

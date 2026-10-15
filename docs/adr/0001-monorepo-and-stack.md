@@ -1,5 +1,8 @@
 # ADR-0001: Monorepo and technology stack
 
+**Status.** Accepted. The mobile part (Expo app) is superseded by ADR-0013:
+Renvara is a web app used in the browser on every device.
+
 **Context.** Mobile (primary daily interface) and web (admin and reporting)
 must share one backend, one permission model and the same business rules.
 

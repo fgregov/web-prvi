@@ -244,17 +244,17 @@ describe('entry routes and session endpoint', () => {
 describe('demo CRM routes', () => {
   it('protects every CRM page and asset', async () => {
     for (const path of [
-      '/customers',
-      '/customers/new',
-      '/customers/abc-123',
-      '/opportunities',
-      '/opportunities/new',
-      '/contacts/new',
-      '/tasks',
-      '/tasks/new',
-      '/tasks/abc-123',
-      '/tasks/abc-123/edit',
-      '/calendar',
+      '/sales/customers',
+      '/sales/customers/new',
+      '/sales/customers/abc-123',
+      '/opportunity-pipeline',
+      '/sales/opportunities/new',
+      '/sales/contacts/new',
+      '/sales/tasks',
+      '/sales/tasks/new',
+      '/sales/tasks/abc-123',
+      '/sales/tasks/abc-123/edit',
+      '/sales-calendar',
       '/app/js/core/api.js',
       '/app/css/pages.css',
     ]) {
@@ -267,22 +267,22 @@ describe('demo CRM routes', () => {
   it('serves CRM pages and modules with a session', async () => {
     const cookie = await signIn();
     for (const path of [
-      '/customers',
-      '/customers/9b2f1c3e-0000-4000-8000-000000000001',
-      '/opportunities',
-      '/calendar',
+      '/sales/customers',
+      '/sales/customers/9b2f1c3e-0000-4000-8000-000000000001',
+      '/opportunity-pipeline',
+      '/sales-calendar',
     ]) {
       const response = await get(server.url, path, cookie);
       expect(response.status, path).toBe(200);
       expect(await response.text()).toContain('type="module"');
     }
     for (const [path, script] of [
-      ['/tasks', 'tasks.js'],
-      ['/tasks/new', 'task-form.js'],
-      ['/tasks/abc-123', 'task.js'],
-      ['/tasks/abc-123/edit', 'task-form.js'],
-      ['/contacts/new', 'contact-new.js'],
-      ['/opportunities/new', 'opportunity-new.js'],
+      ['/sales/tasks', 'tasks.js'],
+      ['/sales/tasks/new', 'task-form.js'],
+      ['/sales/tasks/abc-123', 'task.js'],
+      ['/sales/tasks/abc-123/edit', 'task-form.js'],
+      ['/sales/contacts/new', 'contact-new.js'],
+      ['/sales/opportunities/new', 'opportunity-new.js'],
     ] as const) {
       const response = await get(server.url, path, cookie);
       expect(response.status, path).toBe(200);
@@ -290,17 +290,95 @@ describe('demo CRM routes', () => {
     }
     const module = await get(server.url, '/app/js/core/api.js', cookie);
     expect(module.headers.get('content-type')).toContain('text/javascript');
-    expect((await get(server.url, '/customers/bad%2Fid', cookie)).status).toBe(404);
+    expect((await get(server.url, '/sales/customers/bad%2Fid', cookie)).status).toBe(404);
     expect((await get(server.url, '/app/../src/app.ts', cookie)).status).toBe(404);
   });
 
-  it('serves the dedicated New Customer screen at /customers/new (not the profile page)', async () => {
-    const response = await get(server.url, '/customers/new', await signIn());
+  it('serves the dedicated New Customer screen at /sales/customers/new (not the profile page)', async () => {
+    const response = await get(server.url, '/sales/customers/new', await signIn());
     expect(response.status).toBe(200);
     const html = await response.text();
     expect(html).toContain('/app/js/pages/customer-new.js');
     expect(html).not.toContain('/app/js/pages/customer.js');
     expect(response.headers.get('cache-control')).toContain('no-store');
+  });
+
+  it('gives every page its own address (core/routes.js), each behind the sign-in', async () => {
+    const cookie = await signIn();
+    for (const [path, script] of [
+      ['/dashboard', 'dashboard.js'],
+      ['/follow-up', 'follow-up.js'],
+      ['/follow-up/new', 'follow-up-new.js'],
+      ['/follow-up/abc-123', 'follow-up-offer.js'],
+      ['/sales/leads', 'leads.js'],
+      ['/sales/leads/new', 'lead-new.js'],
+      ['/sales/leads/abc-123', 'lead.js'],
+      ['/sales/leads/abc-123/convert', 'lead-convert.js'],
+      ['/sales/opportunities', 'opportunity-list.js'],
+      ['/sales/opportunities/new', 'opportunity-new.js'],
+      ['/sales/opportunities/abc-123', 'opportunity.js'],
+      ['/sales/tasks', 'tasks.js'],
+      ['/sales/customers', 'customers.js'],
+      ['/sales/customers/abc-123', 'customer.js'],
+      ['/sales-calendar', 'calendar.js'],
+      ['/opportunity-pipeline', 'opportunity-pipeline.js'],
+      ['/feedback-overview', 'feedback-overview.js'],
+      ['/reports', 'module.js'],
+      ['/users', 'module.js'],
+      ['/settings', 'notifications.js'],
+    ] as const) {
+      const anonymous = await get(server.url, path);
+      expect(anonymous.status, path).toBe(302);
+      expect(anonymous.headers.get('location'), path).toBe('/login');
+      const response = await get(server.url, path, cookie);
+      expect(response.status, path).toBe(200);
+      expect(await response.text(), path).toContain(`/app/js/pages/${script}"`);
+    }
+  });
+
+  it('sends old addresses to the page they are now (301, query kept)', async () => {
+    for (const [from, to] of [
+      ['/customers', '/sales/customers'],
+      ['/customers?status=all', '/sales/customers?status=all'],
+      ['/customers/new?returnTo=%2Fdashboard', '/sales/customers/new?returnTo=%2Fdashboard'],
+      ['/customers/abc-123', '/sales/customers/abc-123'],
+      ['/contacts/new?companyId=c1', '/sales/contacts/new?companyId=c1'],
+      ['/opportunities', '/opportunity-pipeline'],
+      ['/opportunities/new', '/sales/opportunities/new'],
+      ['/tasks', '/sales/tasks'],
+      ['/tasks/abc-123/edit', '/sales/tasks/abc-123/edit'],
+      ['/leads', '/sales/leads'],
+      ['/leads/abc-123/convert', '/sales/leads/abc-123/convert'],
+      ['/calendar?week=2026-10-12', '/sales-calendar?week=2026-10-12'],
+      ['/notifications', '/settings'],
+      ['/more', '/dashboard'],
+      ['/sales/leads/', '/sales/leads'],
+      ['/reports/', '/reports'],
+      ['/tasks/', '/sales/tasks'],
+    ] as const) {
+      const response = await get(server.url, from);
+      expect(response.status, from).toBe(301);
+      expect(response.headers.get('location'), from).toBe(to);
+    }
+  });
+
+  it('answers an unknown address with the page-not-found screen (404)', async () => {
+    const cookie = await signIn();
+    for (const [path, session] of [
+      ['/nepostojeca-stranica', cookie],
+      ['/nepostojeca-stranica', undefined],
+      ['/sales', cookie],
+      ['/sales/customers/abc-123/xyz', cookie],
+      ['/customers-x', undefined],
+      ['/dashboard-x', cookie],
+    ] as const) {
+      const response = await get(server.url, path, session);
+      expect(response.status, path).toBe(404);
+      expect(response.headers.get('content-type'), path).toContain('text/html');
+      expect(response.headers.get('location'), path).toBeNull();
+      expect(await response.text(), path).toContain('Stranica nije pronađena');
+    }
+    expect((await get(server.url, '/api/nepostojece')).status).toBe(404);
   });
 
   it('session endpoint includes the user id used as CRM owner', async () => {

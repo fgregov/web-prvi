@@ -1,4 +1,4 @@
-// /leads · Leads (bottom navigation). Every lead of the organization, newest
+// /sales/leads · Leads (Prodaja → Leads). Every lead of the organization, newest
 // first, filtered Svi / Aktivni / Won / Lost. Won and lost leads stay here as
 // history; nothing is ever deleted.
 import { api, ApiError, onDataChanged } from '../core/api.js';
@@ -9,10 +9,10 @@ import { LEAD_FILTERS, leadDay, leadStatusBadge, leadValue } from '../features/l
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { withParams } from '../ui/navigation.js';
-import { renderTabbar } from '../ui/tabbar.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash } from '../ui/toast.js';
 
-renderTabbar(document.getElementById('tabbar'), 'leads');
+mountAppShell();
 const root = document.getElementById('leads');
 
 const EMPTY = {
@@ -29,7 +29,7 @@ let leads = [];
 function setFilter(value) {
   filter = value;
   // Keep the filter in the URL, so Back from a lead returns to the same list.
-  window.history.replaceState(null, '', withParams('/leads', { status: filter }));
+  window.history.replaceState(null, '', withParams('/sales/leads', { status: filter }));
   render();
 }
 
@@ -42,8 +42,8 @@ function row(lead) {
       'a',
       {
         class: 'lead-row',
-        href: withParams(`/leads/${encodeURIComponent(lead.id)}`, {
-          returnTo: withParams('/leads', { status: filter }),
+        href: withParams(`/sales/leads/${encodeURIComponent(lead.id)}`, {
+          returnTo: withParams('/sales/leads', { status: filter }),
         }),
         dataset: { status: lead.status },
       },
@@ -88,7 +88,7 @@ function render() {
         h('h1', { class: 'module__title', id: 'leads-title' }, 'Leads'),
         h(
           'a',
-          { class: 'module__link', href: '/leads/new?returnTo=/leads' },
+          { class: 'module__link', href: '/sales/leads/new?returnTo=/sales/leads' },
           icon('plus', 'icon'),
           'Novi lead',
         ),

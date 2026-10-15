@@ -4,10 +4,10 @@
 //   PROSPECTS     leads that became prospects in the period
 //   NEGOTIATIONS  opportunities with a negotiation event in the period
 //   BUYERS        customers with a won deal in the period's year, up to its end
-// Every row opens Prilike: the Opportunity Pipeline, as from Više → Prilike.
+// Every row opens the Opportunity Pipeline (Prikaz više → Opportunity pipeline).
 import { h } from '../../ui/dom.js';
 
-const PIPELINE_HREF = '/opportunities';
+const PIPELINE_HREF = '/opportunity-pipeline';
 
 export function pipelineRows(overview) {
   return [

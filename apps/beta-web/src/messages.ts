@@ -4,6 +4,7 @@ export const MESSAGES = {
   missingCredentials: 'Unesite korisničko ime i lozinku.',
   badRequest: 'Neispravan zahtjev.',
   tooManyAttempts: 'Previše neuspjelih pokušaja. Pokušajte ponovno za minutu.',
+  tooManyRequests: 'Previše zahtjeva u kratkom vremenu. Pričekajte trenutak i pokušajte ponovno.',
   serverError: 'Došlo je do pogreške. Pokušajte ponovno.',
   sessionRequired: 'Sesija je istekla. Prijavite se ponovno.',
   invalidInput: 'Provjerite označena polja.',

@@ -936,6 +936,44 @@ a {
   }
 }
 
+/* Prilike: an opportunity without a next action. */
+.rv-list__warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--rv-red-text) !important;
+  font-weight: 600;
+}
+
+/* An opportunity's title on its customer or lead: the way to its own page. */
+.rv-opp__title-link {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rv-opp__title-link:hover {
+  color: var(--rv-red-text);
+  text-decoration: underline;
+}
+
+/* One opportunity on its own page (/sales/opportunities/{id}): its card. */
+.rv-opp-page {
+  max-width: 880px;
+  padding: 18px 22px;
+  background: var(--rv-bg);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius);
+  box-shadow: var(--rv-shadow-card);
+}
+
+.rv-opp-page .rv-opp {
+  padding: 0;
+}
+
+.rv-opp-page .rv-opp__title {
+  font-size: 17px;
+}
+
 /* ------------------------------------------- pipeline (accordions) --- */
 /* [ Q4 2026 ▾ ] [ + Nova prilika ]: one row, also on a 375px phone (also Ponude). */
 .rv-pipeline-actions {

@@ -1,12 +1,14 @@
-// /customers/{id} · Customer Detail View
+// /sales/customers/{id} · Customer Detail View
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { customerActions, customerProfile } from '../features/customers/customer-profile.js';
 import { openSectionsState } from '../ui/accordion.js';
 import { h } from '../ui/dom.js';
-import { renderShell } from '../ui/shell.js';
+import { icon } from '../ui/icons.js';
+import { goBack } from '../ui/navigation.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash } from '../ui/toast.js';
 
-const customerId = decodeURIComponent(window.location.pathname.split('/')[2] ?? '');
+const customerId = decodeURIComponent(window.location.pathname.split('/')[3] ?? '');
 const root = document.getElementById('app');
 
 /** ?offer={id} (from Feedback overview): the offer row to mark and show. */
@@ -19,7 +21,19 @@ const openSections = openSectionsState(
   focusOffer ? 'prilike' : window.location.hash.slice(1),
 );
 
-renderShell('customers');
+mountAppShell();
+
+/** Back to where the customer was opened from (else Kupci). */
+const back = h(
+  'button',
+  {
+    type: 'button',
+    class: 'rv-backlink',
+    onClick: () => goBack('/sales/customers'),
+  },
+  icon('arrow-left'),
+  'Kupci',
+);
 
 async function load() {
   let profile;
@@ -28,19 +42,23 @@ async function load() {
   } catch (error) {
     document.title = 'Renvara · Kupac nije pronađen';
     root.replaceChildren(
+      back,
       h(
         'div',
         { class: 'rv-card rv-empty rv-empty--page' },
         h('h1', {}, 'Kupac nije pronađen'),
         h('p', {}, error instanceof ApiError ? error.message : 'Pokušajte ponovno.'),
-        h('a', { class: 'rv-btn rv-btn--secondary', href: '/customers' }, 'Svi kupci'),
+        h('a', { class: 'rv-btn rv-btn--secondary', href: '/sales/customers' }, 'Svi kupci'),
       ),
     );
     return;
   }
   document.title = `Renvara · ${profile.companyName}`;
   const scroll = window.scrollY;
-  root.replaceChildren(customerProfile(profile, customerActions(profile, load), openSections));
+  root.replaceChildren(
+    back,
+    customerProfile(profile, customerActions(profile, load), openSections),
+  );
   window.scrollTo({ top: scroll });
 }
 

@@ -73,7 +73,7 @@ export function taskRow(task, { onToggle, returnTo, withCustomer = true }) {
       check.disabled = false;
     }
   });
-  const href = `/tasks/${encodeURIComponent(task.id)}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`;
+  const href = `/sales/tasks/${encodeURIComponent(task.id)}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`;
   return h(
     'li',
     { class: `rv-task${done ? ' is-done' : ''}`, dataset: { taskId: task.id } },

@@ -235,7 +235,7 @@ describe('Reminder scheduling', () => {
     expect(sent[0]!.payload).toEqual({
       title: 'RENVARA — Podsjetnik',
       body: 'Vrijeme je za zadatak: Poslati ponudu',
-      url: `/tasks/${task.id}`,
+      url: `/sales/tasks/${task.id}`,
       tag: expect.stringMatching(/^reminder-/),
     });
     expect(await scheduler.tick()).toBe(0); // no duplicate
@@ -268,7 +268,7 @@ describe('Reminder scheduling', () => {
       'Podsjetnik za lead: ABC d.o.o.',
       'Podsjetnik za priliku: Vending projekt — FERO-TERM',
     ]);
-    expect(sent[1]!.payload.url).toBe(`/customers/${customer.id}#prilike`);
+    expect(sent[1]!.payload.url).toBe(`/sales/opportunities/${opportunity.id}`);
     expect(JSON.stringify(sent)).not.toContain('Povjerljivo');
   });
 
@@ -599,7 +599,7 @@ describe('Delivery over HTTP to a push service', () => {
     expect(JSON.parse(decrypt(body, d.privateKey, d.authSecret))).toEqual({
       title: 'RENVARA — Podsjetnik',
       body: 'Vrijeme je za zadatak: Poslati ponudu za FERO-TERM',
-      url: `/tasks/${task.id}`,
+      url: `/sales/tasks/${task.id}`,
       tag: expect.any(String),
     });
     expect(crm.repo.data().reminders[0]).toMatchObject({ status: 'sent' });

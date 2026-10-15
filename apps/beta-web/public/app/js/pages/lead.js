@@ -1,4 +1,4 @@
-// /leads/{id} · Lead detail: who, how far it got (stage), how it ended
+// /sales/leads/{id} · Lead detail: who, how far it got (stage), how it ended
 // (status), its opportunities, tasks and history.
 //
 // Lead-first (ADR-0009): "Kreiraj priliku" opens a deal of this lead — no
@@ -30,9 +30,9 @@ import { MobilePageHeader } from '../ui/screen.js';
 import { openSheet } from '../ui/sheet.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
-const leadId = decodeURIComponent(window.location.pathname.split('/')[2] ?? '');
+const leadId = decodeURIComponent(window.location.pathname.split('/')[3] ?? '');
 const root = document.getElementById('screen');
-const header = MobilePageHeader({ title: 'Lead', onBack: () => goBack('/leads') });
+const header = MobilePageHeader({ title: 'Lead', onBack: () => goBack('/sales/leads') });
 const body = h('main', { class: 'rv-screen__body' });
 root.replaceChildren(header.element, body);
 
@@ -41,7 +41,7 @@ const row = (label, value) =>
   value ? h('div', { class: 'rv-dl__row' }, h('dt', {}, label), h('dd', {}, value)) : null;
 const convertHref = (lead, params = {}) => conversionHref(lead.id, { ...params, returnTo: here() });
 const newDealHref = (lead) =>
-  withParams('/opportunities/new', { leadId: lead.id, returnTo: here() });
+  withParams('/sales/opportunities/new', { leadId: lead.id, returnTo: here() });
 
 /** Stage of an active lead, changed in place (Novi lead → Kontaktiran → Kvalificiran). */
 function stagePicker(lead) {
@@ -114,7 +114,7 @@ function outcome(lead) {
             : lead.convertedCustomerId && lead.convertedCustomerName
               ? h(
                   'a',
-                  { href: `/customers/${enc(lead.convertedCustomerId)}` },
+                  { href: `/sales/customers/${enc(lead.convertedCustomerId)}` },
                   lead.convertedCustomerName,
                 )
               : 'Kupac više nije dostupan',
@@ -170,7 +170,7 @@ function conversionPending(lead) {
 }
 
 function actions(lead) {
-  const taskHref = withParams('/tasks/new', {
+  const taskHref = withParams('/sales/tasks/new', {
     leadId: lead.id,
     companyId: lead.status === 'won' ? lead.convertedCustomerId : null,
     type: 'follow_up',
@@ -186,7 +186,7 @@ function actions(lead) {
             'a',
             {
               class: 'rv-btn rv-btn--primary',
-              href: `/customers/${enc(lead.convertedCustomerId)}`,
+              href: `/sales/customers/${enc(lead.convertedCustomerId)}`,
             },
             'Otvori kupca',
           )
@@ -197,7 +197,7 @@ function actions(lead) {
           class: 'rv-btn rv-btn--secondary',
           // A converted lead's next deals are its customer's (Path B); before that, the lead's.
           href: lead.convertedCustomerId
-            ? withParams('/opportunities/new', {
+            ? withParams('/sales/opportunities/new', {
                 companyId: lead.convertedCustomerId,
                 contactId: lead.convertedContactId,
                 returnTo: here(),
@@ -247,7 +247,7 @@ function opportunitiesSection(lead) {
   const deals = lead.opportunities ?? [];
   const cardActions = {
     nextActionFor: (opportunityId) =>
-      withParams('/tasks/new', {
+      withParams('/sales/tasks/new', {
         opportunityId,
         leadId: lead.id,
         type: 'follow_up',
@@ -281,7 +281,7 @@ function opportunitiesSection(lead) {
       ? h(
           'ul',
           { class: 'rv-opps', role: 'list' },
-          deals.map((o) => opportunityCard(o, cardActions, { customer: true })),
+          deals.map((o) => opportunityCard(o, cardActions, { customer: true, link: true })),
         )
       : h(
           'p',
@@ -495,7 +495,7 @@ async function load() {
         'div',
         { class: 'rv-card rv-empty rv-empty--page' },
         h('h2', {}, error instanceof ApiError ? error.message : MESSAGES.unavailable),
-        h('a', { class: 'rv-btn rv-btn--secondary', href: '/leads' }, 'Svi leadovi'),
+        h('a', { class: 'rv-btn rv-btn--secondary', href: '/sales/leads' }, 'Svi leadovi'),
       ),
     );
   }

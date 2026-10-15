@@ -1,4 +1,4 @@
-/* MOBILNE OBAVIJESTI (/notifications): the user's switches per event type and
+/* Postavke → MOBILNE OBAVIJESTI (/settings): the user's switches per event type and
    whether this device receives push. Renvara tokens from components.css; the
    head mirrors the Follow-up Engine's; colour is never the only signal. */
 
@@ -12,7 +12,7 @@
 
 .nt-title {
   margin: 0;
-  font-size: 1.625rem;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: 0.01em;
   line-height: 1.1;

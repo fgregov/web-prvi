@@ -13,7 +13,7 @@ export function nextActionLine(o, addTaskHref) {
   if (o.nextAction) {
     return h(
       'a',
-      { class: 'rv-next-action', href: `/tasks/${encodeURIComponent(o.nextAction.id)}` },
+      { class: 'rv-next-action', href: `/sales/tasks/${encodeURIComponent(o.nextAction.id)}` },
       icon('check-square', 'rv-icon rv-icon--sm'),
       h(
         'span',
@@ -85,7 +85,8 @@ function offerRow(offer, deal) {
  * One opportunity with its stage, next action, offers and actions — the same
  * card on the customer's profile and on the lead's detail (ADR-0009).
  * `show.lead` names the lead a customer's deal came from; `show.customer`
- * names the customer a lead's deal belongs to once the lead is converted.
+ * names the customer a lead's deal belongs to once the lead is converted;
+ * `show.link` makes the title a link to the opportunity's own page.
  */
 export function opportunityCard(o, actions, show = {}) {
   const enc = encodeURIComponent;
@@ -93,14 +94,14 @@ export function opportunityCard(o, actions, show = {}) {
     show.lead && o.leadId && o.leadName
       ? h(
           'a',
-          { class: 'rv-opp__origin', href: `/leads/${enc(o.leadId)}` },
+          { class: 'rv-opp__origin', href: `/sales/leads/${enc(o.leadId)}` },
           icon('user-search', 'rv-icon rv-icon--sm'),
           `Iz leada: ${o.leadName}`,
         )
       : show.customer && o.companyId && o.customerName
         ? h(
             'a',
-            { class: 'rv-opp__origin', href: `/customers/${enc(o.companyId)}` },
+            { class: 'rv-opp__origin', href: `/sales/customers/${enc(o.companyId)}` },
             icon('building', 'rv-icon rv-icon--sm'),
             `Kupac: ${o.customerName}`,
           )
@@ -114,7 +115,16 @@ export function opportunityCard(o, actions, show = {}) {
     h(
       'div',
       { class: 'rv-opp__top' },
-      h('strong', { class: 'rv-opp__title' }, o.title),
+      show.link
+        ? h(
+            'a',
+            {
+              class: 'rv-opp__title rv-opp__title-link',
+              href: `/sales/opportunities/${enc(o.id)}`,
+            },
+            o.title,
+          )
+        : h('strong', { class: 'rv-opp__title' }, o.title),
       h(
         'span',
         { class: 'rv-opp__value' },
@@ -243,7 +253,9 @@ export function customerOpportunities(profile, actions, open) {
           h(
             'ul',
             { class: 'rv-opps', role: 'list' },
-            profile.opportunities.map((o) => opportunityCard(o, actions, { lead: true })),
+            profile.opportunities.map((o) =>
+              opportunityCard(o, actions, { lead: true, link: true }),
+            ),
           ),
         ]
       : emptyState('Nema evidentiranih prilika.'),

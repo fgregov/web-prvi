@@ -294,14 +294,16 @@ function summaryCard(o) {
       row(
         'Kupac',
         o.customerName
-          ? h('a', { href: `/customers/${encodeURIComponent(o.companyId)}` }, o.customerName)
+          ? h('a', { href: `/sales/customers/${encodeURIComponent(o.companyId)}` }, o.customerName)
           : o.leadName
             ? 'Još nije kupac (lead)'
             : null,
       ),
       row(
         'Lead',
-        o.leadName ? h('a', { href: `/leads/${encodeURIComponent(o.leadId)}` }, o.leadName) : null,
+        o.leadName
+          ? h('a', { href: `/sales/leads/${encodeURIComponent(o.leadId)}` }, o.leadName)
+          : null,
       ),
       row(
         'Prilika',
@@ -310,8 +312,8 @@ function summaryCard(o) {
               'a',
               {
                 href: o.companyId
-                  ? `/customers/${encodeURIComponent(o.companyId)}#prilike`
-                  : `/leads/${encodeURIComponent(o.leadId)}#prilike`,
+                  ? `/sales/customers/${encodeURIComponent(o.companyId)}#prilike`
+                  : `/sales/leads/${encodeURIComponent(o.leadId)}#prilike`,
               },
               o.opportunityTitle,
             )

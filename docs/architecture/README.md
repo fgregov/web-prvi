@@ -9,6 +9,7 @@ This folder is the source of truth for how RENVARA is built. Read in order:
 3. [Tenancy & security](03-tenancy-and-security.md): RLS, tenant-safe foreign keys, roles.
 4. [Data conventions](04-data-conventions.md): IDs, time, money, enums, JSONB, deletion.
 5. [Development workflow](05-development-workflow.md): commands, adding a table, testing.
+6. [Web app: security and cloud readiness](06-web-security-review.md): what the running web app protects today, and the gaps before a public production.
 
 Decisions with lasting consequences are recorded as ADRs in [`../adr`](../adr).
 Items that need a product decision are tracked in [`../open-questions.md`](../open-questions.md).

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createApp, type CrmOptions, type Logger } from '../src/app.ts';
+import { type ApiLimits, createApp, type CrmOptions, type Logger } from '../src/app.ts';
 import { createBetaAuthProvider } from '../src/auth/beta-provider.ts';
 import { loadAuthConfig } from '../src/auth/config.ts';
 import { createAuthService } from '../src/auth/service.ts';
@@ -30,7 +30,7 @@ export interface TestServer {
 
 export async function startTestServer(
   env = testEnv(),
-  options: { crm?: CrmOptions } = {},
+  options: { crm?: CrmOptions; apiLimits?: ApiLimits } = {},
 ): Promise<TestServer> {
   const config = loadAuthConfig(env);
   const clock = {
@@ -52,6 +52,7 @@ export async function startTestServer(
       publicOrigin: config.publicOrigin,
       trustProxy: config.trustProxy,
       ...(options.crm ? { crm: options.crm } : {}),
+      ...(options.apiLimits ? { apiLimits: options.apiLimits } : {}),
     }),
   );
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

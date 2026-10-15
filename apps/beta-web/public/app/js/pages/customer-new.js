@@ -1,4 +1,4 @@
-// /customers/new · NewCustomerScreen
+// /sales/customers/new · NewCustomerScreen
 //
 // A dedicated route-level screen (not part of the dashboard). Quick Add only
 // navigates here; this module owns the form, saving and the onward navigation.
@@ -42,7 +42,7 @@ async function save() {
     screen.allowLeave();
     setFlash(`${customer.companyName} uspješno kreirana.`);
     // replace(): Back from the new profile returns to the previous screen, not to this form.
-    window.location.replace(`/customers/${encodeURIComponent(customer.id)}`);
+    window.location.replace(`/sales/customers/${encodeURIComponent(customer.id)}`);
   } catch (error) {
     screen.setSaving(false);
     if (error instanceof ApiError && error.status === 422) form.setErrors(error.errors);

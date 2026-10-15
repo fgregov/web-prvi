@@ -1,23 +1,27 @@
-// QuickAddSheet: the "+" button opens a bottom sheet with exactly five actions.
-// Each one navigates to its dedicated screen; nothing is created inside the dashboard.
+// QuickAddSheet: "+ Novo" (sidebar, top bar) opens a sheet with exactly five actions.
+// Each one navigates to its dedicated screen; nothing is created on the page itself.
 import { h } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import { withParams } from '../../ui/navigation.js';
 import { openSheet } from '../../ui/sheet.js';
 
 export const QUICK_ADD_ACTIONS = [
-  { key: 'customer', label: 'Novi kupac', href: '/customers/new', icon: 'building' },
-  { key: 'opportunity', label: 'Nova prilika', href: '/opportunities/new', icon: 'target' },
-  { key: 'contact', label: 'Novi kontakt', href: '/contacts/new', icon: 'user-plus' },
-  { key: 'task', label: 'Novi zadatak', href: '/tasks/new', icon: 'check-square' },
-  { key: 'lead', label: 'Novi lead', href: '/leads/new', icon: 'user-search' },
+  { key: 'customer', label: 'Novi kupac', href: '/sales/customers/new', icon: 'building' },
+  { key: 'opportunity', label: 'Nova prilika', href: '/sales/opportunities/new', icon: 'target' },
+  { key: 'contact', label: 'Novi kontakt', href: '/sales/contacts/new', icon: 'user-plus' },
+  { key: 'task', label: 'Novi zadatak', href: '/sales/tasks/new', icon: 'check-square' },
+  { key: 'lead', label: 'Novi lead', href: '/sales/leads/new', icon: 'user-search' },
 ];
 
-/** Wires `trigger` (the dashboard's "+" button) to the sheet. */
+/**
+ * Wires `trigger` to the sheet. `returnTo`: where the forms go back to, or a
+ * function giving it when the sheet opens (the page's address with its filters).
+ */
 export function QuickAddSheet({ trigger, returnTo }) {
   let sheet = null;
 
   function open() {
+    const back = typeof returnTo === 'function' ? returnTo() : returnTo;
     trigger.setAttribute('aria-expanded', 'true');
     sheet = openSheet({
       title: 'Brzo dodavanje',
@@ -33,7 +37,7 @@ export function QuickAddSheet({ trigger, returnTo }) {
               'a',
               {
                 class: 'rv-quick-add__item',
-                href: withParams(action.href, { returnTo }),
+                href: withParams(action.href, { returnTo: back }),
                 dataset: { action: action.key },
                 // Close first, then let the link navigate (same tab).
                 onClick: () => sheet?.close({ restoreFocus: false }),

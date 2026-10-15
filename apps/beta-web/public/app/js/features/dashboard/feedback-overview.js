@@ -15,8 +15,9 @@ const BAND_LABEL = { yellow: 'čeka', red: 'potreban follow-up', black: 'hitan f
 export function offerHref(item) {
   if (item.hasDocument) return `/follow-up/${encodeURIComponent(item.offerId)}`;
   // An offer within a lead's deal before the lead is a customer (ADR-0009): on the lead.
-  if (!item.companyId && item.leadId) return `/leads/${encodeURIComponent(item.leadId)}#prilike`;
-  return `/customers/${encodeURIComponent(item.companyId)}?offer=${encodeURIComponent(item.offerId)}#prilike`;
+  if (!item.companyId && item.leadId)
+    return `/sales/leads/${encodeURIComponent(item.leadId)}#prilike`;
+  return `/sales/customers/${encodeURIComponent(item.companyId)}?offer=${encodeURIComponent(item.offerId)}#prilike`;
 }
 
 /** Who the offer is for: the customer, else the lead of its deal ("Lead · Hotel Lavanda"). */

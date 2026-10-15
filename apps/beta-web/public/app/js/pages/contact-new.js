@@ -1,4 +1,4 @@
-// /contacts/new · New contact. A contact always belongs to a customer
+// /sales/contacts/new · New contact. A contact always belongs to a customer
 // (searchable by name or OIB; preselected from ?companyId=).
 import { api, ApiError } from '../core/api.js';
 import { hasErrors, MESSAGES, validateContact } from '../core/validation.js';
@@ -16,7 +16,7 @@ const screen = createFormScreen({
   root: document.getElementById('screen'),
   title: 'Novi kontakt',
   submitLabel: 'Spremi kontakt',
-  fallback: '/customers',
+  fallback: '/sales/customers',
   discardMessage: 'Uneseni podaci o kontaktu neće biti spremljeni.',
   onSubmit: save,
 });
@@ -66,7 +66,7 @@ async function save() {
     const contact = await api.createContact(input);
     screen.allowLeave();
     setFlash('Kontakt je spremljen.');
-    leaveTo(returnTarget(`/customers/${encodeURIComponent(contact.companyId)}#kontakti`));
+    leaveTo(returnTarget(`/sales/customers/${encodeURIComponent(contact.companyId)}#kontakti`));
   } catch (error) {
     screen.setSaving(false);
     if (error instanceof ApiError && error.status === 422) {

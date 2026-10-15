@@ -42,7 +42,7 @@ export function leaveTo(target) {
   }
 }
 
-/** Builds "/tasks/new?companyId=…&returnTo=…" style links. */
+/** Builds "/sales/tasks/new?companyId=…&returnTo=…" style links. */
 export function withParams(path, params) {
   const entries = Object.entries(params).filter(
     ([, v]) => v !== null && v !== undefined && v !== '',

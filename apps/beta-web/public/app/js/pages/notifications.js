@@ -1,4 +1,4 @@
-// /notifications · MOBILNE OBAVIJESTI ("Obavijesti" in the bottom navigation):
+// /settings · Postavke → MOBILNE OBAVIJESTI (old address /notifications):
 // the signed-in user's own switches for seven event types, each saved on the
 // server on its own (a failed save puts the switch back and says so), whether
 // this device can actually receive push notifications (permission is asked
@@ -14,9 +14,9 @@ import {
 } from '../features/reminders/push.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { renderTabbar } from '../ui/tabbar.js';
+import { mountAppShell } from '../ui/app-shell.js';
 
-renderTabbar(document.getElementById('tabbar'), 'notifications');
+mountAppShell();
 const root = document.getElementById('notifications');
 
 const TYPES = [
@@ -256,7 +256,7 @@ function render(data) {
     h(
       'section',
       { class: 'nt-head', 'aria-labelledby': 'nt-title' },
-      h('h1', { class: 'nt-title', id: 'nt-title' }, 'Mobilne obavijesti'),
+      h('h2', { class: 'nt-title', id: 'nt-title' }, 'Mobilne obavijesti'),
       h('p', { class: 'nt-sub' }, 'Odaberite za koje događaje želite primati mobilne obavijesti.'),
       deviceBox,
       enableButton,

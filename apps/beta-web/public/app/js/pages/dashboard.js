@@ -1,4 +1,4 @@
-// Dashboard integration (prototypes/home): bottom navigation, period selector,
+// Dashboard integration (prototypes/home): the app's navigation, period selector,
 // KPI cards of the selected period, and one of two views:
 //   current quarter → the operational dashboard (Danas / Prioriteti / pipeline)
 //   past or custom period → the historical dashboard (what happened then)
@@ -9,7 +9,6 @@ import {
   describePeriod,
   getDashboardPeriod,
   onDashboardPeriodChange,
-  resetDashboardPeriod,
   setDashboardPeriod,
 } from '../core/dashboard-period.js';
 import { dayRange, formatSlot, todayKey } from '../core/format.js';
@@ -19,8 +18,7 @@ import { renderHistory, renderHistorySkeleton } from '../features/dashboard/hist
 import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-cards.js';
 import { PeriodSelector } from '../features/dashboard/period-selector.js';
 import { renderPipelineOverview } from '../features/dashboard/pipeline-overview.js';
-import { QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
-import { renderTabbar } from '../ui/tabbar.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -42,16 +40,13 @@ const spriteIcon = (name, className = 'icon') => {
   return svg;
 };
 const taskHref = (task) =>
-  `/tasks/${encodeURIComponent(task.id)}?returnTo=${encodeURIComponent(HOME)}`;
+  `/sales/tasks/${encodeURIComponent(task.id)}?returnTo=${encodeURIComponent(HOME)}`;
 
-QuickAddSheet({ trigger: document.querySelector('.fab'), returnTo: HOME });
-renderTabbar(document.querySelector('.tabbar'), 'home');
-
-// A new session starts at the current quarter.
-document.querySelector('[data-logout]')?.addEventListener('click', resetDashboardPeriod, true);
+// Sidebar with "+ Novo" (Quick Add); Odjava there starts the next session at the current quarter.
+mountAppShell();
 
 // Header date: today, in Croatian.
-const dateEl = document.querySelector('.brand__date');
+const dateEl = document.getElementById('home-date');
 if (dateEl) {
   const text = new Intl.DateTimeFormat('hr-HR', {
     weekday: 'long',

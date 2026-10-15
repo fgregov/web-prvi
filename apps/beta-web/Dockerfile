@@ -14,7 +14,6 @@ RUN npm install --global --no-fund --no-audit pnpm@10.28.0
 # Manifests first: dependencies are reinstalled only when they change.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/beta-web/package.json apps/beta-web/
-COPY apps/ios/package.json apps/ios/
 COPY packages/domain/package.json packages/domain/
 COPY packages/database/package.json packages/database/
 RUN pnpm install --frozen-lockfile --prod --filter @renvara/beta-web...

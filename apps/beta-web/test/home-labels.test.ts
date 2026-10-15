@@ -21,18 +21,20 @@ describe('PRIORITETNI ZADACI (Home)', () => {
     expect(module).toContain(
       '<h2 class="module__title" id="prioriteti-title">Prioritetni zadaci</h2>',
     );
-    expect(module).toMatch(/<a class="module__link" href="\/tasks"\s*>Pogledaj sve zadatke<svg/);
+    expect(module).toMatch(
+      /<a class="module__link" href="\/sales\/tasks"\s*>Pogledaj sve zadatke<svg/,
+    );
     expect(module).not.toMatch(/>Pogledaj sve<svg/);
   });
 
   it('the historical view uses the same labels and the same destination', () => {
     expect(history).toContain("title: 'Prioritetni zadaci'");
-    expect(history).toContain("link: { label: 'Pogledaj sve zadatke', href: '/tasks' }");
+    expect(history).toContain("link: { label: 'Pogledaj sve zadatke', href: '/sales/tasks' }");
     expect(history).not.toContain("title: 'Zadaci'");
   });
 
   it('leaves "Zadaci" elsewhere as it is (navigation, task list, customer profile)', () => {
-    expect(read('../public/app/js/ui/shell.js')).toContain("label: 'Zadaci'");
+    expect(read('../public/app/js/ui/app-shell.js')).toContain("label: 'Zadaci'");
     expect(read('../public/app/js/pages/tasks.js')).toContain("'Zadaci'");
     expect(read('../public/app/js/features/customers/profile/customer-tasks.js')).toContain(
       "title: 'Zadaci'",
@@ -40,25 +42,21 @@ describe('PRIORITETNI ZADACI (Home)', () => {
   });
 });
 
-describe('Home header (UPDATE 08)', () => {
-  const header = home.slice(home.indexOf('<header class="app-header">'), home.indexOf('</header>'));
+describe('Home header (web app, ADR-0013)', () => {
+  const header = home.slice(home.indexOf('<header class="app-header'), home.indexOf('</header>'));
 
-  it('has no notification bell; logo, title and avatar stay', () => {
-    expect(header).not.toMatch(/bell|Obavijesti/);
+  it('is the page title and the date; logo, profile and Odjava are in the sidebar', () => {
+    expect(header).toContain('<h1 class="page-header__title">Početna</h1>');
+    expect(header).toContain('id="home-date"');
+    expect(header).not.toMatch(/bell|Obavijesti|avatar|account-menu|data-logout/);
     expect(home).not.toContain('i-bell');
-    expect(header).toContain('class="brand__name">RENVARA</span>');
-    expect(header).toContain('class="avatar"');
   });
 
-  it('the avatar menu keeps the name and Odjava, without Obavijesti', () => {
-    const menu = header.slice(header.indexOf('id="account-menu"'));
-    expect(menu).not.toContain('data-notifications');
-    expect(
-      [...menu.matchAll(/role="menuitem"[^>]*>[\s\S]*?<\/svg>([^<]+)</g)].map((m) =>
-        (m[1] ?? '').trim(),
-      ),
-    ).toEqual(['Odjava']);
-    expect(menu).toContain('data-account-name');
+  it('the sidebar keeps the profile and Odjava, without Obavijesti', () => {
+    const shell = read('../public/app/js/ui/app-shell.js');
+    expect(shell).toContain("'Odjava'");
+    expect(shell).toContain('rv-side__profile');
+    expect(shell).not.toMatch(/Obavijesti|bell/);
   });
 });
 
@@ -66,26 +64,14 @@ describe('Feedback overview (Home) links to its own screen', () => {
   it('"Svi" opens /feedback-overview, not the customer list', () => {
     const module = moduleOf('odgovor-title');
     expect(module).toMatch(/<a class="module__link" href="\/feedback-overview"\s*>Svi<svg/);
-    expect(module).not.toContain('href="/customers"');
+    expect(module).not.toContain('href="/sales/customers"');
     expect(history).toContain("link: { label: 'Svi', href: '/feedback-overview' }");
   });
 
   it('a row opens the offer on its customer, with the offer id', async () => {
     const { offerHref } = await import('../public/app/js/features/dashboard/feedback-overview.js');
     expect(offerHref({ companyId: 'c 1', offerId: 'o/2' })).toBe(
-      '/customers/c%201?offer=o%2F2#prilike',
+      '/sales/customers/c%201?offer=o%2F2#prilike',
     );
-  });
-
-  it('the bottom navigation: five items, Obavijesti in place of Izvještaji (now under Više)', async () => {
-    const { TABS } = await import('../public/app/js/ui/tabbar.js');
-    type Tab = { href: string; label: string; icon: string };
-    expect(TABS.map((t: Tab) => [t.href, t.label, t.icon])).toEqual([
-      ['/dashboard', 'Početna', 'home'],
-      ['/follow-up', 'Follow-up Engine', 'repeat'],
-      ['/leads', 'Leads', 'users'],
-      ['/notifications', 'Obavijesti', 'bell'],
-      ['/more', 'Više', 'ellipsis'],
-    ]);
   });
 });

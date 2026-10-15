@@ -1,4 +1,4 @@
-// /customers · customer list: Aktivni | Neaktivni | Svi (default Aktivni) and
+// /sales/customers · customer list: Aktivni | Neaktivni | Svi (default Aktivni) and
 // search by name or OIB within that filter. The filter is kept in the URL
 // (?status=), so Back from a customer returns to the same list.
 import { api, onDataChanged } from '../core/api.js';
@@ -7,10 +7,10 @@ import { DEMO_CONTENT } from '../core/edition.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { withParams } from '../ui/navigation.js';
-import { renderShell } from '../ui/shell.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash, showToast } from '../ui/toast.js';
 
-renderShell('customers');
+mountAppShell();
 const root = document.getElementById('app');
 let confirmReset = false;
 let query = '';
@@ -26,7 +26,7 @@ let status = FILTERS.some((f) => f.value === requested) ? requested : 'active';
 const newCustomerLink = () =>
   h(
     'a',
-    { class: 'rv-btn rv-btn--primary', href: '/customers/new?returnTo=/customers' },
+    { class: 'rv-btn rv-btn--primary', href: '/sales/customers/new?returnTo=/sales/customers' },
     icon('plus'),
     'Novi kupac',
   );
@@ -64,7 +64,7 @@ const filters = h(
           window.history.replaceState(
             null,
             '',
-            withParams('/customers', { status: status === 'active' ? '' : status }),
+            withParams('/sales/customers', { status: status === 'active' ? '' : status }),
           );
           load();
         },
@@ -145,7 +145,7 @@ async function load() {
               {},
               h(
                 'a',
-                { class: 'rv-list__row', href: `/customers/${encodeURIComponent(c.id)}` },
+                { class: 'rv-list__row', href: `/sales/customers/${encodeURIComponent(c.id)}` },
                 h('span', { class: 'rv-list__icon' }, icon('building')),
                 h(
                   'span',

@@ -1,4 +1,4 @@
-// /opportunities/new · New opportunity of a LEAD or of a CUSTOMER (ADR-0009):
+// /sales/opportunities/new · New opportunity of a LEAD or of a CUSTOMER (ADR-0009):
 // "Poveži priliku s" Lead | Kupac. From a lead (?leadId=) the lead is preset
 // and no customer is needed; from a customer (?companyId=) as before. Every
 // active opportunity needs a next action: it can be created right here, and
@@ -31,7 +31,7 @@ const screen = createFormScreen({
   root: document.getElementById('screen'),
   title: 'Nova prilika',
   submitLabel: 'Spremi priliku',
-  fallback: '/opportunities',
+  fallback: '/sales/opportunities',
   discardMessage: 'Uneseni podaci o prilici neće biti spremljeni.',
   onSubmit: save,
 });
@@ -156,8 +156,8 @@ async function save() {
   const { opportunity, nextActionMissing } = result;
   const target = returnTarget(
     opportunity.companyId
-      ? `/customers/${encodeURIComponent(opportunity.companyId)}#prilike`
-      : `/leads/${encodeURIComponent(opportunity.leadId)}#prilike`,
+      ? `/sales/customers/${encodeURIComponent(opportunity.companyId)}#prilike`
+      : `/sales/leads/${encodeURIComponent(opportunity.leadId)}#prilike`,
   );
   if (nextActionMissing) {
     const addTask = await confirmDialog({
@@ -169,7 +169,7 @@ async function save() {
     if (addTask) {
       // replace(): Back from the task form does not return to this (already saved) form.
       window.location.replace(
-        withParams('/tasks/new', {
+        withParams('/sales/tasks/new', {
           opportunityId: opportunity.id,
           leadId: opportunity.leadId,
           type: 'follow_up',

@@ -73,7 +73,7 @@ function leadsCard(kpis, against) {
     'a',
     {
       class: 'metric',
-      href: '/leads',
+      href: '/sales/leads',
       'aria-label': `Leads: ${kpis.leads.value}${pct === null ? '' : `, ${pct} % u odnosu na ${against}`}`,
     },
     h('span', { class: 'metric__label' }, 'Leads'),
@@ -153,7 +153,7 @@ function opportunityCard(kpis) {
     'a',
     {
       class: 'metric metric--money',
-      href: '/opportunities',
+      href: '/opportunity-pipeline',
       'aria-label': `Opportunity: potencijal ${formatEuro(kpis.potential.value)}, dobiveno ${formatEuro(kpis.wonValue.value)}`,
     },
     h('span', { class: 'metric__label' }, 'Opportunity'),

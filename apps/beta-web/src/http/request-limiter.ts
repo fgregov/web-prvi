@@ -13,6 +13,13 @@ export class RequestLimiter {
     this.windowMs = windowMs;
   }
 
+  /** Seconds until the key's window ends (for Retry-After), at least 1. */
+  retryAfterSeconds(key: string, nowMs: number): number {
+    const entry = this.#hits.get(key);
+    if (!entry) return 1;
+    return Math.max(1, Math.ceil((entry.windowStart + this.windowMs - nowMs) / 1000));
+  }
+
   /** Counts one request; false when the key is over its limit for this window. */
   allow(key: string, nowMs: number): boolean {
     const entry = this.#hits.get(key);

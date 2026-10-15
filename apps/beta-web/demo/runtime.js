@@ -15,6 +15,7 @@ import { emptyData, normalizeData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
 import { deriveShareKey } from '../server/crm/share-token.js';
 import { DEMO_CONTENT } from '../app/js/core/edition.js';
+import { legacyPath, pageForPath } from '../app/js/core/routes.js';
 import { databaseStore } from './database-store.js';
 import { indexedDbDocumentStore } from './document-store-idb.js';
 import { LOADERS, PAGES, STYLES } from './pages.js';
@@ -376,36 +377,8 @@ window.fetch = (input, init = {}) => {
 };
 
 // -------------------------------------------------------------- router ---
-const ROUTES = {
-  '/login': 'login',
-  '/dashboard': 'dashboard',
-  '/customers': 'customers',
-  '/customers/new': 'customer-new',
-  '/contacts/new': 'contact-new',
-  '/opportunities': 'opportunities',
-  '/opportunities/new': 'opportunity-new',
-  '/tasks': 'tasks',
-  '/tasks/new': 'task-form',
-  '/calendar': 'calendar',
-  '/leads': 'leads',
-  '/leads/new': 'lead-new',
-  '/feedback-overview': 'feedback-overview',
-  '/follow-up': 'follow-up',
-  '/follow-up/new': 'follow-up-new',
-  '/notifications': 'notifications',
-  '/reports': 'module',
-  '/more': 'module',
-};
-const PATTERNS = [
-  [/^\/customers\/[A-Za-z0-9_-]{1,64}$/, 'customer'],
-  [/^\/tasks\/[A-Za-z0-9_-]{1,64}$/, 'task'],
-  [/^\/tasks\/[A-Za-z0-9_-]{1,64}\/edit$/, 'task-form'],
-  [/^\/leads\/[A-Za-z0-9_-]{1,64}$/, 'lead'],
-  [/^\/leads\/[A-Za-z0-9_-]{1,64}\/convert$/, 'lead-convert'],
-  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}$/, 'follow-up-offer'],
-  [/^\/follow-up\/[A-Za-z0-9_-]{1,64}\/preview$/, 'follow-up-preview'],
-  [VIEWER_PAGE, 'viewer'], // the customer's link: no sign-in
-];
+// The app's pages and old addresses: core/routes.js, shared with the BETA server.
+const ROUTES = { '/login': 'login', '/dashboard': 'dashboard' };
 
 let nav = { stack: ['/login'], states: [null], index: 0 };
 try {
@@ -548,7 +521,14 @@ function useStyles(names) {
 
 function pageFor(pathname) {
   if (pathname === '/' || pathname === '') return isSignedIn() ? 'dashboard' : 'login';
-  return ROUTES[pathname] ?? PATTERNS.find(([pattern]) => pattern.test(pathname))?.[1] ?? null;
+  if (VIEWER_PAGE.test(pathname)) return 'viewer'; // the customer's link: no sign-in
+  return ROUTES[pathname] ?? pageForPath(pathname);
+}
+
+/** Like the server: an old address or a trailing slash → the page's address. */
+function movedPath(pathname) {
+  const trimmed = pathname.replace(/(.)\/+$/, '$1');
+  return legacyPath(trimmed) ?? (trimmed !== pathname && pageFor(trimmed) ? trimmed : null);
 }
 
 const STORE_NOTE = {
@@ -562,11 +542,13 @@ const STORE_NOTE = {
 let generation = 0;
 async function render() {
   const run = ++generation;
-  const { pathname } = parse(current());
-  const page = pageFor(pathname);
-  // What the server does: unknown → dashboard, protected → login, login while signed in → dashboard.
-  if (!page) return navigate('/dashboard', 'replace');
-  if (page !== 'login' && page !== 'viewer' && !isSignedIn()) return navigate('/login', 'replace');
+  const { pathname, search, hash } = parse(current());
+  const moved = pathname === '/' ? null : movedPath(pathname);
+  if (moved) return navigate(`${moved}${search}${hash}`, 'replace');
+  // What the server does: unknown → page not found, protected → login, login while signed in → dashboard.
+  const page = pageFor(pathname) ?? 'not-found';
+  const open = ['login', 'viewer', 'not-found'];
+  if (!open.includes(page) && !isSignedIn()) return navigate('/login', 'replace');
   if (page === 'login' && isSignedIn()) return navigate('/dashboard', 'replace');
   if (pathname === '/') return navigate(`/${page}`, 'replace');
 

@@ -274,6 +274,7 @@ pages.login!.styles = [
   'login/login.css',
 ];
 addPage('dashboard', join(HOME, 'index.html'), 'home');
+addPage('not-found', resolve(APP, 'public/login/not-found.html'), 'login');
 for (const file of readdirSync(resolve(APP, 'public/app/pages'))) {
   addPage(file.replace('.html', ''), resolve(APP, 'public/app/pages', file), 'app');
 }

@@ -1,4 +1,4 @@
-// /leads/{id}/convert · PRETVORI LEAD U KUPCA (ADR-0009), for a WON lead.
+// /sales/leads/{id}/convert · PRETVORI LEAD U KUPCA (ADR-0009), for a WON lead.
 //
 // Into a NEW customer (created ACTIVE) or an EXISTING one (an inactive one only
 // after confirming its reactivation), optionally with a contact person, in one
@@ -18,9 +18,9 @@ import { icon } from '../ui/icons.js';
 import { createFormScreen } from '../ui/screen.js';
 import { setFlash } from '../ui/toast.js';
 
-const leadId = decodeURIComponent(window.location.pathname.split('/')[2] ?? '');
+const leadId = decodeURIComponent(window.location.pathname.split('/')[3] ?? '');
 const params = new URLSearchParams(window.location.search);
-const leadHref = `/leads/${encodeURIComponent(leadId)}`;
+const leadHref = `/sales/leads/${encodeURIComponent(leadId)}`;
 
 const MODES = [
   { value: 'CREATE_CUSTOMER', label: 'Kreiraj novog kupca' },
@@ -228,7 +228,7 @@ try {
               'a',
               {
                 class: 'rv-btn rv-btn--primary',
-                href: `/customers/${encodeURIComponent(lead.convertedCustomerId)}`,
+                href: `/sales/customers/${encodeURIComponent(lead.convertedCustomerId)}`,
               },
               'Otvori kupca',
             )
@@ -326,5 +326,5 @@ async function save({ ignoreMatches = false, reactivate = false } = {}) {
       : 'Lead je pretvoren u aktivnog kupca.',
   );
   // replace(): Back from the customer returns to the lead, not to this form.
-  window.location.replace(`/customers/${encodeURIComponent(result.customerId)}`);
+  window.location.replace(`/sales/customers/${encodeURIComponent(result.customerId)}`);
 }

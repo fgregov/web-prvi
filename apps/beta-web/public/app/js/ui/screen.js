@@ -5,7 +5,7 @@ import { confirmDialog } from './confirm.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { goBack } from './navigation.js';
-import { mountWebNav } from './tabbar.js';
+import { mountAppShell } from './app-shell.js';
 
 /** Sticky header with a back button and the screen title. */
 export function MobilePageHeader({ title, onBack }) {
@@ -25,7 +25,7 @@ export function MobilePageHeader({ title, onBack }) {
     { class: 'rv-screen__header' },
     h('div', { class: 'rv-screen__header-inner' }, back, heading),
   );
-  mountWebNav();
+  mountAppShell();
   return { element, back, heading };
 }
 
@@ -111,6 +111,25 @@ export function createFormScreen({ root, title, submitLabel, fallback, discardMe
       event.returnValue = '';
     }
   });
+
+  // A sidebar or Quick Add link with unsaved data → the same question as Back.
+  // On window, in the capture phase: before any other handler sees the click.
+  window.addEventListener(
+    'click',
+    async (event) => {
+      const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!link || leaving || saving || !isDirty()) return;
+      if (!link.closest('[data-rv-shell], .rv-quick-add')) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (await UnsavedChangesDialog({ message: discardMessage })) {
+        leaving = true;
+        window.location.assign(link.getAttribute('href'));
+      }
+    },
+    true,
+  );
 
   const screen = {
     header,

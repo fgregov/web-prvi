@@ -107,11 +107,8 @@ export function createNotificationService(
     const lead = findInOrg(data.leads, offer, deal?.leadId);
     return lead ? leadLabel(lead) : 'kupca';
   }
-  /** A deal lives on its customer, or on its lead before the lead is a customer. */
-  const dealUrl = (o: Opportunity) =>
-    o.companyId
-      ? `/customers/${encodeURIComponent(o.companyId)}#prilike`
-      : `/leads/${encodeURIComponent(o.leadId ?? '')}#prilike`;
+  /** A deal's own page (Prodaja → Prilike), with its customer or lead. */
+  const dealUrl = (o: Opportunity) => `/sales/opportunities/${encodeURIComponent(o.id)}`;
 
   /** A task's deadline instant: dueAt, or dueDate at the user's chosen time (else none). */
   function taskDeadline(settings: NotificationSettings | undefined, task: Task): number | null {
@@ -378,7 +375,7 @@ export function createNotificationService(
               body: reached
                 ? `Istekao je rok za zadatak: ${task.title}`
                 : `Vrijeme je za izvršenje zadatka: ${task.title}`,
-              url: `/tasks/${encodeURIComponent(task.id)}`,
+              url: `/sales/tasks/${encodeURIComponent(task.id)}`,
             },
             now,
           )

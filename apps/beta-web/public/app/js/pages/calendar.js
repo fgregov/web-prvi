@@ -1,6 +1,6 @@
-// /calendar · Sales Kalendar: a week of scheduled tasks (?week=YYYY-MM-DD, the Monday).
+// /sales-calendar · Sales Kalendar: a week of scheduled tasks (?week=YYYY-MM-DD, the Monday).
 // It is a view over tasks with a calendar slot; completed ones stay visible as history.
-import { api, onDataChanged } from '../core/api.js';
+import { api, ApiError, onDataChanged } from '../core/api.js';
 import { labelOf, TASK_TYPES } from '../core/constants.js';
 import {
   addDaysKey,
@@ -14,10 +14,10 @@ import { taskTypeIcon } from '../features/tasks/task-row.js';
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { withParams } from '../ui/navigation.js';
-import { renderShell } from '../ui/shell.js';
+import { mountAppShell } from '../ui/app-shell.js';
 import { consumeFlash } from '../ui/toast.js';
 
-renderShell('calendar');
+mountAppShell();
 const root = document.getElementById('app');
 
 const weekFmt = new Intl.DateTimeFormat('hr-HR', { day: 'numeric', month: 'long' });
@@ -43,7 +43,7 @@ function entry(task, returnTo) {
       'a',
       {
         class: `rv-agenda__row${done ? ' is-done' : ''}`,
-        href: withParams(`/tasks/${encodeURIComponent(task.id)}`, { returnTo }),
+        href: withParams(`/sales/tasks/${encodeURIComponent(task.id)}`, { returnTo }),
       },
       h('time', { class: 'rv-agenda__time' }, formatSlot(task)),
       done
@@ -79,11 +79,33 @@ async function load() {
   const days = Array.from({ length: 7 }, (_, i) => addDaysKey(i, parseDayKey(monday)));
   const from = parseDayKey(monday);
   const to = parseDayKey(addDaysKey(7, from));
-  const tasks = await api.calendar(from, to);
-  const returnTo = `/calendar?week=${monday}`;
+  let tasks;
+  try {
+    tasks = await api.calendar(from, to);
+  } catch (error) {
+    root.replaceChildren(
+      h(
+        'div',
+        { class: 'rv-card rv-empty rv-empty--page', role: 'alert' },
+        h('h1', {}, 'Sales Kalendar'),
+        h(
+          'p',
+          {},
+          error instanceof ApiError ? error.message : 'Kalendar se nije učitao. Pokušajte ponovno.',
+        ),
+        h(
+          'button',
+          { type: 'button', class: 'rv-btn rv-btn--secondary', onClick: () => load() },
+          'Pokušaj ponovno',
+        ),
+      ),
+    );
+    return;
+  }
+  const returnTo = `/sales-calendar?week=${monday}`;
   const today = todayKey();
   const sunday = parseDayKey(days[6]);
-  const weekUrl = (key) => `/calendar?week=${key}`;
+  const weekUrl = (key) => `/sales-calendar?week=${key}`;
 
   root.replaceChildren(
     h(
@@ -103,7 +125,7 @@ async function load() {
         'a',
         {
           class: 'rv-btn rv-btn--primary',
-          href: withParams('/tasks/new', {
+          href: withParams('/sales/tasks/new', {
             calendar: '1',
             date: days.includes(today) ? today : monday,
             returnTo,

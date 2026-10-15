@@ -48,7 +48,7 @@ export function customerOverview(profile, actions, open) {
                 'a',
                 {
                   class: 'rv-upcoming__item',
-                  href: `/tasks/${encodeURIComponent(t.id)}?returnTo=${encodeURIComponent(actions.returnTo)}`,
+                  href: `/sales/tasks/${encodeURIComponent(t.id)}?returnTo=${encodeURIComponent(actions.returnTo)}`,
                 },
                 h('span', { class: 'rv-upcoming__icon' }, icon(taskTypeIcon(t.type))),
                 h(

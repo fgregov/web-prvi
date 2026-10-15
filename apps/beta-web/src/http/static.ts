@@ -49,14 +49,19 @@ export async function resolveStaticFile(
 export async function sendFile(
   res: ServerResponse,
   absolutePath: string,
-  options: { cacheControl?: string; transformHtml?: (html: string) => string } = {},
+  options: {
+    cacheControl?: string;
+    transformHtml?: (html: string) => string;
+    /** HTTP status (default 200), e.g. 404 for the page-not-found screen. */
+    status?: number;
+  } = {},
 ): Promise<void> {
   const type = CONTENT_TYPES[extname(absolutePath)] ?? 'application/octet-stream';
   let body: Buffer | string = await readFile(absolutePath);
   if (options.transformHtml && type.startsWith('text/html')) {
     body = options.transformHtml(body.toString('utf8'));
   }
-  res.statusCode = 200;
+  res.statusCode = options.status ?? 200;
   res.setHeader('Content-Type', type);
   if (options.cacheControl) res.setHeader('Cache-Control', options.cacheControl);
   res.end(body);
