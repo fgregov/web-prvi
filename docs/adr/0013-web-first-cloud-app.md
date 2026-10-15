@@ -32,8 +32,8 @@ floating "+" button, a "Više" page, and different top bars per page family.
   opens Quick Add. On computers (1024 px+) the sidebar can be narrowed to icons
   (remembered in the browser); below 1024 px a top bar opens the same sidebar
   as a drawer. No bottom navigation.
-* **Modules not built yet** (Izvještaji, Korisnici) have a status page saying
-  so; no simulated data.
+* **Modules not built yet** (Izvještaji) have a status page saying so; no
+  simulated data. (Korisnici: built, ADR-0014.)
 * The BETA server stays as described in ADR-0012 (one container, JSON store,
   env-configured BETA account) until the Supabase backend is connected; see
   docs/architecture/06-web-security-review.md for what that requires.

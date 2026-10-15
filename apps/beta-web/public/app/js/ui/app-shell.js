@@ -5,11 +5,14 @@
 //                         slides in over the page
 // "Prodaja" and "Prikaz više" only open and close their lists; the pages are
 // their items. "+ Novo" opens Quick Add (the five "Novi …" forms).
+// Only pages the member has the right to are listed (a list without any is
+// left out); the server refuses the others anyway (403).
 import { resetDashboardPeriod } from '../core/dashboard-period.js';
 import { initials } from '../core/format.js';
-import { navKeyForPath } from '../core/routes.js';
-import { getCurrentUser } from '../core/session.js';
-import { QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
+import { ROLES } from '../core/permissions.js';
+import { navKeyForPath, permissionForPath } from '../core/routes.js';
+import { getAccess } from '../core/session.js';
+import { QUICK_ADD_ACTIONS, QuickAddSheet } from '../features/quick-add/quick-add-sheet.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { here } from './navigation.js';
@@ -54,7 +57,6 @@ export const NAV = [
 ];
 export const SETTINGS = { key: 'settings', label: 'Postavke', href: '/settings', icon: 'settings' };
 
-const ROLE_LABELS = { beta_admin: 'Administrator · BETA' };
 const COLLAPSED_KEY = 'renvara.sidebar.collapsed'; // this browser: narrow sidebar on computers
 const OPEN_KEY = 'renvara.sidebar.open'; // this tab: which lists the user opened or closed
 const DESKTOP = '(min-width: 1024px)';
@@ -391,20 +393,51 @@ export function mountAppShell() {
   // ----------------------------------------------------- + Novo, profile ---
   // Quick Add returns to the page it was opened from (with its filters).
   // The drawer closes first, so the sheet keeps the focus it takes.
+  let granted = null; // the member's rights, once the session is read
+  const allowed = (href) => {
+    const needed = permissionForPath(href);
+    return !needed || (granted?.has(needed) ?? false);
+  };
   for (const trigger of [newButton, mobileNew]) {
     trigger.addEventListener('click', () => {
       if (side.classList.contains('is-open')) setDrawer(false);
     });
-    QuickAddSheet({ trigger, returnTo: () => here() });
+    QuickAddSheet({ trigger, returnTo: () => here(), allowed });
   }
 
-  getCurrentUser()
-    .then((user) => {
+  // Until the rights are known, the lists stay invisible (nothing appears and vanishes).
+  nav.style.visibility = 'hidden';
+  getAccess()
+    .then(({ user, permissions }) => {
+      granted = permissions;
+      for (const link of side.querySelectorAll('a[data-nav]')) {
+        if (!allowed(link.getAttribute('href'))) link.closest('li')?.remove();
+      }
+      for (const group of [...groups]) {
+        if (!group.querySelector('.rv-nav__subitem')) {
+          group.remove();
+          groups.splice(groups.indexOf(group), 1);
+        }
+      }
+      const canAdd = QUICK_ADD_ACTIONS.some((action) => allowed(action.href));
+      newButton.hidden = !canAdd;
+      mobileNew.hidden = !canAdd;
+      for (const brand of document.querySelectorAll('.rv-side__brand')) {
+        if (!allowed('/dashboard')) brand.setAttribute('href', firstAllowed() ?? '/dashboard');
+      }
       avatar.textContent = initials(user.displayName);
       userName.textContent = user.displayName;
-      userRole.textContent = ROLE_LABELS[user.role] ?? '';
+      userRole.textContent = ROLES.find((r) => r.value === user.role)?.label ?? '';
     })
-    .catch(() => {});
+    .catch(() => {})
+    .finally(() => {
+      nav.style.visibility = '';
+    });
+  function firstAllowed() {
+    return side
+      .querySelector('a.rv-nav__item[href], a.rv-nav__subitem[href]')
+      ?.getAttribute('href');
+  }
 
   logout.addEventListener('click', async () => {
     logout.disabled = true;

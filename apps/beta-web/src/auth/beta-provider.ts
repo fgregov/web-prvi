@@ -15,9 +15,7 @@ export function createBetaAuthProvider(config: AuthConfig): AuthProvider {
   const expectedPassword = digest(config.password);
   const user: AuthUser = Object.freeze({
     id: `beta-${config.username}`,
-    username: config.username,
     displayName: config.displayName,
-    role: 'beta_admin',
   });
 
   return {

@@ -35,6 +35,9 @@ na mobitelu otvorite objavljeni demo ili web adresu Renvare u pregledniku.
   jsDelivr); bez interneta aplikacija radi sa sistemskim fontom, a stranice
   PDF ponuda se ne iscrtavaju.
 - Poveznice za dijeljenje ponuda u demou otvaraju se samo u tom pregledniku.
+- **Korisnici**: demo račun je vlasnik organizacije. Korisnike možete dodati,
+  urediti, dati im prava i deaktivirati ih, ali se oni u demou ne prijavljuju
+  (nema lozinki ni poziva e-mailom); to radi BETA poslužitelj.
 
 Za pravu prijavu i podatke na poslužitelju služi BETA
 (`apps/beta-web/README.md`).

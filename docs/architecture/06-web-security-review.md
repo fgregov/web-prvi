@@ -1,6 +1,6 @@
 # 6. Web app: security and cloud readiness review
 
-Status as of the web-first change (ADR-0013). It lists what the running web
+Status as of the Korisnici change (ADR-0014; web-first: ADR-0013). It lists what the running web
 app (apps/beta-web) does today, and what must be done **before Renvara is
 offered as a public, multi-customer product**. The BETA is a single-account,
 single-organization test deployment; it is not production-ready for the
@@ -10,15 +10,47 @@ public, and this document says why.
 
 | Area | Today (BETA server) | Supabase target (supabase/) |
 |---|---|---|
-| Sign-in | One account from server environment variables (`RENVARA_BETA_USERNAME` / `_PASSWORD`), checked on the server only | Supabase Auth (email + password, later SSO), one account per person |
-| Sessions | HMAC-signed cookie, `HttpOnly`, `SameSite=Lax`, `Secure` in production, 8 h; logout revocations in memory | Supabase JWT + refresh token |
+| Sign-in | One account per member (e-mail + password). Local identity (default): the first owner from the server settings (`RENVARA_BETA_USERNAME` / `_PASSWORD`), other members with scrypt hashes in a separate identity file. `RENVARA_IDENTITY=supabase`: Supabase Auth | Supabase Auth (email + password, later SSO) |
+| Sessions | HMAC-signed cookie, `HttpOnly`, `SameSite=Lax`, `Secure` in production, 8 h; logout revocations in memory; per-member cut-off (deactivation, password change) kept on disk | Supabase JWT + refresh token |
 | Organizations | One organization per server; the organization id comes from the server, never from a request | Many organizations; membership-based RLS (ADR-0002) |
-| Authorization | Every page and every `/api/` call checks the session on the server; pages without a session redirect to `/login`, API calls answer 401 | RLS on every table, role checks in SQL, pgTAP-tested |
+| Authorization | Per-member rights and roles (ADR-0014), read for every request: navigation, every page (403) and every `/api/` call; pages without a session redirect to `/login`, API calls answer 401 | RLS on every CRM table by module right, `admin_*` functions with the same rules, pgTAP-tested |
 | Data | One JSON file + PDF directory on one volume | PostgreSQL + private Storage bucket |
 | In-browser demo | Accepts **any** username/password; data stays in the visitor's browser (or the artifact's test database). Not an authentication. | — |
 
-The Supabase schema, RLS policies and pgTAP tests exist in this repository,
-but **the web app does not use them yet**.
+The Supabase schema, RLS policies and pgTAP tests exist in this repository.
+With `RENVARA_IDENTITY=supabase` the server uses Supabase Auth and the member
+tables (`member_permissions`, `admin_audit_log`, `admin_*` functions) for
+**Korisnici**; the **CRM data itself is still in the server's JSON store**.
+
+## Korisnici (ADR-0014)
+
+* **Rights on the server.** 38 rights in `core/permissions.js` (same keys in
+  `private.permission_definitions`). Every page address and API route has its
+  rule; without it: 403 (page with "Povratak na početnu") or `403` JSON.
+  Hidden buttons are only convenience (tests: `users.test.ts`,
+  E2E scenario in the Korisnici report).
+* **Revocation applies to open sessions.** Rights and status are read for
+  every request; deactivation and password changes also refuse every cookie
+  issued until then (per-member cut-off, strictly increasing).
+* **No passwords in application data.** Local identity: scrypt (N=2^15, r=8,
+  p=1) in a separate file (mode 0600), never in the CRM store; Supabase:
+  only in Supabase Auth. New members and resets get one-time links (72 h /
+  2 h); the token is in the address fragment and only its SHA-256 is kept.
+  Password policy: at least 12 characters, letters and digits, not the
+  member's name or e-mail, confirmed (the same in Supabase Auth config).
+* **Re-authentication** before changing someone else's password (the
+  administrator's own current password) and the separate right
+  `users.change_password`; stricter rate limit (10 / 10 min per member) on
+  password operations, 10 / 10 min per address on the public set-password call.
+* **Self-protection.** Nobody deactivates themselves or changes their own
+  rights; administrators and owners are changed only by an owner; nobody
+  gives or takes a right they lack; the last active owner stays (checked in
+  the service and again in SQL).
+* **Administration log** with result and the names of changed fields/rights,
+  never passwords, tokens or personal data values; append-only in the
+  database.
+* **Personal data.** OIB and phone: not in the member list, not readable by
+  teammates in Supabase (column privileges).
 
 ## Controls in place (verified by tests in apps/beta-web/test)
 
@@ -63,9 +95,10 @@ but **the web app does not use them yet**.
 
 Must be done, in this order of risk:
 
-1. **Real authentication.** Replace the single environment account with
-   Supabase Auth: one account per person, password reset, email
-   verification, optional MFA. The demo login stays a demo.
+1. **Real authentication.** Done for Korisnici (ADR-0014): one account per
+   person, invitation and reset links, Supabase Auth mode. Still open: MFA,
+   e-mail verification of address changes in local mode, account lockout
+   notification. The demo login stays a demo.
 2. **Connect the Supabase backend.** Move CRM data from the JSON file to
    PostgreSQL with the existing RLS policies, through the user's JWT
    (PostgREST/RPC) or a server using the user's JWT. Never the service-role
@@ -77,17 +110,20 @@ Must be done, in this order of risk:
 4. **Private file storage.** Offer PDFs in a private Storage bucket, served
    only through the existing sealed links or signed short-lived URLs; no
    public bucket, no storage paths in pages.
-5. **Session management.** Server-side session list (sign out everywhere,
-   revocation that survives restarts: today a copied cookie stays valid until
-   its 8 h expiry after a restart), idle timeout, rotation on sign-in.
+5. **Session management.** Per-member "sign out everywhere" now exists
+   (deactivation, password change; survives restarts). Still open: a session
+   list per member, idle timeout, logout revocations that survive restarts
+   (a single logged-out cookie stays valid until its 8 h expiry after a
+   restart), and cut-offs in shared storage for more than one instance.
 6. **Distributed rate limits.** Today's limits are per process; with more than
    one instance they must move to a shared store (e.g. Postgres or Redis) or
    the edge (proxy/WAF). Add account lockout notification.
 7. **Secrets management.** Platform secrets only (already so); rotate the
    session secret and VAPID keys on staff changes; no secret in the image or
    the repository (already so).
-8. **Error monitoring and audit.** Central error tracking and alerting;
-   an audit log of sign-ins and data exports.
+8. **Error monitoring and audit.** Central error tracking and alerting.
+   Member administration is logged (ADR-0014); sign-ins are logged as
+   events; data exports are not yet logged.
 9. **Backups and recovery.** Point-in-time recovery for the database, restore
    drills; today: volume snapshots only.
 10. **Legal and privacy.** GDPR (processing agreement, data location in the

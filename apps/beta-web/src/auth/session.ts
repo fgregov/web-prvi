@@ -10,12 +10,10 @@ import type { AuthSession, AuthUser } from './types.ts';
  */
 
 interface SessionPayload {
-  v: 1;
+  v: 2;
   jti: string;
   sub: string;
-  username: string;
   name: string;
-  role: 'beta_admin';
   iat: number;
   exp: number;
 }
@@ -35,12 +33,10 @@ export function createSessionToken(
   nowSeconds: number,
 ): { token: string; session: AuthSession } {
   const payload: SessionPayload = {
-    v: 1,
+    v: 2,
     jti: randomUUID(),
     sub: user.id,
-    username: user.username,
     name: user.displayName,
-    role: user.role,
     iat: nowSeconds,
     exp: nowSeconds + ttlSeconds,
   };
@@ -85,7 +81,7 @@ function toSession(p: SessionPayload): AuthSession {
     id: p.jti,
     issuedAt: p.iat,
     expiresAt: p.exp,
-    user: { id: p.sub, username: p.username, displayName: p.name, role: p.role },
+    user: { id: p.sub, displayName: p.name },
   };
 }
 
@@ -93,12 +89,10 @@ function isPayload(value: unknown): value is SessionPayload {
   if (typeof value !== 'object' || value === null) return false;
   const p = value as Record<string, unknown>;
   return (
-    p.v === 1 &&
+    p.v === 2 &&
     typeof p.jti === 'string' &&
     typeof p.sub === 'string' &&
-    typeof p.username === 'string' &&
     typeof p.name === 'string' &&
-    p.role === 'beta_admin' &&
     Number.isInteger(p.iat) &&
     Number.isInteger(p.exp) &&
     (p.exp as number) > (p.iat as number)

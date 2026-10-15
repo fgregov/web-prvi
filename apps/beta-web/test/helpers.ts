@@ -1,8 +1,17 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { type ApiLimits, createApp, type CrmOptions, type Logger } from '../src/app.ts';
-import { createBetaAuthProvider } from '../src/auth/beta-provider.ts';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  type ApiLimits,
+  createApp,
+  type CrmOptions,
+  inMemoryCrm,
+  type Logger,
+} from '../src/app.ts';
+import { createLocalIdentityLayer, type IdentityLayer } from '../src/identity/local.ts';
 import { loadAuthConfig } from '../src/auth/config.ts';
 import { createAuthService } from '../src/auth/service.ts';
 
@@ -25,6 +34,9 @@ export interface TestServer {
   readonly url: string;
   readonly clock: { now: number; nowMs(): number };
   readonly logs: string[];
+  /** The CRM (and Korisnici) data and identity layer behind the server. */
+  readonly crm: CrmOptions;
+  readonly identity: IdentityLayer;
   close(): Promise<void>;
 }
 
@@ -45,13 +57,29 @@ export async function startTestServer(
     warn: (event, fields) => logs.push(JSON.stringify({ event, ...fields })),
     error: (event, fields) => logs.push(JSON.stringify({ event, ...fields })),
   };
-  const auth = createAuthService(config, createBetaAuthProvider(config), clock);
+  const crm = options.crm ?? inMemoryCrm();
+  const dir = mkdtempSync(join(tmpdir(), 'renvara-identity-'));
+  const identity = await createLocalIdentityLayer({
+    repo: crm.services.repo,
+    organizationId: crm.organizationId,
+    file: join(dir, 'identity.json'),
+    config,
+    now: () => new Date(clock.nowMs()),
+  });
+  const auth = createAuthService(
+    config,
+    identity.authenticate,
+    clock,
+    undefined,
+    identity.validAfter,
+  );
   const server: Server = createServer(
     createApp(auth, {
+      users: identity.users,
+      crm,
       logger,
       publicOrigin: config.publicOrigin,
       trustProxy: config.trustProxy,
-      ...(options.crm ? { crm: options.crm } : {}),
       ...(options.apiLimits ? { apiLimits: options.apiLimits } : {}),
     }),
   );
@@ -61,7 +89,15 @@ export async function startTestServer(
     url: `http://127.0.0.1:${port}`,
     clock,
     logs,
-    close: () => new Promise((resolve) => server.close(() => resolve())),
+    crm,
+    identity,
+    close: () =>
+      new Promise((resolve) =>
+        server.close(() => {
+          rmSync(dir, { recursive: true, force: true });
+          resolve();
+        }),
+      ),
   };
 }
 

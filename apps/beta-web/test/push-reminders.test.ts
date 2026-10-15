@@ -6,6 +6,7 @@ import { createDecipheriv, createECDH, createPublicKey, hkdfSync, verify } from 
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
+import { ALL_PERMISSIONS } from '../public/app/js/core/permissions.js';
 import { createCrmApi } from '../src/crm/dispatch.ts';
 import { createCrmServices } from '../src/crm/index.ts';
 import { createMemoryRepository, emptyData } from '../src/crm/repository.ts';
@@ -440,6 +441,7 @@ describe('Reminder API', () => {
     user: { id: 'u-a', displayName: 'Ana' },
     timeZone: 'Europe/Zagreb',
     now: NOW,
+    access: { role: 'owner', permissions: new Set(ALL_PERMISSIONS) },
   });
   function api() {
     const crm = createCrmServices(createMemoryRepository(emptyData()), { demoContent: false });

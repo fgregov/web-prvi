@@ -185,6 +185,26 @@ export const api = {
     return response.arrayBuffer();
   },
   uploadOfferDocument,
+  // KORISNICI (ADR-0014): every call is checked on the server
+  /** filter: { status, q, sort, dir, page, pageSize } → { users, total, filter } */
+  listUsers: (filter = {}) => request('GET', `/api/users${query(filter)}`),
+  /** → { user, passwordState, can, self } */
+  getUser: (id) => request('GET', `/api/users/${enc(id)}`),
+  /** → { user, link } (link: how the new member sets a password) */
+  createUser: (input) => request('POST', '/api/users', input),
+  updateUser: (id, input) => request('PATCH', `/api/users/${enc(id)}`, input).then((r) => r.user),
+  deactivateUser: (id) =>
+    request('POST', `/api/users/${enc(id)}/deactivate`, {}).then((r) => r.user),
+  activateUser: (id) => request('POST', `/api/users/${enc(id)}/activate`, {}).then((r) => r.user),
+  /** { currentPassword, password, confirm }: the administrator's own password first. */
+  changeUserPassword: (id, input) => request('POST', `/api/users/${enc(id)}/password`, input),
+  userPasswordLink: (id) =>
+    request('POST', `/api/users/${enc(id)}/password-link`, {}).then((r) => r.link),
+  setUserAccess: (id, input) =>
+    request('PUT', `/api/users/${enc(id)}/access`, input).then((r) => r.user),
+  userAudit: (id) => request('GET', `/api/users/${enc(id)}/audit`).then((r) => r.entries),
+  recentNotifications: () =>
+    request('GET', '/api/notifications/recent').then((r) => r.notifications),
 };
 
 /**

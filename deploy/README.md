@@ -40,7 +40,8 @@ Svaka sljedeća promjena aplikacije objavljuje se sama.
 
 | Naziv | Što je |
 | --- | --- |
-| `RENVARA_BETA_USERNAME`, `RENVARA_BETA_PASSWORD` | BETA račun za prijavu (provjerava se samo na poslužitelju) |
+| `RENVARA_BETA_USERNAME`, `RENVARA_BETA_PASSWORD` | Prvi vlasnik organizacije (provjerava se samo na poslužitelju); ostale korisnike dodajete u **Korisnici** |
+| `RENVARA_BETA_EMAIL` | Neobavezno: vlasnik se može prijaviti i ovom e-mail adresom |
 | `RENVARA_BETA_DISPLAY_NAME` | Ime u izborniku profila |
 | `RENVARA_SESSION_SECRET` | Potpis prijave, najmanje 32 znaka: `openssl rand -base64 48` |
 | `RENVARA_PUBLIC_ORIGIN` | Adresa koju otvarate, npr. `https://ime.fly.dev` (na vlastitom poslužitelju se postavlja sama iz `RENVARA_DOMAIN`) |
@@ -134,7 +135,7 @@ uvijek ide jedan od dva načina gore.
 - **Nova verzija:** Fly.io: `fly deploy --ha=false`. Vlastiti poslužitelj:
   `git pull && docker compose -f deploy/docker-compose.yml up -d --build`.
   Podaci ostaju na disku.
-- **Kopija podataka** (`/data`: `crm.json` i PDF ponude):
+- **Kopija podataka** (`/data`: `crm.json`, `identity.json` s korisničkim računima i PDF ponude):
   - Fly.io radi dnevne snimke diska (`fly volumes snapshots list -a IME`).
   - Vlastiti poslužitelj:
 

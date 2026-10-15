@@ -8,12 +8,19 @@
 //     artifact's `db` store (one document per record). Elsewhere, or when the
 //     store is unavailable, they stay in this browser only.
 //   - Login accepts any username and password; nothing is sent anywhere.
+//   - Korisnici: the same user service, rules and API as the server. The demo
+//     account is the organization's owner; members created here have no
+//     password and never sign in (kept in this browser only).
 import { createCrmApi } from '../server/crm/dispatch.js';
 import { createFollowUpApi, VIEWER_PAGE } from '../server/crm/follow-up-api.js';
 import { createCrmServices } from '../server/crm/index.js';
 import { emptyData, normalizeData } from '../server/crm/repository.js';
 import { seedDemoData } from '../server/crm/seed.js';
 import { deriveShareKey } from '../server/crm/share-token.js';
+import { ensureBootstrapOwner } from '../server/identity/bootstrap.js';
+import { createLocalDirectory } from '../server/identity/local-directory.js';
+import { createUserService, displayName } from '../server/identity/user-service.js';
+import { createUsersApi } from '../server/identity/users-api.js';
 import { DEMO_CONTENT } from '../app/js/core/edition.js';
 import { legacyPath, pageForPath } from '../app/js/core/routes.js';
 import { databaseStore } from './database-store.js';
@@ -22,17 +29,17 @@ import { LOADERS, PAGES, STYLES } from './pages.js';
 
 const ORIGIN = 'https://demo.renvara.app';
 const ORG = 'org-demo';
-const USER = {
-  id: 'demo-user',
-  username: 'demo',
-  displayName: 'Demo korisnik',
-  role: 'beta_admin',
-};
+const USER = { id: 'demo-user', displayName: 'Demo korisnik' };
 const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Zagreb';
 // Storage per edition: pages opened from disk share one browser storage, so the
 // clean start and the presentation demo must not overwrite each other.
 const PREFIX = DEMO_CONTENT ? 'renvara.demo' : 'renvara.clean';
-const KEYS = { data: `${PREFIX}.crm.v1`, auth: `${PREFIX}.auth`, nav: `${PREFIX}.nav` };
+const KEYS = {
+  data: `${PREFIX}.crm.v1`,
+  auth: `${PREFIX}.auth`,
+  nav: `${PREFIX}.nav`,
+  users: `${PREFIX}.users.v1`,
+};
 /** Where the clean start kept its records before it had a key of its own. */
 const SHARED_DATA_KEY = 'renvara.demo.crm.v1';
 const COLLECTIONS = [
@@ -199,11 +206,97 @@ const api = createCrmApi(services, {
 });
 const followUpApi = createFollowUpApi(services);
 
+// ------------------------------------------------- Korisnici, in page ---
+// Members, rights and their log: this browser only (never the shared test
+// database). The rules are the server's: the user service checks every call.
+function loadPeople() {
+  try {
+    const saved = JSON.parse(local.get(KEYS.users) ?? 'null');
+    if (saved && Array.isArray(saved.users)) {
+      return {
+        users: saved.users,
+        userPermissions: Array.isArray(saved.userPermissions) ? saved.userPermissions : [],
+        auditLog: Array.isArray(saved.auditLog) ? saved.auditLog : [],
+      };
+    }
+  } catch {
+    /* a fresh start */
+  }
+  return { users: [], userPermissions: [], auditLog: [] };
+}
+let people = loadPeople();
+const peopleRepo = {
+  data: () => people,
+  commit: () => local.set(KEYS.users, JSON.stringify(people)),
+  replace(next) {
+    people = next;
+  },
+  transaction(work) {
+    const snapshot = structuredClone(people);
+    try {
+      return work();
+    } catch (error) {
+      people = snapshot;
+      throw error;
+    }
+  },
+};
+ensureBootstrapOwner(peopleRepo, ORG, {
+  userId: USER.id,
+  displayName: USER.displayName,
+  email: 'demo@renvara.app',
+});
+/** No accounts in the demo: nobody signs in with a password, no links are sent. */
+const DEMO_ACCOUNTS = {
+  kind: 'demo',
+  verify: async () => null,
+  confirm: async () => false,
+  create: async () => ({ userId: globalThis.crypto.randomUUID(), link: { delivery: 'none' } }),
+  remove: async () => {},
+  setEmail: async () => {},
+  setPassword: async () => {},
+  passwordLink: async () => ({ delivery: 'none' }),
+  linkUser: async () => null,
+  completeLink: async () => null,
+  setBlocked: async () => {},
+  passwordState: async () => 'unavailable',
+};
+const users = createUserService({
+  directory: createLocalDirectory(peopleRepo),
+  accounts: DEMO_ACCOUNTS,
+  sessions: { validAfter: () => 0, revokeAll() {} },
+});
+const usersApi = createUsersApi(users);
+
+/** The demo account's rights, read for every request (as on the server). */
+async function member() {
+  return isSignedIn() ? users.access(ORG, USER.id) : null;
+}
+async function signedInContext() {
+  const me = await member();
+  return me ? { ...context(), access: me.access } : null;
+}
+
 async function answer(method, path, query, body) {
   if (path === '/api/auth/session') {
-    return isSignedIn()
-      ? [200, { authenticated: true, user: USER }]
-      : [200, { authenticated: false }];
+    const me = await member();
+    if (!me) return [200, { authenticated: false }];
+    const { id, firstName, lastName, email } = me.user;
+    return [
+      200,
+      {
+        authenticated: true,
+        user: {
+          id,
+          displayName: displayName(me.user),
+          firstName,
+          lastName,
+          email,
+          role: me.access.role,
+        },
+        permissions: [...me.access.permissions],
+      },
+    ];
   }
   if (path === '/api/auth/login') {
     if (!String(body.username ?? '').trim() || !body.password) {
@@ -216,13 +309,27 @@ async function answer(method, path, query, body) {
     session.set(KEYS.auth, 'no');
     return [200, { success: true, redirectTo: '/login' }];
   }
+  if (path === '/api/users' || path.startsWith('/api/users/')) {
+    const found = usersApi.match(method, path);
+    if (found.kind === 'none') return [404, usersApi.badRequest];
+    if (found.kind === 'method_not_allowed') return [405, usersApi.badRequest];
+    const me = await member();
+    if (!me) return [401, { success: false, message: 'Sesija je istekla. Prijavite se ponovno.' }];
+    const result = await usersApi.run(found, {
+      actor: { id: me.user.id, organizationId: ORG, ...me.access },
+      query,
+      body,
+      origin: ORIGIN,
+    });
+    return [result.status, result.body];
+  }
   const hit = api.match(method, path);
   if (hit.kind === 'none') return [404, api.badRequest];
   if (hit.kind === 'method_not_allowed') return [405, api.badRequest];
-  if (!isSignedIn())
-    return [401, { success: false, message: 'Sesija je istekla. Prijavite se ponovno.' }];
+  const ctx = await signedInContext();
+  if (!ctx) return [401, { success: false, message: 'Sesija je istekla. Prijavite se ponovno.' }];
   if (method === 'GET') {
-    const result = api.run(hit, context(), query, body);
+    const result = api.run(hit, ctx, query, body);
     return [result.status, result.body];
   }
 
@@ -230,7 +337,7 @@ async function answer(method, path, query, body) {
   // continues from what the store really holds (the test database undoes a
   // partial save; browser storage simply keeps the state from before).
   const before = JSON.stringify(data);
-  const result = api.run(hit, context(), query, body);
+  const result = api.run(hit, ctx, query, body);
   if (result.status < 400) {
     try {
       await store.save(data);
@@ -280,7 +387,7 @@ async function answerFollowUp(method, path, query, headers, bytes) {
     method,
     path,
     query,
-    ctx: isSignedIn() ? context() : null,
+    ctx: await signedInContext(),
     json,
     bytes: hit.route.body === 'pdf' ? bytes : null,
     headers: {

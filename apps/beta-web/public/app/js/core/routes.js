@@ -25,7 +25,8 @@ export const PAGE_ROUTES = {
   '/feedback-overview': 'feedback-overview',
   // Modules in production: a status page each, no data.
   '/reports': 'module',
-  '/users': 'module',
+  '/users': 'users',
+  '/users/new': 'user-new',
   '/settings': 'notifications',
 };
 
@@ -39,6 +40,7 @@ export const PAGE_PATTERNS = [
   [new RegExp(`^/sales/customers/${ID}$`), 'customer'],
   [new RegExp(`^/follow-up/${ID}$`), 'follow-up-offer'],
   [new RegExp(`^/follow-up/${ID}/preview$`), 'follow-up-preview'],
+  [new RegExp(`^/users/${ID}$`), 'user'],
 ];
 
 /** The page at `pathname`, or null. */
@@ -74,8 +76,60 @@ export function navKeyForPath(pathname) {
     '/opportunity-pipeline': 'opportunity-pipeline',
     '/feedback-overview': 'feedback-overview',
     '/reports': 'reports',
-    '/users': 'users',
     '/settings': 'settings',
   };
+  if (pathname === '/users' || pathname.startsWith('/users/')) return 'users';
   return top[pathname] ?? null;
+}
+
+/**
+ * The right a page needs (core/permissions.js). The server answers 403 without
+ * it; the sidebar does not offer the page. Null: no page of the app.
+ */
+export function permissionForPath(pathname) {
+  const exact = {
+    '/dashboard': 'dashboard.view',
+    '/follow-up/new': 'follow_up.create',
+    '/sales/leads/new': 'leads.create',
+    '/sales/opportunities/new': 'opportunities.create',
+    '/sales/tasks/new': 'tasks.create',
+    '/sales/customers/new': 'customers.create',
+    '/sales/contacts/new': 'customers.edit',
+    '/sales-calendar': 'calendar.view',
+    '/opportunity-pipeline': 'pipeline.view',
+    '/feedback-overview': 'feedback.view',
+    '/reports': 'reports.view',
+    '/users': 'users.view',
+    '/users/new': 'users.create',
+    '/settings': 'notifications.view',
+  };
+  if (exact[pathname]) return exact[pathname];
+  if (/\/edit$/.test(pathname) && pathname.startsWith('/sales/tasks/')) return 'tasks.edit';
+  if (/\/convert$/.test(pathname) && pathname.startsWith('/sales/leads/')) return 'leads.edit';
+  if (pathname === '/follow-up' || pathname.startsWith('/follow-up/')) return 'follow_up.view';
+  const sales = /^\/sales\/(leads|opportunities|tasks|customers)(?:\/|$)/.exec(pathname);
+  if (sales) return `${sales[1]}.view`;
+  if (pathname.startsWith('/users/')) return 'users.view_details';
+  return null;
+}
+
+/** Where someone without the Dashboard starts: the first page of the sidebar they may open. */
+export const START_PAGES = Object.freeze([
+  ['/dashboard', 'dashboard.view'],
+  ['/follow-up', 'follow_up.view'],
+  ['/sales/leads', 'leads.view'],
+  ['/sales/opportunities', 'opportunities.view'],
+  ['/sales/tasks', 'tasks.view'],
+  ['/sales/customers', 'customers.view'],
+  ['/sales-calendar', 'calendar.view'],
+  ['/opportunity-pipeline', 'pipeline.view'],
+  ['/feedback-overview', 'feedback.view'],
+  ['/reports', 'reports.view'],
+  ['/users', 'users.view'],
+  ['/settings', 'notifications.view'],
+]);
+
+/** The first page `permissions` (a Set) allows, or null when it allows none. */
+export function startPage(permissions) {
+  return START_PAGES.find(([, key]) => permissions.has(key))?.[0] ?? null;
 }

@@ -35,3 +35,13 @@ export class CrmConflictError extends Error {
     this.details = details;
   }
 }
+
+/** Signed in, but without the right for this function → HTTP 403. */
+export class CrmForbiddenError extends Error {
+  override name = 'CrmForbiddenError';
+  constructor(message = FORBIDDEN_MESSAGE) {
+    super(message);
+  }
+}
+
+export const FORBIDDEN_MESSAGE = 'Nemate pravo pristupa ovoj funkcionalnosti.';

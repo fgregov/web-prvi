@@ -65,9 +65,7 @@ describe('BETA provider (the single credential check)', () => {
   it('accepts only the exact configured pair', () => {
     expect(provider.authenticate(USERNAME, PASSWORD)).toEqual({
       id: 'beta-fgregov',
-      username: 'fgregov',
       displayName: 'Frane Gregov',
-      role: 'beta_admin',
     });
   });
 
@@ -111,12 +109,7 @@ describe('parseCredentials', () => {
 });
 
 describe('session tokens', () => {
-  const user = {
-    id: 'beta-fgregov',
-    username: USERNAME,
-    displayName: 'Frane Gregov',
-    role: 'beta_admin',
-  } as const;
+  const user = { id: 'beta-fgregov', displayName: 'Frane Gregov' } as const;
   const now = 1_790_000_000;
 
   it('round-trips and carries no password', () => {
@@ -125,12 +118,11 @@ describe('session tokens', () => {
     expect(check.status).toBe('valid');
     const payload = Buffer.from(token.split('.')[0] as string, 'base64url').toString('utf8');
     expect(payload).not.toContain(PASSWORD);
-    expect(JSON.parse(payload)).toMatchObject({
-      sub: 'beta-fgregov',
-      role: 'beta_admin',
-      iat: now,
-      exp: now + 3600,
-    });
+    const parsed = JSON.parse(payload);
+    expect(parsed).toMatchObject({ v: 2, sub: 'beta-fgregov', iat: now, exp: now + 3600 });
+    // Role and rights are read for every request, never carried in the cookie.
+    expect(parsed).not.toHaveProperty('role');
+    expect(parsed).not.toHaveProperty('permissions');
   });
 
   it('reports expiry separately from tampering', () => {

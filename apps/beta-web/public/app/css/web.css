@@ -712,3 +712,9 @@ body:has(> .rv-side) .rv-screen__header {
     padding-left: 32px;
   }
 }
+
+/* "+ Novo" without any form the member may open (core/permissions.js). */
+.rv-side__new[hidden],
+.rv-mobilebar__btn[hidden] {
+  display: none;
+}

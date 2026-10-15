@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { assertValidTimeZone } from '@renvara/domain';
 
 /**
@@ -10,6 +10,8 @@ export interface CrmConfig {
   readonly timeZone: string;
   /** JSON file holding the BETA CRM data (git-ignored). */
   readonly dataFile: string;
+  /** Local identity: accounts, password links, session cut-offs (next to the data, never in it). */
+  readonly identityFile: string;
 }
 
 const APP_DIR = resolve(import.meta.dirname, '../..');
@@ -17,10 +19,15 @@ const APP_DIR = resolve(import.meta.dirname, '../..');
 export function loadCrmConfig(env: Record<string, string | undefined>): CrmConfig {
   const timeZone = env.RENVARA_ORG_TIMEZONE || 'Europe/Zagreb';
   assertValidTimeZone(timeZone);
+  const dataFile = resolve(APP_DIR, env.RENVARA_DATA_FILE || '.data/crm.json');
   return {
     organizationId: env.RENVARA_BETA_ORG_ID || 'org-beta',
     timeZone,
-    dataFile: resolve(APP_DIR, env.RENVARA_DATA_FILE || '.data/crm.json'),
+    dataFile,
+    identityFile: resolve(
+      APP_DIR,
+      env.RENVARA_IDENTITY_FILE || resolve(dirname(dataFile), 'identity.json'),
+    ),
   };
 }
 

@@ -232,8 +232,9 @@ function leadsCard(summary, period) {
       ),
       h('span', { class: 'hist-bar__value' }, String(value)),
     );
-  const revenue = kpis.revenue;
-  const change = revenue.previous
+  // Revenue only with the Opportunity KPI right (else the server leaves it out).
+  const revenue = kpis.revenue ?? null;
+  const change = revenue?.previous
     ? Math.round(((revenue.value - revenue.previous) / revenue.previous) * 100)
     : null;
   return moduleCard({
@@ -269,31 +270,32 @@ function leadsCard(summary, period) {
             )
           : null,
       ),
-      h(
-        'a',
-        { class: 'hist-revenue', href: '/reports' },
+      revenue &&
         h(
-          'span',
-          { class: 'hist-revenue__main' },
-          h('span', { class: 'hist-revenue__label' }, 'Prihod'),
-          h('strong', { class: 'hist-revenue__value' }, formatEuro(revenue.value)),
-          change === null
-            ? null
-            : h(
+          'a',
+          { class: 'hist-revenue', href: '/reports' },
+          h(
+            'span',
+            { class: 'hist-revenue__main' },
+            h('span', { class: 'hist-revenue__label' }, 'Prihod'),
+            h('strong', { class: 'hist-revenue__value' }, formatEuro(revenue.value)),
+            change === null
+              ? null
+              : h(
+                  'span',
+                  { class: `hist-revenue__change${change < 0 ? ' is-down' : ''}` },
+                  `${change >= 0 ? '+' : '−'}${Math.abs(change)}% vs ${comparisonLabel(period, false)}`,
+                ),
+          ),
+          kpis.avgWonValue
+            ? h(
                 'span',
-                { class: `hist-revenue__change${change < 0 ? ' is-down' : ''}` },
-                `${change >= 0 ? '+' : '−'}${Math.abs(change)}% vs ${comparisonLabel(period, false)}`,
-              ),
+                { class: 'hist-revenue__avg' },
+                h('span', {}, 'Prosječna dobivena prilika'),
+                h('strong', {}, formatEuro(kpis.avgWonValue)),
+              )
+            : null,
         ),
-        kpis.avgWonValue
-          ? h(
-              'span',
-              { class: 'hist-revenue__avg' },
-              h('span', {}, 'Prosječna dobivena prilika'),
-              h('strong', {}, formatEuro(kpis.avgWonValue)),
-            )
-          : null,
-      ),
     ],
   });
 }
@@ -378,12 +380,31 @@ export function renderHistory(container, summary, info, { onBackToCurrent }) {
     return;
   }
   const title = info.period.type === 'QUARTER' ? info.title : info.range;
+  // Only the views the member may see (the server leaves out the others' data).
+  const show = (widget) => summary.widgets?.[widget] !== false;
+  const lower = [
+    show('pipeline') ? pipelineCard(summary, title) : null,
+    show('waiting_response') ? followUpCard(summary) : null,
+  ].filter(Boolean);
+  const cards = [
+    show('calendar') ? calendarCard(summary, info.period) : null,
+    show('priority_tasks') ? tasksCard(summary) : null,
+    show('leads') ? leadsCard(summary, info.period) : null,
+    lower.length
+      ? h('div', { class: `split${lower.length === 1 ? ' split--single' : ''}` }, lower)
+      : null,
+    show('feedback') ? feedbackCard(summary) : null,
+  ].filter(Boolean);
   container.replaceChildren(
-    calendarCard(summary, info.period),
-    tasksCard(summary),
-    leadsCard(summary, info.period),
-    h('div', { class: 'split' }, pipelineCard(summary, title), followUpCard(summary)),
-    feedbackCard(summary),
+    ...(cards.length
+      ? cards
+      : [
+          h(
+            'section',
+            { class: 'card hist-empty' },
+            h('p', { class: 'hist-empty__text' }, 'Za ovaj period nemate uključen nijedan prikaz.'),
+          ),
+        ]),
   );
 }
 

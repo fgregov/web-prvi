@@ -443,3 +443,103 @@ export function validateOpportunityClose(input) {
 }
 
 export const hasErrors = (errors) => Object.keys(errors).length > 0;
+
+// ------------------------------------------------------------------ users ---
+
+/** Croatian OIB: 11 digits, the last one the ISO 7064 MOD 11,10 check digit. */
+export function isValidOib(value) {
+  const oib = String(value ?? '');
+  if (!/^\d{11}$/.test(oib)) return false;
+  let rest = 10;
+  for (let i = 0; i < 10; i += 1) {
+    rest = (rest + Number(oib[i])) % 10;
+    if (rest === 0) rest = 10;
+    rest = (rest * 2) % 11;
+  }
+  const check = (11 - rest) % 10;
+  return check === Number(oib[10]);
+}
+
+const PERSON_NAME = /^[\p{L}][\p{L}\p{M}' .-]*$/u;
+const PHONE = /^\+?[0-9 ()/.-]{6,25}$/;
+
+/**
+ * A user's own data (Korisnici → Novi korisnik, Osnovni podaci). Every field is
+ * required. `emailTaken(email)` → true when another user of the organization
+ * already signs in with it.
+ */
+/**
+ * @param {Record<string, unknown>} input
+ * @param {{ emailTaken?: (email: string) => boolean }} [options]
+ * @returns {Record<string, string>}
+ */
+export function validateUserProfile(input, { emailTaken = () => false } = {}) {
+  const errors = {};
+  for (const [field, label] of [
+    ['firstName', 'ime'],
+    ['lastName', 'prezime'],
+  ]) {
+    const value = text(input[field]);
+    if (!value) errors[field] = REQUIRED;
+    else if (value.length > 100) errors[field] = `Najviše 100 znakova.`;
+    else if (!PERSON_NAME.test(value)) errors[field] = `Unesite ispravno ${label}.`;
+  }
+  const oib = text(input.oib);
+  if (!oib) errors.oib = REQUIRED;
+  else if (!/^\d{11}$/.test(oib)) errors.oib = 'OIB ima točno 11 znamenki.';
+  else if (!isValidOib(oib)) errors.oib = 'OIB nije ispravan (kontrolna znamenka).';
+  const email = text(input.email).toLowerCase();
+  if (!email) errors.email = REQUIRED;
+  else if (email.length > 254 || !EMAIL.test(email)) errors.email = 'Neispravna e-mail adresa.';
+  else if (emailTaken(email)) errors.email = 'Korisnik s ovom e-mail adresom već postoji.';
+  const phone = text(input.phone);
+  if (!phone) errors.phone = REQUIRED;
+  else if (!PHONE.test(phone) || (phone.match(/\d/g) ?? []).length < 6)
+    errors.phone = 'Unesite ispravan broj telefona.';
+  return errors;
+}
+
+export const PASSWORD_MIN = 12;
+export const PASSWORD_MAX = 128;
+const COMMON_PASSWORDS = new Set([
+  'password1234',
+  'lozinka12345',
+  'qwerty123456',
+  '123456789012',
+  'renvara12345',
+  'administrator',
+]);
+
+/**
+ * Password policy: 12–128 characters, at least one letter and one digit, not a
+ * common password, not the e-mail address or a name of the user. The server
+ * checks it again; Supabase Auth applies its own rules on top.
+ */
+/**
+ * @param {unknown} password
+ * @param {unknown} [confirm]
+ * @param {{ email?: string, names?: string[] }} [about]
+ * @returns {Record<string, string>}
+ */
+export function passwordErrors(password, confirm, { email = '', names = [] } = {}) {
+  const errors = {};
+  const value = typeof password === 'string' ? password : '';
+  if (!value) errors.password = REQUIRED;
+  else if (value.length < PASSWORD_MIN)
+    errors.password = `Lozinka mora imati barem ${PASSWORD_MIN} znakova.`;
+  else if (value.length > PASSWORD_MAX)
+    errors.password = `Lozinka smije imati najviše ${PASSWORD_MAX} znakova.`;
+  else if (!/\p{L}/u.test(value) || !/\d/.test(value))
+    errors.password = 'Lozinka mora sadržavati barem jedno slovo i jednu znamenku.';
+  else {
+    const lower = value.toLowerCase();
+    const personal = [email.toLowerCase(), email.toLowerCase().split('@')[0], ...names]
+      .map((n) => String(n ?? '').toLowerCase())
+      .filter((n) => n.length >= 3);
+    if (COMMON_PASSWORDS.has(lower)) errors.password = 'Lozinka je prečesta. Odaberite drugu.';
+    else if (personal.some((n) => lower.includes(n)))
+      errors.password = 'Lozinka ne smije sadržavati vaše ime ili e-mail adresu.';
+  }
+  if (confirm !== undefined && confirm !== value) errors.confirm = 'Lozinke se ne podudaraju.';
+  return errors;
+}

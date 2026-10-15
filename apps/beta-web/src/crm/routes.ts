@@ -4,6 +4,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BodyError, isJsonRequest, isSameOrigin, readJsonBody, sendJson } from '../http/respond.ts';
 import { MESSAGES } from '../messages.ts';
+import { FORBIDDEN_MESSAGE } from './errors.ts';
 import { createCrmApi, type PushConfig } from './dispatch.ts';
 import type { CrmServices } from './index.ts';
 import type { Body } from './scope.ts';
@@ -33,6 +34,9 @@ export function createCrmRoutes(crm: CrmServices, options: CrmRouteOptions = {})
       return sendJson(res, 405, api.badRequest);
     }
     if (!ctx) return sendJson(res, 401, { success: false, message: MESSAGES.sessionRequired });
+    if (!ctx.access?.permissions.has('notifications.web_push')) {
+      return sendJson(res, 403, { success: false, message: FORBIDDEN_MESSAGE });
+    }
     if (!isSameOrigin(req, publicOrigin)) return sendJson(res, 403, api.badRequest);
     if (!isJsonRequest(req)) return sendJson(res, 415, api.badRequest);
     req.resume(); // the body carries nothing
@@ -48,10 +52,10 @@ export function createCrmRoutes(crm: CrmServices, options: CrmRouteOptions = {})
     res: ServerResponse,
     path: string,
     query: URLSearchParams,
-    context: () => CrmContext | null,
+    context: () => Promise<CrmContext | null>,
   ): Promise<boolean> {
     if (path === PUSH_TEST_PATH) {
-      await pushTest(req, res, context());
+      await pushTest(req, res, await context());
       return true;
     }
     const hit = api.match(req.method === 'HEAD' ? 'GET' : (req.method ?? 'GET'), path);
@@ -62,7 +66,7 @@ export function createCrmRoutes(crm: CrmServices, options: CrmRouteOptions = {})
       return true;
     }
 
-    const ctx = context();
+    const ctx = await context();
     if (!ctx) {
       sendJson(res, 401, { success: false, message: MESSAGES.sessionRequired });
       return true;

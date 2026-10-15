@@ -2,10 +2,17 @@
 // server (routes.ts) adds session, CSRF and body parsing around it; the static
 // demo build calls it from the browser.
 import { MESSAGES } from '../messages.ts';
-import { CrmConflictError, CrmNotFoundError, CrmValidationError } from './errors.ts';
+import {
+  CrmConflictError,
+  CrmForbiddenError,
+  CrmNotFoundError,
+  CrmValidationError,
+  FORBIDDEN_MESSAGE,
+} from './errors.ts';
 import type { CrmServices } from './index.ts';
 import { inOrg, type Body } from './scope.ts';
 import { seedDemoData } from './seed.ts';
+import { canSeeWidget } from '../../public/app/js/core/permissions.js';
 import type { CrmContext, ReminderTarget } from './types.ts';
 
 export interface ApiResponse {
@@ -27,11 +34,30 @@ type Handler = (args: {
   body: Body;
 }) => { status?: number; body: Record<string, unknown> };
 
+/** Whether the member may call a route: `can(key)` tells one right (core/permissions.js). */
+export type Allow = (
+  can: (key: string) => boolean,
+  req: { query: URLSearchParams; body: Body; role: string },
+) => boolean;
+
 export interface Route {
   readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT';
   readonly pattern: RegExp;
   readonly handler: Handler;
+  /** The rights the route needs; checked before the handler runs (403 otherwise). */
+  readonly allow: Allow;
 }
+
+/** All of these rights. */
+export const need =
+  (...keys: string[]): Allow =>
+  (can) =>
+    keys.every(can);
+/** At least one of these rights. */
+export const anyOf =
+  (...keys: string[]): Allow =>
+  (can) =>
+    keys.some(can);
 
 /** Whether this server can deliver push reminders (Web Push keys configured). */
 export interface PushConfig {
@@ -39,6 +65,69 @@ export interface PushConfig {
   readonly publicKey: string | null;
   /** The in-browser demo: no server, so nothing is ever delivered. */
   readonly demo?: boolean;
+}
+
+const can = (ctx: CrmContext, key: string) => ctx.access?.permissions.has(key) === true;
+
+/**
+ * A customer's or lead's detail carries its opportunities and tasks: a member
+ * without those rights gets the record without them (not just a hidden list).
+ */
+function withoutHidden<T extends { opportunities?: unknown[]; tasks?: unknown[] }>(
+  ctx: CrmContext,
+  record: T,
+): T {
+  return {
+    ...record,
+    ...(can(ctx, 'opportunities.view') ? {} : { opportunities: [] }),
+    ...(can(ctx, 'tasks.view') ? {} : { tasks: [] }),
+  };
+}
+
+/**
+ * The Dashboard summary with only the widgets the member may see (each needs
+ * its widget right and the right to the data it shows): the rest is not sent.
+ */
+function visibleSummary(ctx: CrmContext, summary: Record<string, unknown>) {
+  const rights = ctx.access?.permissions ?? new Set<string>();
+  const show = (widget: string) => canSeeWidget(rights, widget);
+  const kpis = { ...(summary.kpis as Record<string, unknown>) };
+  if (!show('dashboard.leads')) {
+    for (const key of ['leads', 'newLeads', 'qualified']) delete kpis[key];
+  }
+  if (!show('dashboard.won_lost')) {
+    for (const key of ['won', 'lost', 'rates', 'previousRates']) delete kpis[key];
+  }
+  if (!show('dashboard.opportunity_value')) {
+    for (const key of ['potential', 'wonValue', 'revenue', 'otherCurrency', 'avgWonValue']) {
+      delete kpis[key];
+    }
+  }
+  if (!show('dashboard.calendar')) delete kpis.meetings;
+  const out: Record<string, unknown> = { ...summary, kpis };
+  const hide = (widget: string, ...keys: string[]) => {
+    if (!show(widget)) for (const key of keys) delete out[key];
+  };
+  hide('dashboard.pipeline', 'pipelineOverview', 'pipeline');
+  hide('dashboard.feedback', 'feedback');
+  hide('dashboard.priority_tasks', 'tasks');
+  hide('dashboard.calendar', 'calendar');
+  hide('dashboard.leads', 'leads');
+  hide('dashboard.waiting_response', 'followUps');
+  out.widgets = Object.fromEntries(
+    [
+      'dashboard.leads',
+      'dashboard.won_lost',
+      'dashboard.opportunity_value',
+      'dashboard.pipeline',
+      'dashboard.calendar',
+      'dashboard.priority_tasks',
+      'dashboard.feedback',
+      'dashboard.waiting_response',
+      'dashboard.notifications',
+    ].map((key) => [key.slice('dashboard.'.length), show(key)]),
+  );
+  return out;
 }
 
 export function createCrmApi(
@@ -76,6 +165,7 @@ export function createCrmApi(
   const reminderRoute = (kind: ReminderTarget['kind'], plural: string): Route => ({
     method: 'PUT',
     pattern: new RegExp(`^/api/${plural}/${ID}/reminder$`),
+    allow: need(`${plural}.edit`),
     handler: ({ ctx, params, body }) =>
       ok({ reminder: crm.reminders.setReminder(ctx, { kind, id: id(params) }, body.reminderAt) }),
   });
@@ -85,6 +175,7 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/customers$/,
+      allow: need('customers.view'),
       // ?status=active|inactive|all (default all) and ?q= (search within it)
       handler: ({ ctx, query }) =>
         ok({
@@ -97,16 +188,20 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: /^\/api\/customers$/,
+      allow: need('customers.create'),
       handler: ({ ctx, body }) => ok({ customer: crm.customers.createCustomer(ctx, body) }, 201),
     },
     {
       method: 'GET',
       pattern: new RegExp(`^/api/customers/${ID}$`),
-      handler: ({ ctx, params }) => ok({ customer: crm.customers.getProfile(ctx, id(params)) }),
+      allow: need('customers.view'),
+      handler: ({ ctx, params }) =>
+        ok({ customer: withoutHidden(ctx, crm.customers.getProfile(ctx, id(params))) }),
     },
     {
       method: 'PATCH',
       pattern: new RegExp(`^/api/customers/${ID}$`),
+      allow: need('customers.edit'),
       handler: ({ ctx, params, body }) =>
         ok({ customer: crm.customers.updateCustomer(ctx, id(params), body) }),
     },
@@ -114,24 +209,28 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: new RegExp(`^/api/customers/${ID}/deactivate$`),
+      allow: need('customers.edit'),
       handler: ({ ctx, params }) =>
         ok({ customer: crm.customers.setActive(ctx, id(params), false) }),
     },
     {
       method: 'POST',
       pattern: new RegExp(`^/api/customers/${ID}/activate$`),
+      allow: need('customers.edit'),
       handler: ({ ctx, params }) =>
         ok({ customer: crm.customers.setActive(ctx, id(params), true) }),
     },
     {
       method: 'POST',
       pattern: new RegExp(`^/api/customers/${ID}/notes$`),
+      allow: need('customers.edit'),
       handler: ({ ctx, params, body }) =>
         ok({ activity: crm.customers.addNote(ctx, id(params), body) }, 201),
     },
     {
       method: 'POST',
       pattern: new RegExp(`^/api/customers/${ID}/emails$`),
+      allow: need('customers.edit'),
       handler: ({ ctx, params, body }) =>
         ok({ activity: crm.customers.logEmail(ctx, id(params), body) }, 201),
     },
@@ -139,18 +238,21 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/contacts$/,
+      allow: need('customers.view'),
       handler: ({ ctx, query }) =>
         ok({ contacts: crm.contacts.listContacts(ctx, { companyId: q(query, 'companyId') }) }),
     },
     {
       method: 'POST',
       pattern: /^\/api\/contacts$/,
+      allow: need('customers.edit'),
       handler: ({ ctx, body }) => ok({ contact: crm.contacts.createContact(ctx, body) }, 201),
     },
     // ---- opportunities
     {
       method: 'GET',
       pattern: /^\/api\/opportunities$/,
+      allow: anyOf('opportunities.view', 'pipeline.view'),
       handler: ({ ctx, query }) =>
         ok({
           opportunities: crm.opportunities.listOpportunities(ctx, {
@@ -165,6 +267,7 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: /^\/api\/opportunities$/,
+      allow: need('opportunities.create'),
       handler: ({ ctx, body }) => {
         const result = withReminder(
           ctx,
@@ -182,6 +285,7 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: new RegExp(`^/api/opportunities/${ID}/close$`),
+      allow: need('opportunities.edit'),
       handler: ({ ctx, params, body }) =>
         ok({ opportunity: crm.opportunities.closeOpportunity(ctx, id(params), body) }),
     },
@@ -189,6 +293,7 @@ export function createCrmApi(
       // A lead's deal → the customer the lead was converted into (ADR-0009), explicitly.
       method: 'POST',
       pattern: new RegExp(`^/api/opportunities/${ID}/link-customer$`),
+      allow: need('opportunities.edit'),
       handler: ({ ctx, params }) =>
         ok({ opportunity: crm.opportunities.linkToLeadCustomer(ctx, id(params)) }),
     },
@@ -198,6 +303,7 @@ export function createCrmApi(
       // FEEDBACK OVERVIEW / PONUDE: offers created in a period (?from=&to=&status=)
       method: 'GET',
       pattern: /^\/api\/offers$/,
+      allow: need('feedback.view'),
       handler: ({ ctx, query }) =>
         ok({
           overview: crm.offers.overview(
@@ -211,22 +317,26 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: /^\/api\/offers$/,
+      allow: need('opportunities.edit'),
       handler: ({ ctx, body }) => ok({ offer: crm.offers.recordSent(ctx, body) }, 201),
     },
     {
       method: 'POST',
       pattern: new RegExp(`^/api/offers/${ID}/answered$`),
+      allow: anyOf('opportunities.edit', 'follow_up.edit'),
       handler: ({ ctx, params }) => ok({ offer: crm.offers.markAnswered(ctx, id(params)) }),
     },
     {
       method: 'GET',
       pattern: new RegExp(`^/api/opportunities/${ID}$`),
+      allow: need('opportunities.view'),
       handler: ({ ctx, params }) =>
         ok({ opportunity: crm.opportunities.getOpportunity(ctx, id(params)) }),
     },
     {
       method: 'GET',
       pattern: /^\/api\/pipeline$/,
+      allow: anyOf('pipeline.view', 'opportunities.view'),
       handler: ({ ctx, query }) =>
         ok({
           stages: crm.opportunities.pipeline(ctx, { from: q(query, 'from'), to: q(query, 'to') }),
@@ -236,6 +346,7 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/tasks$/,
+      allow: need('tasks.view'),
       handler: ({ ctx, query }) =>
         ok({
           tasks: crm.tasks.listTasks(ctx, {
@@ -252,16 +363,19 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/tasks\/sections$/,
+      allow: need('tasks.view'),
       handler: ({ ctx }) => ok({ sections: crm.tasks.sections(ctx) }),
     },
     {
       method: 'GET',
       pattern: /^\/api\/tasks\/priorities$/,
+      allow: need('tasks.view'),
       handler: ({ ctx }) => ok({ tasks: crm.tasks.priorities(ctx) }),
     },
     {
       method: 'POST',
       pattern: /^\/api\/tasks$/,
+      allow: need('tasks.create'),
       handler: ({ ctx, body }) => {
         const task = withReminder(
           ctx,
@@ -276,11 +390,13 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: new RegExp(`^/api/tasks/${ID}$`),
+      allow: need('tasks.view'),
       handler: ({ ctx, params }) => ok({ task: crm.tasks.getTask(ctx, id(params)) }),
     },
     {
       method: 'PATCH',
       pattern: new RegExp(`^/api/tasks/${ID}$`),
+      allow: need('tasks.edit'),
       handler: ({ ctx, params, body }) => {
         const task = withReminder(
           ctx,
@@ -296,6 +412,7 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: new RegExp(`^/api/tasks/${ID}/(complete|reopen|cancel)$`),
+      allow: need('tasks.edit'),
       handler: ({ ctx, params }) => {
         const action = params[1];
         const task =
@@ -311,6 +428,7 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/calendar$/,
+      allow: anyOf('calendar.view', 'tasks.view'),
       handler: ({ ctx, query }) => {
         const date = q(query, 'date');
         if (date) return ok({ tasks: crm.calendar.getDay(ctx, date) });
@@ -323,12 +441,14 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/leads$/,
+      allow: need('leads.view'),
       handler: ({ ctx, query }) =>
         ok({ leads: crm.leads.listLeads(ctx, { status: q(query, 'status'), q: q(query, 'q') }) }),
     },
     {
       method: 'POST',
       pattern: /^\/api\/leads$/,
+      allow: need('leads.create'),
       handler: ({ ctx, body }) => {
         const lead = withReminder(
           ctx,
@@ -344,26 +464,36 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: new RegExp(`^/api/leads/${ID}$`),
-      handler: ({ ctx, params }) => ok({ lead: crm.leads.getLead(ctx, id(params)) }),
+      allow: need('leads.view'),
+      handler: ({ ctx, params }) =>
+        ok({ lead: withoutHidden(ctx, crm.leads.getLead(ctx, id(params))) }),
     },
     {
       method: 'PATCH',
       pattern: new RegExp(`^/api/leads/${ID}$`),
+      allow: need('leads.edit'),
       handler: ({ ctx, params, body }) => ok({ lead: crm.leads.updateLead(ctx, id(params), body) }),
     },
     {
       method: 'GET',
       pattern: new RegExp(`^/api/leads/${ID}/matches$`),
+      allow: need('leads.edit', 'customers.view'),
       handler: ({ ctx, params }) => ok({ matches: crm.leads.customerMatches(ctx, id(params)) }),
     },
     {
       method: 'POST',
       pattern: new RegExp(`^/api/leads/${ID}/convert$`),
+      allow: (can, { body }) =>
+        can('leads.edit') &&
+        (body.conversionMode === 'EXISTING_CUSTOMER'
+          ? can('customers.edit')
+          : can('customers.create')),
       handler: ({ ctx, params, body }) => ok(crm.leads.convertLead(ctx, id(params), body)),
     },
     {
       method: 'POST',
       pattern: new RegExp(`^/api/leads/${ID}/lost$`),
+      allow: need('leads.edit'),
       handler: ({ ctx, params, body }) =>
         ok({ lead: crm.leads.markLeadLost(ctx, id(params), body) }),
     },
@@ -371,13 +501,20 @@ export function createCrmApi(
     {
       method: 'GET',
       pattern: /^\/api\/dashboard\/summary$/,
+      allow: need('dashboard.view'),
       handler: ({ ctx, query }) =>
-        ok({ summary: crm.dashboard.getPeriodSummary(ctx, q(query, 'from'), q(query, 'to')) }),
+        ok({
+          summary: visibleSummary(
+            ctx,
+            crm.dashboard.getPeriodSummary(ctx, q(query, 'from'), q(query, 'to')),
+          ),
+        }),
     },
     // ---- push reminders: this user's devices
     {
       method: 'GET',
       pattern: /^\/api\/push\/status$/,
+      allow: need('notifications.view'),
       handler: ({ ctx }) =>
         ok({
           configured: push.configured,
@@ -389,23 +526,34 @@ export function createCrmApi(
     {
       method: 'POST',
       pattern: /^\/api\/push\/subscriptions$/,
+      allow: need('notifications.web_push'),
       handler: ({ ctx, body }) => ok(crm.pushSubscriptions.subscribe(ctx, body), 201),
     },
     {
       method: 'POST',
       pattern: /^\/api\/push\/unsubscribe$/,
+      allow: need('notifications.view'),
       handler: ({ ctx, body }) => ok(crm.pushSubscriptions.unsubscribe(ctx, body)),
     },
     // ---- MOBILNE OBAVIJESTI: the signed-in member's own notification preferences
     {
       method: 'GET',
       pattern: /^\/api\/notifications\/preferences$/,
+      allow: need('notifications.view'),
       handler: ({ ctx }) => ok(crm.notifications.preferences(ctx)),
     },
     {
       method: 'PATCH',
       pattern: /^\/api\/notifications\/preferences$/,
+      allow: need('notifications.view'),
       handler: ({ ctx, body }) => ok(crm.notifications.update(ctx, body)),
+    },
+    {
+      // The Dashboard's Obavijesti widget: the latest notifications sent to this member.
+      method: 'GET',
+      pattern: /^\/api\/notifications\/recent$/,
+      allow: need('notifications.view'),
+      handler: ({ ctx }) => ok({ notifications: crm.notifications.recentFor(ctx, 5) }),
     },
     // ---- BETA: restore this organization's demo data (presentation demo only;
     // a clean start has no demo data to restore, so the route does not exist)
@@ -414,6 +562,8 @@ export function createCrmApi(
           {
             method: 'POST',
             pattern: /^\/api\/demo\/reset$/,
+            // Replaces the organization's records: the owner only.
+            allow: (_can, { role }) => role === 'owner',
             handler: ({ ctx }) => {
               const data = crm.repo.data();
               const seed = seedDemoData(ctx);
@@ -466,6 +616,13 @@ export function createCrmApi(
     query: URLSearchParams,
     body: Body,
   ): ApiResponse {
+    const rights = ctx.access?.permissions;
+    if (
+      !rights ||
+      !hit.route.allow((key) => rights.has(key), { query, body, role: ctx.access?.role ?? '' })
+    ) {
+      return { status: 403, body: { success: false, message: FORBIDDEN_MESSAGE } };
+    }
     try {
       const result = hit.route.handler({ ctx, params: hit.params, query, body });
       return { status: result.status ?? 200, body: result.body };
@@ -481,6 +638,9 @@ export function createCrmApi(
       }
       if (error instanceof CrmNotFoundError) {
         return { status: 404, body: { success: false, message: error.message } };
+      }
+      if (error instanceof CrmForbiddenError) {
+        return { status: 403, body: { success: false, message: error.message } };
       }
       throw error;
     }

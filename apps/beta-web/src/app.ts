@@ -23,9 +23,17 @@ import type { PushConfig } from './crm/dispatch.ts';
 import { applyViewerCsp, createFollowUpRoutes } from './crm/follow-up-routes.ts';
 import { createCrmRoutes, type CrmRouteOptions } from './crm/routes.ts';
 import { seedDemoData } from './crm/seed.ts';
-import type { CrmContext } from './crm/types.ts';
+import type { CrmContext, MemberAccess } from './crm/types.ts';
 import { MESSAGES } from './messages.ts';
-import { legacyPath, pageForPath } from '../public/app/js/core/routes.js';
+import {
+  legacyPath,
+  pageForPath,
+  permissionForPath,
+  startPage,
+} from '../public/app/js/core/routes.js';
+import type { UserRecord } from './identity/directory.ts';
+import { createUserRoutes } from './identity/routes.ts';
+import { displayName, type ServiceActor, type UserService } from './identity/user-service.ts';
 
 export interface AppPaths {
   /** Folder with the BETA login page (index.html, login.css, login.js). */
@@ -134,9 +142,18 @@ export function parseCredentials(body: unknown): Credentials {
   return { ok: true, username: trimmed, password };
 }
 
+/** The signed-in member of a request: session, profile, role and rights (looked up each time). */
+interface Member {
+  readonly session: AuthSession;
+  readonly user: UserRecord;
+  readonly access: MemberAccess;
+}
+
 export function createApp(
   auth: AuthService,
   options: {
+    /** Korisnici: members, rights, accounts (identity/). */
+    users: UserService;
     paths?: AppPaths;
     logger?: Logger;
     crm?: CrmOptions;
@@ -146,8 +163,9 @@ export function createApp(
     trustProxy?: boolean;
     /** API request budgets (tests use small ones). */
     apiLimits?: ApiLimits;
-  } = {},
+  },
 ): RequestListener {
+  const users = options.users;
   const paths = options.paths ?? defaultPaths;
   const logger = options.logger ?? consoleLogger;
   const crm = options.crm ?? inMemoryCrm();
@@ -160,6 +178,12 @@ export function createApp(
   });
   const now = crm.now ?? (() => new Date());
   const followUpRoutes = createFollowUpRoutes(crm.services, { publicOrigin, now, trustProxy });
+  const userRoutes = createUserRoutes({
+    users,
+    organizationId: crm.organizationId,
+    publicOrigin,
+    trustProxy,
+  });
   const apiLimits = options.apiLimits ?? defaultApiLimits();
 
   /** Seconds to wait when this API call is over its budget, else 0. */
@@ -185,31 +209,74 @@ export function createApp(
       serializeCookie(auth.cookieName, '', { maxAgeSeconds: 0, secure: auth.cookieOptions.secure }),
     );
 
-  /** requireAuth: the valid session, or null after redirecting to the login page. */
-  function requireAuth(req: IncomingMessage, res: ServerResponse): AuthSession | null {
-    const token = sessionToken(req);
-    const check = auth.checkSession(token);
-    if (check.status === 'valid') return check.session;
-    if (token !== undefined) clearSessionCookie(res);
-    redirect(res, check.status === 'expired' ? `${LOGIN_PATH}?reason=expired` : LOGIN_PATH);
-    return null;
-  }
-
   function currentSession(req: IncomingMessage): AuthSession | null {
     const check = auth.checkSession(sessionToken(req));
     return check.status === 'valid' ? check.session : null;
   }
 
-  /** Server-side CRM context: who, in which organization, at what time. Null without a session. */
-  function crmContext(req: IncomingMessage): CrmContext | null {
-    const session = currentSession(req);
+  /** The member behind the session, if active in this organization (else null). */
+  async function memberOf(session: AuthSession | null): Promise<Member | null> {
     if (!session) return null;
+    const found = await users.access(crm.organizationId, session.user.id);
+    return found ? { session, ...found } : null;
+  }
+
+  const currentMember = (req: IncomingMessage) => memberOf(currentSession(req));
+
+  /** The signed-in member, or null after redirecting to the sign-in (deactivated: signed out). */
+  async function requireMember(req: IncomingMessage, res: ServerResponse): Promise<Member | null> {
+    const token = sessionToken(req);
+    const check = auth.checkSession(token);
+    const member = check.status === 'valid' ? await memberOf(check.session) : null;
+    if (member) return member;
+    if (token !== undefined) clearSessionCookie(res);
+    redirect(res, check.status === 'expired' ? `${LOGIN_PATH}?reason=expired` : LOGIN_PATH);
+    return null;
+  }
+
+  /** Server-side CRM context: who, with which rights, in which organization. Null without a member. */
+  async function crmContext(req: IncomingMessage): Promise<CrmContext | null> {
+    const member = await currentMember(req);
+    if (!member) return null;
     return {
       organizationId: crm.organizationId,
-      user: { id: session.user.id, displayName: session.user.displayName },
+      user: { id: member.user.id, displayName: displayName(member.user) },
       timeZone: crm.timeZone,
       now: now(),
+      access: member.access,
     };
+  }
+
+  const actorFrom = (member: Member): ServiceActor => ({
+    id: member.user.id,
+    organizationId: crm.organizationId,
+    role: member.access.role,
+    permissions: member.access.permissions,
+  });
+
+  /** 403 page (with the navigation, so the member can go somewhere allowed). */
+  function forbidden(res: ServerResponse) {
+    noStore(res);
+    return sendFile(res, resolve(paths.appDir, 'pages', 'forbidden.html'), { status: 403 });
+  }
+
+  /**
+   * A new cookie after one's own password change. `member`: as resolved before
+   * the change (the change itself ended every session issued until now).
+   */
+  function renewSession(res: ServerResponse, member: Member | null) {
+    if (!member) return;
+    const { token, session } = auth.issue({
+      id: member.user.id,
+      displayName: displayName(member.user),
+    });
+    res.setHeader(
+      'Set-Cookie',
+      serializeCookie(auth.cookieName, token, {
+        maxAgeSeconds: session.expiresAt - session.issuedAt,
+        secure: auth.cookieOptions.secure,
+      }),
+    );
   }
 
   async function handleLogin(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -233,7 +300,7 @@ export function createApp(
       return sendJson(res, 400, { success: false, message: credentials.message });
 
     const ip = clientAddress(req, trustProxy);
-    const outcome = auth.login(credentials.username, credentials.password, ip);
+    const outcome = await auth.login(credentials.username, credentials.password, ip);
 
     if (outcome.kind === 'rate_limited') {
       logger.warn('login_rate_limited', { ip });
@@ -253,7 +320,12 @@ export function createApp(
         secure: auth.cookieOptions.secure,
       }),
     );
-    return sendJson(res, 200, { success: true, redirectTo: DASHBOARD_PATH });
+    const member = await memberOf(outcome.session);
+    return sendJson(res, 200, {
+      success: true,
+      redirectTo: (member && startPage(member.access.permissions)) ?? DASHBOARD_PATH,
+      ...(outcome.notice ? { notice: outcome.notice } : {}),
+    });
   }
 
   function handleLogout(req: IncomingMessage, res: ServerResponse): void {
@@ -268,14 +340,22 @@ export function createApp(
     return sendJson(res, 200, { success: true, redirectTo: LOGIN_PATH });
   }
 
-  function handleSession(req: IncomingMessage, res: ServerResponse): void {
-    const session = currentSession(req);
-    if (!session) return sendJson(res, 200, { authenticated: false });
-    const { id, username, displayName, role } = session.user;
+  async function handleSession(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const member = await currentMember(req);
+    if (!member) return sendJson(res, 200, { authenticated: false });
+    const { id, firstName, lastName, email } = member.user;
     return sendJson(res, 200, {
       authenticated: true,
-      user: { id, username, displayName, role },
-      expiresAt: new Date(session.expiresAt * 1000).toISOString(),
+      user: {
+        id,
+        displayName: displayName(member.user),
+        firstName,
+        lastName,
+        email,
+        role: member.access.role,
+      },
+      permissions: [...member.access.permissions],
+      expiresAt: new Date(member.session.expiresAt * 1000).toISOString(),
     });
   }
 
@@ -284,8 +364,16 @@ export function createApp(
     res: ServerResponse,
     path: string,
   ): Promise<void> {
-    if (!requireAuth(req, res)) return;
+    const member = await requireMember(req, res);
+    if (!member) return;
     noStore(res);
+    // Home without the Dashboard right: the first page the member may open.
+    // (Its stylesheet and images serve the other pages too, so only Home itself is refused.)
+    const home = path === DASHBOARD_PATH || path === `${DASHBOARD_PATH}/`;
+    if (home && !member.access.permissions.has('dashboard.view')) {
+      const start = startPage(member.access.permissions);
+      return start ? redirect(res, start) : forbidden(res);
+    }
 
     const relative =
       path === DASHBOARD_PATH || path === `${DASHBOARD_PATH}/`
@@ -316,6 +404,23 @@ export function createApp(
         res.setHeader('Retry-After', String(wait));
         return sendJson(res, 429, { success: false, message: MESSAGES.tooManyRequests });
       }
+    }
+
+    // ---- Korisnici (/api/users/…) and the public set-password call ----------
+    let caller: Member | null = null;
+    if (
+      await userRoutes.handle(
+        req,
+        res,
+        url,
+        async () => {
+          caller = await currentMember(req);
+          return caller ? actorFrom(caller) : null;
+        },
+        async (r) => renewSession(r, caller),
+      )
+    ) {
+      return;
     }
 
     // ---- Follow-up Engine: its API, the customer's offer viewer (/o/…) ----
@@ -351,7 +456,18 @@ export function createApp(
       noStore(res);
       return sendFile(res, resolve(paths.loginDir, 'index.html'));
     }
-    if (path === '/login/login.css' || path === '/login/login.js') {
+    // Invitation and reset links: set a password (no session needed; the token,
+    // in the address fragment, is the proof).
+    if (path === '/set-password') {
+      noStore(res);
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      return sendFile(res, resolve(paths.loginDir, 'set-password.html'));
+    }
+    if (
+      path === '/login/login.css' ||
+      path === '/login/login.js' ||
+      path === '/login/set-password.js'
+    ) {
       return sendFile(res, resolve(paths.loginDir, path.slice('/login/'.length)), {
         cacheControl: 'no-cache',
       });
@@ -384,14 +500,17 @@ export function createApp(
     // ---- CRM pages (protected): one address per page, core/routes.js ----
     const crmPage = pageForPath(path);
     if (crmPage) {
-      if (!requireAuth(req, res)) return;
+      const member = await requireMember(req, res);
+      if (!member) return;
       noStore(res);
+      const needed = permissionForPath(path);
+      if (needed && !member.access.permissions.has(needed)) return forbidden(res);
       // The internal offer preview renders the PDF with pdf.js (worker, WebAssembly).
       if (crmPage === 'follow-up-preview') applyViewerCsp(res);
       return sendFile(res, resolve(paths.appDir, 'pages', `${crmPage}.html`));
     }
     if (path.startsWith('/app/')) {
-      if (!requireAuth(req, res)) return;
+      if (!(await requireMember(req, res))) return;
       noStore(res);
       const file = await resolveStaticFile(paths.appDir, path.slice('/app/'.length));
       return file ? sendFile(res, file) : sendText(res, 404, 'Not found');
@@ -425,7 +544,7 @@ export function createApp(
 }
 
 /** Seeded in-memory CRM (tests, or an app created without persistent storage). */
-function inMemoryCrm(): CrmOptions {
+export function inMemoryCrm(): CrmOptions {
   const organizationId = 'org-beta';
   const timeZone = 'Europe/Zagreb';
   const data = seedDemoData({

@@ -3,6 +3,8 @@
 //   current quarter → the operational dashboard (Danas / Prioriteti / pipeline)
 //   past or custom period → the historical dashboard (what happened then)
 // Quick Add always creates current records, whatever period is on screen.
+// Each widget is shown only with its Dashboard right and the data right it
+// needs (core/permissions.js); the server leaves the others' data out.
 import { api, ApiError, onDataChanged } from '../core/api.js';
 import { labelOf, TASK_TYPES } from '../core/constants.js';
 import {
@@ -11,8 +13,10 @@ import {
   onDashboardPeriodChange,
   setDashboardPeriod,
 } from '../core/dashboard-period.js';
-import { dayRange, formatSlot, todayKey } from '../core/format.js';
+import { dayRange, formatDateTime, formatSlot, todayKey } from '../core/format.js';
 import { currentQuarterPeriod } from '../core/period.js';
+import { canSeeWidget } from '../core/permissions.js';
+import { getAccess } from '../core/session.js';
 import { renderFeedbackOverview } from '../features/dashboard/feedback-overview.js';
 import { renderHistory, renderHistorySkeleton } from '../features/dashboard/history-view.js';
 import { renderKpiCards, renderKpiSkeleton } from '../features/dashboard/kpi-cards.js';
@@ -44,6 +48,30 @@ const taskHref = (task) =>
 
 // Sidebar with "+ Novo" (Quick Add); Odjava there starts the next session at the current quarter.
 mountAppShell();
+const { permissions } = await getAccess();
+const sees = (widget) => canSeeWidget(permissions, `dashboard.${widget}`);
+const canOpenTasks = permissions.has('tasks.view');
+const canEditTasks = permissions.has('tasks.edit');
+
+/** The current-quarter widgets this member may see; the rest leave the page. */
+function applyWidgetRights() {
+  const section = (id) => document.querySelector(`[aria-labelledby="${id}"]`);
+  const toggle = (node, on) => {
+    if (node) node.hidden = !on;
+  };
+  toggle(section('danas-title'), sees('calendar'));
+  toggle(section('prioriteti-title'), sees('priority_tasks'));
+  toggle(section('pipeline-title'), sees('pipeline'));
+  toggle(section('odgovor-title'), sees('feedback'));
+  toggle(document.getElementById('dashboard-notifications'), sees('notifications'));
+  const split = document.querySelector('#dashboard-current > .split');
+  if (split) {
+    const shown = [sees('pipeline'), sees('feedback')].filter(Boolean).length;
+    split.hidden = shown === 0;
+    split.classList.toggle('split--single', shown === 1);
+  }
+}
+applyWidgetRights();
 
 // Header date: today, in Croatian.
 const dateEl = document.getElementById('home-date');
@@ -64,7 +92,7 @@ function eventRow(task) {
   const li = el('li');
   li.dataset.taskId = task.id;
   const link = el('a', `event${done ? ' event--done' : ''}`);
-  link.href = taskHref(task);
+  if (canOpenTasks) link.href = taskHref(task);
   const time = el(
     'time',
     `event__time${task.allDay ? ' event__time--all-day' : ''}`,
@@ -104,7 +132,7 @@ function eventRow(task) {
 
 async function updateToday() {
   const list = document.querySelector('[aria-labelledby="danas-title"] .list');
-  if (!list) return;
+  if (!list || !sees('calendar')) return;
   const { start, end } = dayRange(todayKey());
   const tasks = await api.calendar(start, end);
   list.replaceChildren(
@@ -133,6 +161,7 @@ function priorityRow(task) {
     `${done ? 'Vrati u otvoreno' : 'Označi kao dovršeno'}: ${task.title}`,
   );
   check.append(spriteIcon('check'));
+  check.disabled = !canEditTasks;
   check.addEventListener('click', async () => {
     check.disabled = true;
     try {
@@ -146,7 +175,7 @@ function priorityRow(task) {
     }
   });
   const title = el('a', 'task__title', task.title);
-  title.href = taskHref(task);
+  if (canOpenTasks) title.href = taskHref(task);
   const [label, tone] =
     task.reason === 'done'
       ? PILL.done
@@ -161,7 +190,7 @@ function priorityRow(task) {
 
 async function updatePriorities() {
   const list = document.querySelector('[aria-labelledby="prioriteti-title"] .list');
-  if (!list) return;
+  if (!list || !sees('priority_tasks')) return;
   const tasks = await api.priorities();
   list.replaceChildren(
     ...(tasks.length
@@ -172,6 +201,10 @@ async function updatePriorities() {
 
 // ------------------------------------------------------------ period ---
 const metricsEl = document.querySelector('.metrics');
+// As many KPI placeholders as the member has cards (Leads, Won + Lost, Opportunity).
+metricsEl.dataset.cards = String(
+  (sees('leads') ? 1 : 0) + (sees('won_lost') ? 2 : 0) + (sees('opportunity_value') ? 1 : 0),
+);
 const currentView = document.getElementById('dashboard-current');
 const historyView = document.getElementById('dashboard-history');
 const selector = PeriodSelector({
@@ -206,11 +239,15 @@ async function showPeriod({ quiet = false } = {}) {
     if (mine !== ticket) return; // a newer selection is loading
     renderKpiCards(metricsEl, summary);
     if (info.isCurrent) {
-      renderPipelineOverview(document.querySelector('.pipeline'), summary.pipelineOverview);
-      renderFeedbackOverview(
-        document.querySelector('[aria-labelledby="odgovor-title"] .list'),
-        summary.feedback.items,
-      );
+      if (summary.pipelineOverview) {
+        renderPipelineOverview(document.querySelector('.pipeline'), summary.pipelineOverview);
+      }
+      if (summary.feedback) {
+        renderFeedbackOverview(
+          document.querySelector('[aria-labelledby="odgovor-title"] .list'),
+          summary.feedback.items,
+        );
+      }
     }
     if (!info.isCurrent)
       renderHistory(historyView, summary, info, { onBackToCurrent: backToCurrent });
@@ -227,8 +264,38 @@ async function showPeriod({ quiet = false } = {}) {
   }
 }
 
+// --------------------------------------------------------- Obavijesti ---
+async function updateNotifications() {
+  const list = document.querySelector('#dashboard-notifications .list');
+  if (!list || !sees('notifications')) return;
+  const items = await api.recentNotifications();
+  list.replaceChildren(
+    ...(items.length
+      ? items.map((item) => {
+          const li = el('li');
+          const internal =
+            typeof item.url === 'string' && item.url.startsWith('/') && !item.url.startsWith('//');
+          const row = el(internal ? 'a' : 'div', 'event');
+          if (internal) row.href = item.url;
+          const time = el(
+            'time',
+            'event__time event__time--all-day',
+            formatDateTime(item.occurredAt),
+          );
+          time.dateTime = item.occurredAt;
+          const text = el('span', 'event__text');
+          text.append(el('span', 'event__title', item.title), el('span', 'event__sub', item.body));
+          row.append(time, text);
+          if (internal) row.append(spriteIcon('chevron-right', 'icon chevron'));
+          li.append(row);
+          return li;
+        })
+      : [el('li', 'empty-row', 'Nema novih obavijesti.')]),
+  );
+}
+
 async function refreshOperational() {
-  await Promise.all([updateToday(), updatePriorities()]);
+  await Promise.all([updateToday(), updatePriorities(), updateNotifications()]);
 }
 
 /** After a change (completing a task, another tab): reload what is on screen. */

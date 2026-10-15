@@ -19,3 +19,4 @@ marked *Proposed*.
 | [0011](0011-ios-testflight-shell.md) | iOS test builds: Capacitor shell around the web app, TestFlight only | Superseded by 0013 (removed) |
 | [0012](0012-beta-cloud-deployment.md) | BETA in the cloud: one container, one volume, one HTTPS proxy | Accepted |
 | [0013](0013-web-first-cloud-app.md) | Web-first cloud CRM: browser app, one address per page, sidebar navigation, no native shells | Accepted |
+| [0014](0014-users-and-access-rights.md) | Korisnici: per-member rights, roles, enforcement in navigation, pages, API and RLS; passwords only in the identity provider | Accepted |

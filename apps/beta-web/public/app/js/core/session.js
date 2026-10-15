@@ -1,7 +1,8 @@
-// Current signed-in user, from the BETA auth server.
+// Current signed-in user and their rights, from the server (read on every
+// request there; the browser only uses them to show what is allowed).
 let pending = null;
 
-export function getCurrentUser() {
+function load() {
   pending ??= fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' })
     .then((response) => (response.ok ? response.json() : { authenticated: false }))
     .then((session) => {
@@ -9,7 +10,16 @@ export function getCurrentUser() {
         window.location.replace('/login');
         throw new Error('Not authenticated');
       }
-      return session.user;
+      return { user: session.user, permissions: new Set(session.permissions ?? []) };
     });
   return pending;
+}
+
+export function getCurrentUser() {
+  return load().then((session) => session.user);
+}
+
+/** `{ user, permissions: Set<string> }` of the signed-in member. */
+export function getAccess() {
+  return load();
 }

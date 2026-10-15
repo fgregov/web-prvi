@@ -9,9 +9,8 @@
 
 export interface AuthUser {
   readonly id: string;
-  readonly username: string;
+  /** Shown in logs and the page; the member's role and rights are looked up per request. */
   readonly displayName: string;
-  readonly role: 'beta_admin';
 }
 
 export interface AuthSession {
@@ -28,3 +27,9 @@ export interface AuthProvider {
   /** Returns the user for an exact credential match, otherwise null. Never throws for bad credentials. */
   authenticate(username: string, password: string): AuthUser | null;
 }
+
+/** Sign-in check of the identity layer: the member, or null (wrong, unknown or deactivated). */
+export type Authenticate = (
+  identifier: string,
+  password: string,
+) => Promise<{ readonly user: AuthUser; readonly notice?: unknown } | null>;

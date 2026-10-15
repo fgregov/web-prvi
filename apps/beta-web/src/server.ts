@@ -1,8 +1,9 @@
 import { createServer } from 'node:http';
 import { consoleLogger, createApp } from './app.ts';
-import { createBetaAuthProvider } from './auth/beta-provider.ts';
 import { ConfigError, loadAuthConfig } from './auth/config.ts';
-import { createAuthService } from './auth/service.ts';
+import { createAuthService, systemClock } from './auth/service.ts';
+import { createLocalIdentityLayer } from './identity/local.ts';
+import { createSupabaseIdentityLayer, loadSupabaseIdentityConfig } from './identity/supabase.ts';
 import { loadCrmConfig, loadFollowUpConfig } from './crm/config.ts';
 import { createCrmServices } from './crm/index.ts';
 import { createFileDocumentStore } from './crm/file-document-store.ts';
@@ -34,7 +35,6 @@ try {
   throw error;
 }
 
-const auth = createAuthService(config, createBetaAuthProvider(config));
 const crmConfig = loadCrmConfig(process.env);
 // First start: demo records in the presentation demo, nothing in a clean start.
 const repo = createFileRepository(crmConfig.dataFile, () =>
@@ -66,6 +66,34 @@ const services = createCrmServices(repo, {
     retentionDays: followUpConfig.retentionDays,
   },
 });
+// Korisnici (ADR-0014). Local (default): members and rights in the CRM store,
+// credentials in the identity file next to it; the first owner is the account
+// from the server settings. RENVARA_IDENTITY=supabase: Supabase Auth and the
+// member tables (the service role key stays on this server).
+let supabaseIdentity: ReturnType<typeof loadSupabaseIdentityConfig>;
+try {
+  supabaseIdentity = loadSupabaseIdentityConfig(process.env);
+} catch (error) {
+  console.error(`\n[renvara-beta] Cannot start: ${(error as Error).message}\n`);
+  process.exit(1);
+}
+const identity = supabaseIdentity
+  ? createSupabaseIdentityLayer({ config: supabaseIdentity, sessionsFile: crmConfig.identityFile })
+  : await createLocalIdentityLayer({
+      repo,
+      organizationId: crmConfig.organizationId,
+      file: crmConfig.identityFile,
+      config,
+      ownerEmail: process.env.RENVARA_BETA_EMAIL?.trim() || null,
+    });
+const auth = createAuthService(
+  config,
+  identity.authenticate,
+  systemClock,
+  undefined,
+  identity.validAfter,
+);
+
 // Push reminders are delivered by this process, whether or not a page is open.
 const sender = createWebPushSender(vapid);
 const scheduler = createReminderScheduler({ services, sender, logger: consoleLogger });
@@ -73,6 +101,7 @@ scheduler.start();
 
 const server = createServer(
   createApp(auth, {
+    users: identity.users,
     crm: {
       services,
       organizationId: crmConfig.organizationId,

@@ -349,6 +349,75 @@ export interface NotificationDelivery {
   updatedAt: Iso;
 }
 
+// ------------------------------------------------------- users (ADR-0014) ---
+/** owner: every right, always; admin: given rights, may hold user administration; user: given rights. */
+export type MemberRole = 'owner' | 'admin' | 'user';
+export type MemberStatus = 'active' | 'inactive';
+
+/**
+ * A member of the organization (Korisnici). Credentials are never here: the
+ * identity provider keeps them (local accounts file or Supabase Auth).
+ */
+export interface UserProfile {
+  readonly id: string;
+  readonly organizationId: string;
+  firstName: string;
+  lastName: string;
+  /** Croatian OIB (personal data: shown only on the user's detail page). */
+  oib: string;
+  /** Sign-in address, unique in the organization (lower case). */
+  email: string;
+  phone: string;
+  role: MemberRole;
+  status: MemberStatus;
+  /** The server's first owner, signing in with RENVARA_BETA_USERNAME (local identity). */
+  readonly bootstrap?: boolean;
+  readonly createdAt: Iso;
+  readonly createdBy: string | null;
+  updatedAt: Iso;
+  deactivatedAt: Iso | null;
+  deactivatedBy: string | null;
+  lastLoginAt: Iso | null;
+}
+
+/** One right of one member; an owner's are not stored (an owner has all). */
+export interface UserPermission {
+  readonly organizationId: string;
+  readonly userId: string;
+  readonly key: string;
+  allowed: boolean;
+  updatedAt: Iso;
+  updatedBy: string | null;
+}
+
+export type AuditAction =
+  | 'user.create'
+  | 'user.update'
+  | 'user.deactivate'
+  | 'user.activate'
+  | 'user.access'
+  | 'user.password_change'
+  | 'user.password_link';
+
+/** Administration log: who did what to whom, and how it ended. Never secrets. */
+export interface AuditEntry {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly actorUserId: string | null;
+  readonly targetUserId: string | null;
+  readonly action: AuditAction;
+  readonly result: 'success' | 'denied' | 'failed';
+  /** Changed field names, role and rights added/removed; no values of personal data. */
+  readonly details: Record<string, unknown>;
+  readonly at: Iso;
+}
+
+/** What the signed-in member may do (resolved on every request; never from the browser). */
+export interface MemberAccess {
+  readonly role: MemberRole;
+  readonly permissions: ReadonlySet<string>;
+}
+
 export interface CrmData {
   version: 2;
   seq: number;
@@ -367,6 +436,9 @@ export interface CrmData {
   notificationPreferences: NotificationPreference[];
   notificationSettings: NotificationSettings[];
   notificationDeliveries: NotificationDelivery[];
+  users: UserProfile[];
+  userPermissions: UserPermission[];
+  auditLog: AuditEntry[];
 }
 
 /** Who is acting, for which organization, at what time. Built per request from the session. */
@@ -375,4 +447,6 @@ export interface CrmContext {
   readonly user: { readonly id: string; readonly displayName: string };
   readonly timeZone: string;
   readonly now: Date;
+  /** Role and rights of the user (API routes refuse what is not in it; absent: nothing allowed). */
+  readonly access?: MemberAccess;
 }

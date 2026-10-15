@@ -1,12 +1,11 @@
-// /reports, /users · modules in production: a status page each. No data and
-// no numbers until the module is built (nothing here is simulated).
+// /reports · a module in production: a status page. No data and no numbers
+// until the module is built (nothing here is simulated).
 import { h } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { mountAppShell } from '../ui/app-shell.js';
 
 const MODULES = {
   '/reports': { title: 'Izvještaji', icon: 'chart-column' },
-  '/users': { title: 'Korisnici', icon: 'users' },
 };
 
 mountAppShell();

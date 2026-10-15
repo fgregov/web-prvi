@@ -197,6 +197,24 @@ for (const name of readdirSync(CRM_SRC)) {
   );
 }
 write('server/messages.js', stripModule(resolve(APP, 'src/messages.ts'), 'messages.ts', []));
+// Korisnici: the same user service, rules and API as the server (no accounts:
+// the demo answers password operations with "not in the demo").
+for (const name of [
+  'accounts.ts',
+  'bootstrap.ts',
+  'directory.ts',
+  'local-directory.ts',
+  'rules.ts',
+  'user-service.ts',
+  'users-api.ts',
+]) {
+  write(
+    `server/identity/${name.replace(/\.ts$/, '.js')}`,
+    stripModule(resolve(APP, 'src/identity', name), name, [
+      ["from '../../public/app/js/core/", "from '../../app/js/core/"],
+    ]),
+  );
+}
 const DOMAIN_SRC = resolve(ROOT, 'packages/domain/src');
 for (const file of walk(DOMAIN_SRC)) {
   if (file.endsWith('.test.ts')) continue;
@@ -303,6 +321,7 @@ const STYLE_FILES = [
   'app/css/follow-up.css',
   'app/css/notifications.css',
   'viewer/viewer.css',
+  'app/css/users.css',
   'app/css/web.css', // last: the web layout (tablets, computers) wins over the mobile rules
 ];
 const styles = Object.fromEntries(

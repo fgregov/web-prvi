@@ -361,3 +361,30 @@ input::placeholder {
   margin-top: 0;
   text-decoration: none;
 }
+
+/* Postavljanje lozinke (login/set-password.html): rules and per-field messages. */
+.hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--red-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field-error[hidden] {
+  display: none;
+}
+
+.text-button--link {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  margin-top: 8px;
+  text-decoration: none;
+}

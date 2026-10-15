@@ -225,11 +225,13 @@ describe('entry routes and session endpoint', () => {
 
   it('GET /api/auth/session exposes identity only', async () => {
     const response = await get(server.url, '/api/auth/session', await signIn());
-    const body = await response.json();
+    const body = (await response.json()) as { permissions: string[] };
     expect(body).toMatchObject({
       authenticated: true,
-      user: { username: USERNAME, displayName: 'Frane Gregov', role: 'beta_admin' },
+      user: { id: `beta-${USERNAME}`, displayName: 'Frane Gregov', role: 'owner' },
     });
+    // The first owner holds every right; the browser only shows them.
+    expect(body.permissions).toContain('users.manage_permissions');
     expect(JSON.stringify(body)).not.toContain(PASSWORD);
   });
 
@@ -324,7 +326,9 @@ describe('demo CRM routes', () => {
       ['/opportunity-pipeline', 'opportunity-pipeline.js'],
       ['/feedback-overview', 'feedback-overview.js'],
       ['/reports', 'module.js'],
-      ['/users', 'module.js'],
+      ['/users', 'users.js'],
+      ['/users/new', 'user-new.js'],
+      ['/users/abc-123', 'user.js'],
       ['/settings', 'notifications.js'],
     ] as const) {
       const anonymous = await get(server.url, path);

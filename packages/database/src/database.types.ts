@@ -127,6 +127,61 @@ export type Database = {
           },
         ];
       };
+      admin_audit_log: {
+        Row: {
+          action: string;
+          actor_user_id: string | null;
+          created_at: string;
+          details: NonNullable<Json>;
+          id: string;
+          organization_id: string;
+          result: string;
+          target_user_id: string | null;
+        };
+        Insert: {
+          action: string;
+          actor_user_id?: string | null;
+          created_at?: string;
+          details?: NonNullable<Json>;
+          id?: string;
+          organization_id: string;
+          result: string;
+          target_user_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor_user_id?: string | null;
+          created_at?: string;
+          details?: NonNullable<Json>;
+          id?: string;
+          organization_id?: string;
+          result?: string;
+          target_user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'admin_audit_log_actor_user_id_fkey';
+            columns: ['actor_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'admin_audit_log_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'admin_audit_log_target_user_id_fkey';
+            columns: ['target_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       companies: {
         Row: {
           address_line: string | null;
@@ -484,6 +539,45 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+        ];
+      };
+      member_permissions: {
+        Row: {
+          granted_at: string;
+          granted_by: string | null;
+          organization_id: string;
+          permission_key: string;
+          user_id: string;
+        };
+        Insert: {
+          granted_at?: string;
+          granted_by?: string | null;
+          organization_id: string;
+          permission_key: string;
+          user_id: string;
+        };
+        Update: {
+          granted_at?: string;
+          granted_by?: string | null;
+          organization_id?: string;
+          permission_key?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'member_permissions_granted_by_fkey';
+            columns: ['granted_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'member_permissions_organization_id_user_id_fkey';
+            columns: ['organization_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
           },
         ];
       };
@@ -1139,6 +1233,8 @@ export type Database = {
       organization_members: {
         Row: {
           created_at: string;
+          deactivated_at: string | null;
+          deactivated_by: string | null;
           id: string;
           invited_by: string | null;
           joined_at: string;
@@ -1151,6 +1247,8 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          deactivated_at?: string | null;
+          deactivated_by?: string | null;
           id?: string;
           invited_by?: string | null;
           joined_at?: string;
@@ -1163,6 +1261,8 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          deactivated_at?: string | null;
+          deactivated_by?: string | null;
           id?: string;
           invited_by?: string | null;
           joined_at?: string;
@@ -1174,6 +1274,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'organization_members_deactivated_by_fkey';
+            columns: ['deactivated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'organization_members_invited_by_fkey';
             columns: ['invited_by'];
@@ -1252,9 +1359,14 @@ export type Database = {
           avatar_path: string | null;
           created_at: string;
           email: string | null;
+          first_name: string | null;
           full_name: string | null;
           id: string;
+          last_login_at: string | null;
+          last_name: string | null;
           locale: string | null;
+          oib: string | null;
+          phone: string | null;
           timezone: string;
           updated_at: string;
         };
@@ -1262,9 +1374,14 @@ export type Database = {
           avatar_path?: string | null;
           created_at?: string;
           email?: string | null;
+          first_name?: string | null;
           full_name?: string | null;
           id: string;
+          last_login_at?: string | null;
+          last_name?: string | null;
           locale?: string | null;
+          oib?: string | null;
+          phone?: string | null;
           timezone?: string;
           updated_at?: string;
         };
@@ -1272,9 +1389,14 @@ export type Database = {
           avatar_path?: string | null;
           created_at?: string;
           email?: string | null;
+          first_name?: string | null;
           full_name?: string | null;
           id?: string;
+          last_login_at?: string | null;
+          last_name?: string | null;
           locale?: string | null;
+          oib?: string | null;
+          phone?: string | null;
           timezone?: string;
           updated_at?: string;
         };
@@ -1704,6 +1826,79 @@ export type Database = {
       };
     };
     Functions: {
+      admin_active_owner_count: { Args: { p_org: string }; Returns: number };
+      admin_create_member: {
+        Args: {
+          p_actor: string;
+          p_email: string;
+          p_first_name: string;
+          p_last_name: string;
+          p_oib: string;
+          p_org: string;
+          p_permissions: string[];
+          p_phone: string;
+          p_role: string;
+          p_user: string;
+        };
+        Returns: Json;
+      };
+      admin_find_member_by_email: { Args: { p_email: string; p_org: string }; Returns: Json };
+      admin_get_member: { Args: { p_org: string; p_user: string }; Returns: Json };
+      admin_list_members: {
+        Args: {
+          p_dir: string;
+          p_org: string;
+          p_page: number;
+          p_page_size: number;
+          p_q: string;
+          p_sort: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
+      admin_log: {
+        Args: {
+          p_action: string;
+          p_actor: string;
+          p_details: Json;
+          p_org: string;
+          p_result: string;
+          p_target: string;
+        };
+        Returns: undefined;
+      };
+      admin_member_audit: {
+        Args: { p_limit: number; p_org: string; p_user: string };
+        Returns: Json;
+      };
+      admin_set_member_access: {
+        Args: {
+          p_actor: string;
+          p_org: string;
+          p_permissions: string[];
+          p_role: string;
+          p_user: string;
+        };
+        Returns: Json;
+      };
+      admin_set_member_status: {
+        Args: { p_actor: string; p_org: string; p_status: string; p_user: string };
+        Returns: Json;
+      };
+      admin_touch_login: { Args: { p_org: string; p_user: string }; Returns: undefined };
+      admin_update_member: {
+        Args: {
+          p_actor: string;
+          p_email: string;
+          p_first_name: string;
+          p_last_name: string;
+          p_oib: string;
+          p_org: string;
+          p_phone: string;
+          p_user: string;
+        };
+        Returns: Json;
+      };
       convert_won_lead: {
         Args: {
           p_customer?: Json;
@@ -1742,6 +1937,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      my_access: { Args: { p_org: string }; Returns: Json };
     };
     Enums: {
       activity_source: 'manual' | 'system' | 'ai_assistant' | 'import' | 'integration';

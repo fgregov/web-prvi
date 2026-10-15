@@ -30,8 +30,11 @@ default credentials.
 
 | Variable                    | Required | Purpose                                                       |
 | --------------------------- | -------- | ------------------------------------------------------------- |
-| `RENVARA_BETA_USERNAME`     | yes      | The one authorised username (case-sensitive)                  |
+| `RENVARA_BETA_USERNAME`     | yes      | The first owner's username (case-sensitive)                   |
 | `RENVARA_BETA_PASSWORD`     | yes      | Its password (case-sensitive, never trimmed)                  |
+| `RENVARA_BETA_EMAIL`        | no       | The first owner may also sign in with this e-mail             |
+| `RENVARA_IDENTITY_FILE`     | no       | Members' credentials, links, session cut-offs (default: next to the data) |
+| `RENVARA_IDENTITY`          | no       | `local` (default) or `supabase` (see **Korisnici**)           |
 | `RENVARA_SESSION_SECRET`    | yes      | HMAC key for session cookies, 32+ characters                  |
 | `RENVARA_BETA_DISPLAY_NAME` | no       | Name shown in the dashboard account menu                      |
 | `RENVARA_COOKIE_SECURE`     | no       | `true`/`false`. Defaults to `true` when `NODE_ENV=production` |
@@ -487,7 +490,9 @@ serves the BETA server and the in-browser demo. Every page needs a session.
 | `/sales-calendar?week=YYYY-MM-DD` | Sales Kalendar (week view; earlier weeks show history) | Prikaz više → Sales kalendar |
 | `/opportunity-pipeline` | Pipeline (stages as accordions, Home's period) with next actions | Prikaz više → Opportunity pipeline |
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) | Prikaz više → Feedback overview |
-| `/reports`, `/users` | Izvještaji, Korisnici: "U produkciji – uskoro." (no data yet) | Izvještaji, Korisnici |
+| `/reports` | Izvještaji: "U produkciji – uskoro." (no data yet) | Izvještaji |
+| `/users?status=&q=&sort=&dir=&page=`, `/users/new`, `/users/{id}` | KORISNICI list, NOVI KORISNIK, PREGLED KORISNIKA | Korisnici |
+| `/set-password#token=…` (public) | Set a password from an invitation or reset link | — |
 | `/settings` | Postavke: MOBILNE OBAVIJESTI | Postavke |
 | `/o/{token}` (public, no session) | The customer's offer viewer | — |
 
@@ -521,7 +526,12 @@ Any other address gets the page-not-found screen (404, `login/not-found.html`).
 | `PUT /api/tasks\|leads\|opportunities/{id}/reminder` (`{reminderAt: ISO \| null}`)                         | Set, move or remove a reminder                  |
 | `GET /api/push/status`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe`                      | Push availability, this device on/off           |
 | `GET /api/notifications/preferences`, `PATCH /api/notifications/preferences` (`{preferences?: {type: boolean}, deadlineTime?: "HH:MM" \| null}`) | MOBILNE OBAVIJESTI: the user's own switches (422 for invalid input) |
-| `POST /api/demo/reset`                                                                                    | Restore this organization's demo data           |
+| `POST /api/demo/reset`                                                                                    | Restore this organization's demo data (owner)   |
+| `GET /api/notifications/recent`                                                                           | Home widget Obavijesti: the member's last 5     |
+| `GET/POST /api/users` (`?status=active\|inactive\|all&q=&sort=&dir=&page=&pageSize=`), `GET/PATCH /api/users/{id}` | Korisnici: list (no OIB), create (`{firstName, lastName, oib, email, phone, role?, permissions?}` → `{user, link}`), detail with `can`, edit |
+| `POST /api/users/{id}/deactivate\|activate`, `PUT /api/users/{id}/access` (`{role, permissions}`), `GET /api/users/{id}/audit` | Status, rights, administration log |
+| `POST /api/users/{id}/password` (`{currentPassword, password, confirm}`), `POST /api/users/{id}/password-link` | Change a password (own password first), reset link |
+| Public: `POST /api/auth/set-password` (`{token, password, confirm}`)                                      | Set a password from a link (once)               |
 | `POST /api/follow-up/uploads` (raw `application/pdf` body, `X-File-Name`; `415`, `413`)                   | Stage a PDF (validated, private, 1 h)           |
 | `GET /api/follow-up/offers?filter=all\|waiting\|viewed\|resolved&from=YYYY-MM-DD&to=YYYY-MM-DD` (period optional; 422 for an invalid range), `POST /api/follow-up/offers` (`{uploadId, title, companyId, opportunityId?, contactId?, note?}`) | Follow-up list with counts; create offer + document + link |
 | `GET /api/follow-up/offers/{id}`, `GET /api/follow-up/offers/{id}/document`                               | Offer detail (link, engagement, history), its PDF |
@@ -530,6 +540,9 @@ Any other address gets the page-not-found screen (404, `login/not-found.html`).
 
 Create and update of tasks, leads and opportunities also accept `reminderAt`;
 the record and its reminder are saved together or not at all.
+
+Every route has its right (ADR-0014): without it `403 {message: "Nemate pravo
+pristupa ovoj funkcionalnosti."}`; pages answer 403 with the 403 page.
 
 Errors: `401` without a session, `404 {message: "Odabrani podatak nije dostupan."}`,
 `422 {message, errors: {field: message}}` for invalid input or relations,
@@ -720,16 +733,22 @@ no real credential is stored in the repository.
 
 ## Known limitations (BETA)
 
-- A single account from environment variables, with no hashing at rest. The
-  password lives only in the server's environment.
+- The first owner's password lives only in the server's environment (not
+  hashed at rest); other members' passwords are scrypt hashes in the identity
+  file (local identity) or in Supabase Auth. Without e-mail (local identity)
+  the administrator passes the one-time link on; with Supabase Auth it is
+  e-mailed.
+- Session cut-offs (deactivation, password change) are in the identity file
+  of one server: several instances would need shared storage.
 - Logout revocations and rate-limit counters are kept in memory. A restart
   forgets them, and they are not shared across multiple server instances.
 - Behind a reverse proxy, the limits count the client only with
   `RENVARA_TRUST_PROXY=true` (exactly one proxy in front); otherwise they see
   the proxy's address.
 - The login page needs JavaScript (it submits JSON).
-- "Zaboravljena lozinka?", Apple, Google and "Izradite račun" are visible, as
-  in the approved design, but only show "not available in BETA".
+- "Zaboravljena lozinka?" tells the member to ask an administrator for a reset
+  link (Korisnici → Lozinka i sigurnost). Apple, Google and "Izradite račun"
+  are visible, as in the approved design, but only show "not available in BETA".
 - Public deployment must use HTTPS with `NODE_ENV=production`, so cookies are `Secure`.
 - CRM data is one JSON file written synchronously by one process: fine for a
   single BETA user, not for concurrent writers or several instances.
@@ -764,14 +783,43 @@ no real credential is stored in the repository.
   conversions before ADR-0009 have no `leadId` (their lead still points at
   them through `convertedOpportunityId`); no history was reinterpreted.
 
-## Migration to Supabase Auth
+## Korisnici: members and access rights (ADR-0014)
 
-Routes and pages depend only on `AuthService` / `AuthProvider` /
-`AuthSession` (`src/auth/types.ts`, `src/auth/service.ts`). To migrate:
+`/users` lists the organization's members (Aktivni by default, search, sort,
+pages). A click marks one row; **Odaberi** opens it, **Deaktiviraj** /
+**Aktiviraj** ask first (DA / NE). **Dodaj** opens NOVI KORISNIK: Ime,
+Prezime, OIB (check digit), E-mail (the sign-in address, unique), Telefon and,
+for administrators with the right, the role and rights. No password is typed
+there: the member gets a one-time link and sets it. PREGLED KORISNIKA has
+OSNOVNI PODACI, LOZINKA I SIGURNOST (the administrator confirms with their own
+password; or a reset link), PRAVA PRISTUPA (accordions with "x od y", saved
+with **Spremi prava pristupa**, a warning for unsaved changes) and POVIJEST
+PROMJENA.
 
-1. Implement a Supabase-backed service in which `login` calls
-   `signInWithPassword` and the session is Supabase's (for example, its cookie
-   helpers).
-2. Swap it in at `src/server.ts`. `requireAuth`, the routes, the login page and
-   the dashboard stay the same.
-3. Delete `beta-provider.ts` and the `RENVARA_BETA_*` variables.
+Rights (`public/app/js/core/permissions.js`) are checked on the server for
+every page and API call and read for every request, so changes apply to open
+sessions. The sidebar, Quick Add and Home widgets show only what is allowed.
+Rules: `src/identity/rules.ts`; service: `src/identity/user-service.ts`; API:
+`src/identity/users-api.ts`, `routes.ts`.
+
+Identity back ends:
+
+* **local** (default): members in the CRM store; credentials (scrypt), links
+  (SHA-256 of the token) and session cut-offs in `RENVARA_IDENTITY_FILE`
+  (mode 0600, never inside the CRM data). The first owner is the account from
+  `RENVARA_BETA_USERNAME/_PASSWORD` (optionally `RENVARA_BETA_EMAIL`).
+* **supabase**: `RENVARA_IDENTITY=supabase`, `SUPABASE_URL`,
+  `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (server only) and
+  `RENVARA_BETA_ORG_ID` = the organization's uuid. Credentials in Supabase
+  Auth (invitations and resets by e-mail to `<origin>/set-password`; add it to
+  the Auth redirect URLs), members and rights in `member_permissions`, log in
+  `admin_audit_log`, changes through the `admin_*` functions
+  (migration `20261017120000_user_management.sql`). Create the organization
+  and its first owner once in Supabase (SQL editor or the Auth dashboard):
+  an Auth user, an `organizations` row and an `organization_members` row with
+  role `owner`. The CRM data stays in the server's store in this mode.
+
+Tests: `test/users.test.ts` (catalog = migration, rules, validation, the whole
+module over HTTP); `test/supabase-identity.test.ts` against a Supabase project
+(runs when `RENVARA_SUPABASE_TEST_URL`, `…_ANON_KEY`, `…_SERVICE_KEY` are set,
+e.g. the local stack); pgTAP `supabase/tests/database/12_user_management.test.sql`.

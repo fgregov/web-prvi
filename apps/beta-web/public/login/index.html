@@ -42,7 +42,7 @@
 
         <form id="login-form" class="form" novalidate>
           <div class="field-group">
-            <label class="label" for="login-username">Korisničko ime</label>
+            <label class="label" for="login-username">E-mail ili korisničko ime</label>
             <input
               class="input"
               id="login-username"
@@ -53,7 +53,7 @@
               autocorrect="off"
               spellcheck="false"
               maxlength="128"
-              placeholder="Vaše korisničko ime"
+              placeholder="ime@tvrtka.hr"
               required
               aria-describedby="login-message"
             />
@@ -96,9 +96,7 @@
           </div>
 
           <div class="forgot">
-            <button class="text-button" type="button" data-unavailable>
-              Zaboravljena lozinka?
-            </button>
+            <button class="text-button" type="button" data-forgot>Zaboravljena lozinka?</button>
           </div>
 
           <p class="form-message" id="login-message" role="alert" aria-live="assertive" hidden></p>

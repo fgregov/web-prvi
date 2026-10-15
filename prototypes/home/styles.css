@@ -1572,3 +1572,15 @@ a {
 .trend--better {
   color: var(--green-text);
 }
+
+/* Dashboard rights (ADR-0014): a widget the member may not see is not on the
+   page; a lower row with one widget takes the full width. */
+.module[hidden],
+.metrics[hidden],
+.split[hidden] {
+  display: none;
+}
+
+.split--single {
+  grid-template-columns: minmax(0, 1fr);
+}

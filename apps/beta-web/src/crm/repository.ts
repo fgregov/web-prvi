@@ -34,6 +34,9 @@ export const emptyData = (): CrmData => ({
   notificationPreferences: [],
   notificationSettings: [],
   notificationDeliveries: [],
+  users: [],
+  userPermissions: [],
+  auditLog: [],
 });
 
 /**

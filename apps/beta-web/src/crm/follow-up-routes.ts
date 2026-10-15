@@ -25,6 +25,7 @@ import { RequestLimiter } from '../http/request-limiter.ts';
 import { resolveStaticFile, sendFile } from '../http/static.ts';
 import { MESSAGES } from '../messages.ts';
 import { MESSAGES as CRM_MESSAGES } from '../../public/app/js/core/validation.js';
+import { FORBIDDEN_MESSAGE } from './errors.ts';
 import {
   createFollowUpApi,
   VIEWER_PAGE,
@@ -208,7 +209,7 @@ export function createFollowUpRoutes(crm: CrmServices, options: FollowUpRouteOpt
     req: IncomingMessage,
     res: ServerResponse,
     url: URL,
-    context: () => CrmContext | null,
+    context: () => Promise<CrmContext | null>,
   ): Promise<boolean> {
     const path = url.pathname;
     const method = req.method === 'HEAD' ? 'GET' : (req.method ?? 'GET');
@@ -236,7 +237,7 @@ export function createFollowUpRoutes(crm: CrmServices, options: FollowUpRouteOpt
           sendText(res, 405, 'Method not allowed');
           return true;
         }
-        await viewerPage(req, res, url, page[1]!, context() !== null);
+        await viewerPage(req, res, url, page[1]!, (await context()) !== null);
         return true;
       }
     }
@@ -258,9 +259,18 @@ export function createFollowUpRoutes(crm: CrmServices, options: FollowUpRouteOpt
       return true;
     }
 
-    const ctx = context();
+    const ctx = await context();
     if (hit.route.scope === 'internal' && !ctx) {
       sendJson(res, 401, { success: false, message: MESSAGES.sessionRequired });
+      return true;
+    }
+    // Refused before any upload is read.
+    if (
+      hit.route.scope === 'internal' &&
+      !(hit.route.permission && ctx?.access?.permissions.has(hit.route.permission))
+    ) {
+      req.resume();
+      sendJson(res, 403, { success: false, message: FORBIDDEN_MESSAGE });
       return true;
     }
 

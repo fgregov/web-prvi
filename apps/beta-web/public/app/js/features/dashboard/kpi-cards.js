@@ -179,12 +179,26 @@ function opportunityCard(kpis) {
   );
 }
 
+/**
+ * The cards the member may see (Dashboard rights, core/permissions.js): the
+ * server leaves out the numbers of the others, so they are never on the page.
+ */
 export function renderKpiCards(container, summary) {
   const { kpis, period } = summary;
   const against = comparisonLabel(period, period.isCurrent);
   container.setAttribute('aria-label', period.isCurrent ? 'Pregled prodaje' : 'Rezultati perioda');
-  container.replaceChildren(
-    leadsCard(kpis, against),
+  const cards = [
+    kpis.leads ? leadsCard(kpis, against) : null,
+    ...(kpis.won ? outcomeCards(kpis, against) : []),
+    kpis.potential ? opportunityCard(kpis) : null,
+  ].filter(Boolean);
+  container.hidden = cards.length === 0;
+  container.dataset.cards = String(cards.length);
+  container.replaceChildren(...cards);
+}
+
+function outcomeCards(kpis, against) {
+  return [
     outcomeCard(
       {
         key: 'won',
@@ -210,13 +224,14 @@ export function renderKpiCards(container, summary) {
       },
       against,
     ),
-    opportunityCard(kpis),
-  );
+  ];
 }
 
-export function renderKpiSkeleton(container) {
+/** `count`: as many placeholders as the member's cards (4 until known). */
+export function renderKpiSkeleton(container, count = Number(container.dataset.cards ?? 4)) {
+  container.hidden = count === 0;
   container.replaceChildren(
-    ...Array.from({ length: 4 }, () =>
+    ...Array.from({ length: count }, () =>
       h(
         'span',
         { class: 'metric is-skeleton', 'aria-hidden': 'true' },

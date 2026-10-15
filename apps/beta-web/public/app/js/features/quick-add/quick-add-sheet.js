@@ -16,8 +16,9 @@ export const QUICK_ADD_ACTIONS = [
 /**
  * Wires `trigger` to the sheet. `returnTo`: where the forms go back to, or a
  * function giving it when the sheet opens (the page's address with its filters).
+ * `allowed(href)`: whether the member may open that form (the server checks too).
  */
-export function QuickAddSheet({ trigger, returnTo }) {
+export function QuickAddSheet({ trigger, returnTo, allowed = () => true }) {
   let sheet = null;
 
   function open() {
@@ -29,7 +30,7 @@ export function QuickAddSheet({ trigger, returnTo }) {
       content: h(
         'ul',
         { class: 'rv-quick-add', role: 'list', id: 'quick-add-sheet' },
-        QUICK_ADD_ACTIONS.map((action) =>
+        QUICK_ADD_ACTIONS.filter((action) => allowed(action.href)).map((action) =>
           h(
             'li',
             {},

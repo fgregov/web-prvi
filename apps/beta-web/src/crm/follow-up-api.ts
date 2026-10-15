@@ -7,7 +7,12 @@
 //   public (bearer)     /o/{token}/info · /o/{token}/document · POST /o/{token}/events
 //                       (the viewer page /o/{token} itself is served by the transport)
 import { MESSAGES } from '../messages.ts';
-import { CrmConflictError, CrmNotFoundError, CrmValidationError } from './errors.ts';
+import {
+  CrmConflictError,
+  CrmNotFoundError,
+  CrmValidationError,
+  FORBIDDEN_MESSAGE,
+} from './errors.ts';
 import type { CrmServices } from './index.ts';
 import type { Body } from './scope.ts';
 import type { CrmContext } from './types.ts';
@@ -49,6 +54,8 @@ interface Route {
   readonly pattern: RegExp;
   readonly scope: Scope;
   readonly body: BodyKind;
+  /** Internal routes: the right they need (core/permissions.js). */
+  readonly permission?: string;
   readonly handler: (req: FollowUpRequest, params: string[]) => Promise<FollowUpResponse>;
 }
 
@@ -101,6 +108,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'POST',
       pattern: /^\/api\/follow-up\/uploads$/,
       scope: 'internal',
+      permission: 'follow_up.create',
       body: 'pdf',
       handler: async (req) =>
         ok(
@@ -118,6 +126,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'GET',
       pattern: /^\/api\/follow-up\/offers$/,
       scope: 'internal',
+      permission: 'follow_up.view',
       body: 'none',
       handler: async (req) =>
         ok(
@@ -131,6 +140,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'POST',
       pattern: /^\/api\/follow-up\/offers$/,
       scope: 'internal',
+      permission: 'follow_up.create',
       body: 'json',
       handler: async (req) => {
         const created = await followUp.createOffer(ctxOf(req), req.json ?? {});
@@ -141,6 +151,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'GET',
       pattern: new RegExp(`^/api/follow-up/offers/${ID}$`),
       scope: 'internal',
+      permission: 'follow_up.view',
       body: 'none',
       handler: async (req, [id]) => ok(await detail(req, id!)),
     },
@@ -148,6 +159,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'POST',
       pattern: new RegExp(`^/api/follow-up/offers/${ID}/sent$`),
       scope: 'internal',
+      permission: 'follow_up.edit',
       body: 'json',
       handler: async (req, [id]) => {
         followUp.markSent(ctxOf(req), id!, req.json ?? {});
@@ -158,6 +170,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'POST',
       pattern: new RegExp(`^/api/follow-up/offers/${ID}/answered$`),
       scope: 'internal',
+      permission: 'follow_up.edit',
       body: 'json',
       handler: async (req, [id]) => {
         followUp.markAnswered(ctxOf(req), id!);
@@ -168,6 +181,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'POST',
       pattern: new RegExp(`^/api/follow-up/offers/${ID}/link/revoke$`),
       scope: 'internal',
+      permission: 'follow_up.edit',
       body: 'json',
       handler: async (req, [id]) => {
         followUp.revokeLink(ctxOf(req), id!);
@@ -178,6 +192,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'POST',
       pattern: new RegExp(`^/api/follow-up/offers/${ID}/link$`),
       scope: 'internal',
+      permission: 'follow_up.edit',
       body: 'json',
       handler: async (req, [id]) => {
         await followUp.issueLink(ctxOf(req), id!);
@@ -188,6 +203,7 @@ export function createFollowUpApi(crm: CrmServices) {
       method: 'GET',
       pattern: new RegExp(`^/api/follow-up/offers/${ID}/document$`),
       scope: 'internal',
+      permission: 'follow_up.view',
       body: 'none',
       handler: async (req, [id]) => {
         const file = await followUp.readDocument(ctxOf(req), id!);
@@ -260,6 +276,12 @@ export function createFollowUpApi(crm: CrmServices) {
   ): Promise<FollowUpResponse> {
     if (hit.route.scope === 'internal' && !req.ctx) {
       return { status: 401, json: { success: false, message: MESSAGES.sessionRequired } };
+    }
+    if (
+      hit.route.scope === 'internal' &&
+      !(hit.route.permission && req.ctx?.access?.permissions.has(hit.route.permission))
+    ) {
+      return { status: 403, json: { success: false, message: FORBIDDEN_MESSAGE } };
     }
     try {
       return await hit.route.handler(req, hit.params);

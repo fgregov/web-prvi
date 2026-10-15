@@ -531,6 +531,26 @@ export function createNotificationService(
       repo.commit();
     },
 
+    /** The latest notifications for this member, newest first (the Dashboard's Obavijesti). */
+    recentFor(ctx: CrmContext, limit: number) {
+      return repo
+        .data()
+        .notificationDeliveries.filter(
+          (d) => d.organizationId === ctx.organizationId && d.recipientUserId === ctx.user.id,
+        )
+        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+        .slice(0, limit)
+        .map((d) => ({
+          id: d.id,
+          type: d.type,
+          title: d.title,
+          body: d.body,
+          url: d.url,
+          occurredAt: d.occurredAt,
+          status: d.status,
+        }));
+    },
+
     payload(d: NotificationDelivery): NotificationPayload {
       // One tag per record: a newer notification of the same record replaces the older one.
       return { title: d.title, body: d.body, url: d.url, tag: `${d.type}-${d.sourceId}` };

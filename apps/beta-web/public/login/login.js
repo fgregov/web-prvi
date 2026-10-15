@@ -3,13 +3,17 @@
   'use strict';
 
   const MESSAGES = {
-    invalid: 'Neispravno korisničko ime ili lozinka.',
-    missing: 'Unesite korisničko ime i lozinku.',
+    invalid: 'Neispravan e-mail (korisničko ime) ili lozinka.',
+    missing: 'Unesite e-mail (ili korisničko ime) i lozinku.',
     network: 'Nije moguće povezati se sa serverom. Pokušajte ponovno.',
     server: 'Došlo je do pogreške. Pokušajte ponovno.',
     expired: 'Vaša sesija je istekla. Prijavite se ponovno.',
     unavailable: 'Ova opcija još nije dostupna u BETA verziji.',
+    forgot:
+      'Novu lozinku zatražite od administratora organizacije: on vam šalje poveznicu za postavljanje lozinke.',
+    passwordSet: 'Lozinka je postavljena. Prijavite se e-mailom i novom lozinkom.',
   };
+  const FLASH_KEY = 'renvara.flash'; // shown by the first page after sign-in (ui/toast.js)
 
   const form = document.getElementById('login-form');
   const username = document.getElementById('login-username');
@@ -41,8 +45,9 @@
 
   // Session expired → shown once, then the reason is removed from the address bar.
   const params = new URLSearchParams(window.location.search);
-  if (params.get('reason') === 'expired') {
-    showMessage(MESSAGES.expired, 'info');
+  const reason = params.get('reason');
+  if (reason === 'expired' || reason === 'password-set') {
+    showMessage(reason === 'expired' ? MESSAGES.expired : MESSAGES.passwordSet, 'info');
     window.history.replaceState(null, '', window.location.pathname);
   }
 
@@ -56,6 +61,28 @@
   document.querySelectorAll('[data-unavailable]').forEach((button) => {
     button.addEventListener('click', () => showMessage(MESSAGES.unavailable, 'info'));
   });
+  document.querySelectorAll('[data-forgot]').forEach((button) => {
+    button.addEventListener('click', () => showMessage(MESSAGES.forgot, 'info'));
+  });
+
+  /** An administrator changed this member's password since the last sign-in. */
+  function rememberNotice(notice) {
+    if (!notice || typeof notice.passwordChangedAt !== 'string') return;
+    const at = new Date(notice.passwordChangedAt);
+    if (Number.isNaN(at.getTime())) return;
+    const when = new Intl.DateTimeFormat('hr-HR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(at);
+    try {
+      sessionStorage.setItem(
+        FLASH_KEY,
+        `Administrator je promijenio vašu lozinku (${when}). Ako to niste očekivali, javite se administratoru.`,
+      );
+    } catch {
+      /* private mode: no notice */
+    }
+  }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -96,6 +123,7 @@
     }
 
     if (response.ok && data && data.success === true) {
+      rememberNotice(data.notice);
       const target =
         typeof data.redirectTo === 'string' &&
         data.redirectTo.startsWith('/') &&
