@@ -151,6 +151,8 @@ predstavnika”, „Izvještaji — slanje e-mailom”.
 | E2E prazna baza + e-mail nije konfiguriran | 17/17 |
 | Demo u pregledniku (izvještaj, PDF u stranici, preuzimanje, e-mail se ne šalje) | 8/8 |
 | Regresija postojećih E2E paketa (Korisnici, navigacija, prilike, zadaci, leadovi, follow-up …) | sve zeleno |
+| ZIP od nule: `npm install` → `npm run dev` (prvo pokretanje, port 3000) → prazno stanje 17/17, scenarij s e-mailom (postavke u `.env`) 72/72, `npm run dev:demo` u zasebnim datotekama, `npm test` 358 + 48, `npm run typecheck` | prolazi |
+| Localhost paket (jedna mapa, samo Node.js) s izvještajima | stranica i PDF rade |
 
 Stvarno slanje preko Resenda nije izvedeno (nema API ključa u testnom
 okruženju): slanje je provjereno na lokalnoj zamjeni Resend API-ja (isti
