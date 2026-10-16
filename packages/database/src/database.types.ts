@@ -105,6 +105,13 @@ export type Database = {
             referencedColumns: ['organization_id', 'id'];
           },
           {
+            foreignKeyName: 'activities_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'report_closed_opportunities';
+            referencedColumns: ['organization_id', 'opportunity_id'];
+          },
+          {
             foreignKeyName: 'activities_organization_id_fkey';
             columns: ['organization_id'];
             isOneToOne: false;
@@ -518,6 +525,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'opportunity_overview';
             referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'leads_opportunity_fk';
+            columns: ['organization_id', 'converted_opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'report_closed_opportunities';
+            referencedColumns: ['organization_id', 'opportunity_id'];
           },
           {
             foreignKeyName: 'leads_organization_id_fkey';
@@ -1090,6 +1104,13 @@ export type Database = {
             referencedColumns: ['organization_id', 'id'];
           },
           {
+            foreignKeyName: 'offers_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'report_closed_opportunities';
+            referencedColumns: ['organization_id', 'opportunity_id'];
+          },
+          {
             foreignKeyName: 'offers_organization_id_fkey';
             columns: ['organization_id'];
             isOneToOne: false;
@@ -1226,6 +1247,87 @@ export type Database = {
             columns: ['updated_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      opportunity_status_history: {
+        Row: {
+          amount: number | null;
+          changed_at: string;
+          changed_by: string | null;
+          closed_at: string | null;
+          currency: string | null;
+          from_status: Database['public']['Enums']['opportunity_status'] | null;
+          id: string;
+          opportunity_id: string;
+          organization_id: string;
+          owner_user_id: string | null;
+          source: string;
+          to_status: Database['public']['Enums']['opportunity_status'];
+        };
+        Insert: {
+          amount?: number | null;
+          changed_at?: string;
+          changed_by?: string | null;
+          closed_at?: string | null;
+          currency?: string | null;
+          from_status?: Database['public']['Enums']['opportunity_status'] | null;
+          id?: string;
+          opportunity_id: string;
+          organization_id: string;
+          owner_user_id?: string | null;
+          source?: string;
+          to_status: Database['public']['Enums']['opportunity_status'];
+        };
+        Update: {
+          amount?: number | null;
+          changed_at?: string;
+          changed_by?: string | null;
+          closed_at?: string | null;
+          currency?: string | null;
+          from_status?: Database['public']['Enums']['opportunity_status'] | null;
+          id?: string;
+          opportunity_id?: string;
+          organization_id?: string;
+          owner_user_id?: string | null;
+          source?: string;
+          to_status?: Database['public']['Enums']['opportunity_status'];
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'opportunity_status_history_changed_by_fkey';
+            columns: ['changed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'opportunity_status_history_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunities';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'opportunity_status_history_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'opportunity_overview';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'opportunity_status_history_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'report_closed_opportunities';
+            referencedColumns: ['organization_id', 'opportunity_id'];
+          },
+          {
+            foreignKeyName: 'opportunity_status_history_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
             referencedColumns: ['id'];
           },
         ];
@@ -1563,6 +1665,13 @@ export type Database = {
             referencedColumns: ['organization_id', 'id'];
           },
           {
+            foreignKeyName: 'reminders_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'report_closed_opportunities';
+            referencedColumns: ['organization_id', 'opportunity_id'];
+          },
+          {
             foreignKeyName: 'reminders_organization_id_fkey';
             columns: ['organization_id'];
             isOneToOne: false;
@@ -1586,6 +1695,69 @@ export type Database = {
           {
             foreignKeyName: 'reminders_updated_by_fkey';
             columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      report_email_log: {
+        Row: {
+          attachment_name: string;
+          created_at: string;
+          error: string | null;
+          id: string;
+          organization_id: string;
+          period_from: string | null;
+          period_to: string | null;
+          provider: string;
+          provider_message_id: string | null;
+          recipient: string;
+          report_type: string;
+          sent_by: string | null;
+          status: string;
+        };
+        Insert: {
+          attachment_name: string;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          organization_id: string;
+          period_from?: string | null;
+          period_to?: string | null;
+          provider: string;
+          provider_message_id?: string | null;
+          recipient: string;
+          report_type: string;
+          sent_by?: string | null;
+          status: string;
+        };
+        Update: {
+          attachment_name?: string;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          organization_id?: string;
+          period_from?: string | null;
+          period_to?: string | null;
+          provider?: string;
+          provider_message_id?: string | null;
+          recipient?: string;
+          report_type?: string;
+          sent_by?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'report_email_log_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'report_email_log_sent_by_fkey';
+            columns: ['sent_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
@@ -1722,6 +1894,13 @@ export type Database = {
             referencedColumns: ['organization_id', 'id'];
           },
           {
+            foreignKeyName: 'tasks_opportunity_fk';
+            columns: ['organization_id', 'opportunity_id'];
+            isOneToOne: false;
+            referencedRelation: 'report_closed_opportunities';
+            referencedColumns: ['organization_id', 'opportunity_id'];
+          },
+          {
             foreignKeyName: 'tasks_organization_id_fkey';
             columns: ['organization_id'];
             isOneToOne: false;
@@ -1821,6 +2000,52 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
+          },
+        ];
+      };
+      report_closed_opportunities: {
+        Row: {
+          amount: number | null;
+          closed_at: string | null;
+          closed_date: string | null;
+          company_id: string | null;
+          company_name: string | null;
+          currency: string | null;
+          lead_id: string | null;
+          opportunity_id: string | null;
+          organization_id: string | null;
+          owner_user_id: string | null;
+          status: Database['public']['Enums']['opportunity_status'] | null;
+          title: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'opportunities_company_fk';
+            columns: ['organization_id', 'company_id'];
+            isOneToOne: false;
+            referencedRelation: 'companies';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'opportunities_lead_fk';
+            columns: ['organization_id', 'lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['organization_id', 'id'];
+          },
+          {
+            foreignKeyName: 'opportunities_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'opportunities_owner_fk';
+            columns: ['organization_id', 'owner_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'organization_members';
+            referencedColumns: ['organization_id', 'user_id'];
           },
         ];
       };
@@ -1938,6 +2163,18 @@ export type Database = {
         };
       };
       my_access: { Args: { p_org: string }; Returns: Json };
+      report_outcome_totals: {
+        Args: { p_from: string; p_org: string; p_to: string };
+        Returns: {
+          loss_rate: number;
+          lost_amount: number;
+          lost_count: number;
+          other_currency: number;
+          win_rate: number;
+          won_amount: number;
+          won_count: number;
+        }[];
+      };
     };
     Enums: {
       activity_source: 'manual' | 'system' | 'ai_assistant' | 'import' | 'integration';

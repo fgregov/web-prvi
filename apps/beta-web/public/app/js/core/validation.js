@@ -36,6 +36,7 @@ export const MESSAGES = Object.freeze({
   reminderInPast: 'Odaberite datum i vrijeme u budućnosti.',
   reminderInvalid: 'Odaberite datum i vrijeme podsjetnika.',
   opportunityClosed: 'Prilika je već zatvorena (dobivena ili izgubljena).',
+  opportunityNotClosed: 'Prilika je već otvorena.',
   offerNotWaiting: 'Ponuda ne čeka odgovor.',
   // Lead-first sales (ADR-0009)
   originRequired: 'Povežite priliku s leadom ili kupcem.',

@@ -131,6 +131,9 @@ export const api = {
   // opportunities: close, offers
   closeOpportunity: (id, input) =>
     request('POST', `/api/opportunities/${enc(id)}/close`, input).then((r) => r.opportunity),
+  /** A won or lost deal is active again (it leaves the WON/LOST numbers). */
+  reopenOpportunity: (id) =>
+    request('POST', `/api/opportunities/${enc(id)}/reopen`, {}).then((r) => r.opportunity),
   /** A lead's deal → the customer the lead was converted into (ADR-0009). */
   linkOpportunityToLeadCustomer: (id) =>
     request('POST', `/api/opportunities/${enc(id)}/link-customer`, {}).then((r) => r.opportunity),
@@ -205,7 +208,43 @@ export const api = {
   userAudit: (id) => request('GET', `/api/users/${enc(id)}/audit`).then((r) => r.entries),
   recentNotifications: () =>
     request('GET', '/api/notifications/recent').then((r) => r.notifications),
+  // IZVJEŠTAJI (ADR-0015): computed on the server, the page only shows them
+  reportOptions: () => request('GET', '/api/reports/options'),
+  /** → { report, fileName, email: { subject, message } } */
+  generateReport: (input) => request('POST', '/api/reports/generate', input),
+  /** The report's PDF (ArrayBuffer); `download` asks for an attachment. */
+  reportPdf: (input, { download = false } = {}) =>
+    binary('POST', `/api/reports/pdf${download ? '?download=1' : ''}`, input),
+  /** { filters, to, subject, message, fileName, requestId } → { entry } */
+  sendReportEmail: (input) => request('POST', '/api/reports/email', input),
+  reportEmails: () => request('GET', '/api/reports/emails').then((r) => r.emails),
 };
+
+/** A request answered with a file (PDF); errors come as JSON like any other call. */
+async function binary(method, path, body) {
+  let response;
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/pdf, application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, NETWORK_ERROR);
+  }
+  if (response.status === 401) {
+    window.location.replace('/login?reason=expired');
+    throw new ApiError(401, 'Sesija je istekla.');
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const { success, message, errors, ...details } = payload ?? {};
+    throw new ApiError(response.status, message ?? NETWORK_ERROR, errors ?? {}, details);
+  }
+  return response.arrayBuffer();
+}
 
 /**
  * Uploads a picked PDF as the raw request body. `onProgress(0…1)` while it

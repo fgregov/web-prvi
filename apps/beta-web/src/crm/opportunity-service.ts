@@ -128,6 +128,32 @@ export function addDealActivity(
 }
 
 /**
+ * Appends one entry to the opportunity's status history (never changed
+ * later): the amount it had at that moment, its owner, who and when.
+ */
+export function recordStatusChange(
+  data: CrmData,
+  ctx: CrmContext,
+  o: Opportunity,
+  fromStatus: Opportunity['status'] | null,
+) {
+  data.opportunityStatusChanges ??= [];
+  data.opportunityStatusChanges.push({
+    id: newId(),
+    organizationId: ctx.organizationId,
+    opportunityId: o.id,
+    fromStatus,
+    toStatus: o.status,
+    amount: o.status === 'won' ? (o.wonValue ?? o.value) : o.value,
+    currency: o.currency,
+    ownerId: o.ownerId,
+    changedAt: ctx.now.toISOString(),
+    changedBy: ctx.user.id,
+    source: 'app',
+  });
+}
+
+/**
  * A lead's deal was won: the lead is WON (once; a later win keeps the first
  * date). No customer is created — conversion is offered separately.
  */
@@ -298,6 +324,7 @@ export function createOpportunityService(
         updatedAt: now,
       };
       data.opportunities.push(opportunity);
+      recordStatusChange(data, ctx, opportunity, null);
       if (customer) customer.updatedAt = now;
       if (lead) lead.updatedAt = now;
       addDealActivity(
@@ -358,6 +385,7 @@ export function createOpportunityService(
         lostReason: won ? '' : str(input.lostReason),
         updatedAt: now,
       });
+      recordStatusChange(data, ctx, opportunity, 'active');
       cancelReminders(data, ctx, 'opportunityId', opportunity.id);
       const shown = won ? (opportunity.wonValue ?? opportunity.value) : opportunity.value;
       addDealActivity(
@@ -377,6 +405,52 @@ export function createOpportunityService(
       if (won) markLeadWon(data, ctx, opportunity);
       repo.commit();
       return view(data, ctx, opportunity);
+    },
+
+    /**
+     * Reopens a won or lost deal (domain rule `reopen`, the same as
+     * private.opportunity_lifecycle): active again, without its close date,
+     * final amount or lost reason. It leaves the WON/LOST numbers and the
+     * reports; closing it again counts on the new day. The lead keeps its WON
+     * (a commercial milestone, as in the database). Recorded in the history.
+     */
+    reopenOpportunity(ctx: CrmContext, id: string): OpportunityView {
+      const data = repo.data();
+      const opportunity = requireInOrg(data.opportunities, ctx, id);
+      const previous = opportunity.status;
+      if (previous === 'active') {
+        throw new CrmValidationError(
+          { status: MESSAGES.opportunityNotClosed },
+          MESSAGES.opportunityNotClosed,
+        );
+      }
+      const now = ctx.now.toISOString();
+      Object.assign(opportunity, {
+        status: 'active',
+        closedAt: null,
+        wonValue: null,
+        lostReason: '',
+        updatedAt: now,
+      });
+      recordStatusChange(data, ctx, opportunity, previous);
+      addDealActivity(
+        data,
+        ctx,
+        opportunity,
+        'opportunity_reopened',
+        `${opportunity.title} · ponovno otvorena (bila ${previous === 'won' ? 'dobivena' : 'izgubljena'})`,
+      );
+      repo.commit();
+      return view(data, ctx, opportunity);
+    },
+
+    /** The status history of one opportunity, oldest first. */
+    statusHistory(ctx: CrmContext, id: string) {
+      const data = repo.data();
+      const opportunity = requireInOrg(data.opportunities, ctx, id);
+      return inOrg(data.opportunityStatusChanges ?? [], ctx)
+        .filter((c) => c.opportunityId === opportunity.id)
+        .sort((a, b) => a.changedAt.localeCompare(b.changedAt));
     },
 
     /**

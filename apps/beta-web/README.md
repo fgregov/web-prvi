@@ -16,11 +16,25 @@ the approved Renvara screens:
 Requirements: Node.js 22.18+ and pnpm (from the repository root: `pnpm install`).
 
 ```bash
+pnpm dev         # from the repository root (npm run dev in RENVARA_CRM_REPORTS_v1.0.zip)
+# first start without apps/beta-web/.env: asks for the owner and writes .env
+# (password only as a scrypt hash), then → Listening on http://localhost:3000
+```
+
+`scripts/dev.mjs` restarts the server on every code change (`node --watch`).
+It uses `PORT` from `.env` (3000) and stops with a clear message when the port
+is taken. `pnpm dev:demo` runs the same server on OPTIONAL demo records in
+files of their own (`.data/demo/`, `scripts/seed-demo.ts`, `pnpm seed:demo`);
+they are never written into the organization's data (`.data/crm.json`).
+
+Or set `.env` by hand:
+
+```bash
 cp apps/beta-web/.env.example apps/beta-web/.env
 # edit apps/beta-web/.env: set the username, password and a session secret
 node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"   # secret
 
-pnpm beta        # from the repository root
+pnpm beta        # from the repository root, without --watch
 # → [renvara-beta] Listening on http://localhost:3000
 ```
 
@@ -43,6 +57,8 @@ default credentials.
 | `RENVARA_VAPID_*` (3)       | no       | Push reminders; all three or none (see **Push reminders**)    |
 | `RENVARA_PUBLIC_ORIGIN`     | no       | The https address users open behind a tunnel or proxy         |
 | `RENVARA_TRUST_PROXY`       | no       | `true` behind exactly one reverse proxy (cloud, see below)    |
+| `RESEND_API_KEY`, `RENVARA_EMAIL_FROM` | no | IZVJEŠTAJI → Pošalji e-mail (Resend); without them e-mail says it is not configured |
+| `RENVARA_EMAIL_REPLY_TO`    | no       | Reply address of report e-mails                               |
 
 `.env` files are git-ignored. Only `.env.example` (no values) is committed.
 
@@ -491,7 +507,7 @@ serves the BETA server and the in-browser demo. Every page needs a session.
 | `/sales-calendar?week=YYYY-MM-DD` | Sales Kalendar (week view; earlier weeks show history) | Prikaz više → Sales kalendar |
 | `/opportunity-pipeline` | Pipeline (stages as accordions, Home's period) with next actions | Prikaz više → Opportunity pipeline |
 | `/feedback-overview?status=waiting\|answered\|draft` | FEEDBACK OVERVIEW / PONUDE (offers of Home's period) | Prikaz više → Feedback overview |
-| `/reports` | Izvještaji: "U produkciji – uskoro." (no data yet) | Izvještaji |
+| `/reports` | IZVJEŠTAJI: four reports, PDF preview and download, e-mail (see **IZVJEŠTAJI**) | Izvještaji |
 | `/users?status=&q=&sort=&dir=&page=`, `/users/new`, `/users/{id}` | KORISNICI list, NOVI KORISNIK, PREGLED KORISNIKA | Korisnici |
 | `/set-password#token=…` (public) | Set a password from an invitation or reset link | — |
 | `/settings` | Postavke: MOBILNE OBAVIJESTI | Postavke |
@@ -803,6 +819,63 @@ no real credential is stored in the repository.
   ("Poveži s kupcem"), never automatically. Opportunities created by
   conversions before ADR-0009 have no `leadId` (their lead still points at
   them through `convertedOpportunityId`); no history was reinterpreted.
+
+## IZVJEŠTAJI: reports v1.0 (ADR-0015)
+
+`/reports` (sidebar **Izvještaji**): **VRSTA IZVJEŠTAJA**, its filters, then
+**GENERIRAJ IZVJEŠTAJ** — the numbers come from the server; **PREGLED PDF-a**
+(pdf.js inside the app), **PREUZMI PDF**, **POŠALJI E-MAIL**, **RESETIRAJ
+FILTERE**. The filters stay in the address (`/reports?type=won_lost&…`).
+
+| Report | Filters | What it counts |
+| --- | --- | --- |
+| Ukupni prihod za razdoblje | period, customer, opportunity (of that customer) | WON deals closed in the period, grouped by customer, with the WON date |
+| Promet po kvartalima | year, one or all quarters, customer, representative | WON revenue, count, average per quarter; change against the previous quarter (Q1 against Q4 of the year before; N/P after 0 €); the best quarter |
+| WON / LOST analiza | period, customer, representative, status | WON, LOST, WIN RATE, LOSS RATE, revenue and the LOST potential (never revenue), the closed deals |
+| Usporedba prodajnih predstavnika | period (also year + quarter), representative, order | per owner: WON, LOST, revenue, WIN RATE, average; **NEDODIJELJENO** for deals without one |
+
+One engine (`src/reports/report-engine.ts`) makes all four from the same rows
+— the organization's closed deals — and the same rules:
+
+- **status** = the deal's current status; **date** = `closedAt` (set on close,
+  cleared on reopen, never taken from `updatedAt`); periods and quarters are
+  calendar days in the organization's timezone (`Europe/Zagreb`)
+- **revenue** = a WON deal's final amount (`wonValue`), else its estimate —
+  the Dashboard's "Opportunity WON" (a test compares them); no VAT is added
+- **money** in integer cents, EUR only; another currency is counted, not summed (and said)
+- **rates** = WON ÷ (WON + LOST) × 100; **N/P** without closed deals
+- **representative** = the deal's owner (one per deal); compared are active
+  members with the role Korisnik and everyone who owns a deal in the report
+
+Reopening (`Ponovno otvori` on a closed deal, `POST /api/opportunities/:id/reopen`)
+takes a deal out of WON/LOST until it is closed again (then it counts on that
+day). Every status change is appended to `opportunityStatusChanges`
+(`GET /api/opportunities/:id/status-history`; in Supabase
+`opportunity_status_history`, by a trigger).
+
+**PDF** (`src/reports/report-pdf.ts`, `src/reports/pdf/`): A4, own writer, no
+dependency; Liberation Sans embedded (č ć đ š ž, text searchable), header
+(RENVARA, report, period, generated at), filters, key figures, charts drawn
+in the PDF, tables that continue with their header on the next pages,
+right-aligned numbers, notes, footer "RENVARA CRM · Stranica X od Y".
+
+**E-mail** (`src/email/mailer.ts`): through Resend's API from the server (the
+key never reaches a browser). The PDF is a real attachment; one request id per
+click (a repeat gets the first answer and the service's idempotency key stops a
+second e-mail); 10 e-mails per user per 10 minutes, 200 per organization a day;
+every attempt is logged (who, to whom, which report and period, sent/failed),
+never the text or the PDF. Without configuration: 503 with a clear message.
+
+| Right | Allows |
+| --- | --- |
+| `reports.view` (requires `opportunities.view`) | Izvještaji: revenue, quarters, WON/LOST, PDF |
+| `reports.sales_reps` (not a Korisnik default) | the comparison of representatives |
+| `reports.email` | sending a report by e-mail |
+
+API (session; POST: same origin, JSON): `GET /api/reports/options`,
+`POST /api/reports/generate`, `POST /api/reports/pdf[?download=1]`,
+`POST /api/reports/email`, `GET /api/reports/emails`. At most 5.000 closed
+deals and 1.100 days per report; 60 reports per minute per user.
 
 ## Korisnici: members and access rights (ADR-0014)
 

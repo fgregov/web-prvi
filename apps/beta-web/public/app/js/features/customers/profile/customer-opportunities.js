@@ -144,7 +144,16 @@ export function opportunityCard(o, actions, show = {}) {
           )
         : null,
       o.contactName ? h('span', {}, o.contactName) : null,
-      o.expectedCloseDate ? h('span', {}, `Zatvaranje: ${formatDay(o.expectedCloseDate)}`) : null,
+      o.status === 'active' && o.expectedCloseDate
+        ? h('span', {}, `Zatvaranje: ${formatDay(o.expectedCloseDate)}`)
+        : null,
+      o.status !== 'active' && o.closedAt
+        ? h(
+            'span',
+            {},
+            `${o.status === 'won' ? 'Dobiveno' : 'Izgubljeno'}: ${formatDay(dayKey(new Date(o.closedAt)))}`,
+          )
+        : null,
     ),
     origin,
     nextActionLine(o, actions.nextActionFor(o.id)),
@@ -212,6 +221,21 @@ export function opportunityCard(o, actions, show = {}) {
               onClick: () => actions.deal.reminder(o),
             },
             activeReminder(o.reminder) ? 'Promijeni podsjetnik' : 'Podsjetnik',
+          ),
+        )
+      : null,
+    o.status !== 'active' && actions.deal?.reopen
+      ? h(
+          'div',
+          { class: 'rv-opp__actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'rv-btn rv-btn--sm rv-btn--ghost',
+              onClick: () => actions.deal.reopen(o),
+            },
+            'Ponovno otvori',
           ),
         )
       : null,

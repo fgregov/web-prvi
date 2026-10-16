@@ -7,6 +7,7 @@ name: Web test address (GitHub Pages)
 #   /prazno/    clean start: only what the visitor enters
 #   /mobilni/   with demo data in a phone frame (for presenting on a computer)
 #   /renvara-localhost.zip   the real app for one computer (apps/beta-web/localhost)
+#   /RENVARA_CRM_REPORTS_v1.0.zip   the whole project for npm (scripts/release-zip.mjs)
 # Needs, once (repository owner): Settings → Pages → Source: GitHub Actions; for
 # a branch other than the default one also Settings → Environments →
 # github-pages → add the branch. Until Pages is on, the deploy is skipped.
@@ -64,10 +65,17 @@ jobs:
         with:
           name: renvara-localhost
           path: apps/beta-web/dist/renvara-localhost.zip
+      - run: node scripts/release-zip.mjs
+      - name: The whole project for npm (download from this run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: RENVARA_CRM_REPORTS_v1.0
+          path: dist/release/RENVARA_CRM_REPORTS_v1.0.zip
       - name: Site folder
         run: |
           mkdir -p site/prazno site/mobilni
           cp apps/beta-web/dist/renvara-localhost.zip site/renvara-localhost.zip
+          cp dist/release/RENVARA_CRM_REPORTS_v1.0.zip site/RENVARA_CRM_REPORTS_v1.0.zip
           cp demo-app/renvara-demo.html site/index.html
           cp demo-app/renvara-prazni-pocetak.html site/prazno/index.html
           cp demo-app/renvara-mobilni-prikaz.html site/mobilni/index.html

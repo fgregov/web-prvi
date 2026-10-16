@@ -140,6 +140,7 @@ export const ACTIVITY_META = {
   opportunity_created: { label: 'Kreirana prilika', icon: 'target', tone: 'red' },
   opportunity_won: { label: 'Prilika dobivena', icon: 'check', tone: 'green' },
   opportunity_lost: { label: 'Prilika izgubljena', icon: 'x', tone: 'neutral' },
+  opportunity_reopened: { label: 'Prilika ponovno otvorena', icon: 'target', tone: 'neutral' },
   offer_sent: { label: 'Ponuda poslana', icon: 'file', tone: 'red' },
   offer_answered: { label: 'Odgovor na ponudu', icon: 'check', tone: 'green' },
   offer_viewed: { label: 'Pregled ponude zabilježen', icon: 'file', tone: 'neutral' },

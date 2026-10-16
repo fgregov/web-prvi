@@ -21,6 +21,10 @@ import { createCrmServices, type CrmServices } from './crm/index.ts';
 import { createMemoryRepository } from './crm/repository.ts';
 import type { PushConfig } from './crm/dispatch.ts';
 import { applyViewerCsp, createFollowUpRoutes } from './crm/follow-up-routes.ts';
+import { notConfiguredMailer, type Mailer } from './email/mailer.ts';
+import { createReportApi } from './reports/report-api.ts';
+import { nodePdfResources } from './reports/node-pdf.ts';
+import { createReportRoutes } from './reports/report-routes.ts';
 import { createCrmRoutes, type CrmRouteOptions } from './crm/routes.ts';
 import { seedDemoData } from './crm/seed.ts';
 import type { CrmContext, MemberAccess } from './crm/types.ts';
@@ -162,6 +166,8 @@ export function createApp(
     trustProxy?: boolean;
     /** API request budgets (tests use small ones). */
     apiLimits?: ApiLimits;
+    /** IZVJEŠTAJI → "Pošalji e-mail" (email/mailer.ts); not configured by default. */
+    mailer?: Mailer;
   },
 ): RequestListener {
   const users = options.users;
@@ -184,6 +190,16 @@ export function createApp(
     trustProxy,
   });
   const apiLimits = options.apiLimits ?? defaultApiLimits();
+  const reportRoutes = createReportRoutes(
+    createReportApi({
+      crm: crm.services,
+      members: (ctx) => users.reportMembers(ctx.organizationId),
+      pdf: nodePdfResources,
+      mailer: options.mailer ?? notConfiguredMailer('Slanje e-maila nije konfigurirano.'),
+      log: (event, fields) => logger.info(event, fields),
+    }),
+    { publicOrigin },
+  );
 
   /** Seconds to wait when this API call is over its budget, else 0. */
   function apiBudget(req: IncomingMessage, method: string, path: string): number {
@@ -427,6 +443,9 @@ export function createApp(
 
     // ---- API -------------------------------------------------------------
     if (path.startsWith('/api/')) {
+      if (await reportRoutes.handle(req, res, path, url.searchParams, () => crmContext(req))) {
+        return;
+      }
       if (await crmRoutes.handle(req, res, path, url.searchParams, () => crmContext(req))) return;
       const routes: Record<string, { method: string; handler: () => void | Promise<void> }> = {
         '/api/auth/login': { method: 'POST', handler: () => handleLogin(req, res) },
@@ -504,8 +523,8 @@ export function createApp(
       noStore(res);
       const needed = permissionForPath(path);
       if (needed && !member.access.permissions.has(needed)) return forbidden(res);
-      // The internal offer preview renders the PDF with pdf.js (worker, WebAssembly).
-      if (crmPage === 'follow-up-preview') applyViewerCsp(res);
+      // The internal offer preview and the reports render PDFs with pdf.js (worker, WebAssembly).
+      if (crmPage === 'follow-up-preview' || crmPage === 'reports') applyViewerCsp(res);
       return sendFile(res, resolve(paths.appDir, 'pages', `${crmPage}.html`));
     }
     if (path.startsWith('/app/')) {

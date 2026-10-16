@@ -21,6 +21,10 @@ import { ensureBootstrapOwner } from '../server/identity/bootstrap.js';
 import { createLocalDirectory } from '../server/identity/local-directory.js';
 import { createUserService, displayName } from '../server/identity/user-service.js';
 import { createUsersApi } from '../server/identity/users-api.js';
+import { notConfiguredMailer } from '../server/email/mailer.js';
+import { createReportApi } from '../server/reports/report-api.js';
+import { parseTrueType } from '../server/reports/pdf/truetype.js';
+import { PDFJS_BASE } from '../viewer/pdf-pages.js';
 import { DEMO_CONTENT } from '../app/js/core/edition.js';
 import { legacyPath, pageForPath } from '../app/js/core/routes.js';
 import { databaseStore } from './database-store.js';
@@ -277,6 +281,63 @@ async function signedInContext() {
   return me ? { ...context(), access: me.access } : null;
 }
 
+// ----------------------------------------------------- IZVJEŠTAJI, in page ---
+// The server's report engine and PDF writer, run here: Liberation Sans from the
+// same pdf.js copy the viewer uses, compression by the browser. Nothing is
+// e-mailed from the demo (it says so, as a server without an e-mail service).
+const REPORT_LOGO = '/brand/renvara-logo.png';
+const pipe = async (bytes, stream) =>
+  new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+let reportResources = null;
+function browserPdfResources() {
+  const load = (url) =>
+    realFetch(url).then((r) => {
+      if (!r.ok) throw new Error(`${url}: ${r.status}`);
+      return r.arrayBuffer().then((b) => new Uint8Array(b));
+    });
+  reportResources ??= Promise.all([
+    load(`${PDFJS_BASE}/standard_fonts/LiberationSans-Regular.ttf`),
+    load(`${PDFJS_BASE}/standard_fonts/LiberationSans-Bold.ttf`),
+    load(REPORT_LOGO).catch(() => null),
+  ]).then(([regular, bold, logo]) => ({
+    fonts: { regular: parseTrueType(regular), bold: parseTrueType(bold) },
+    logo,
+    zlib: {
+      deflate: (bytes) => pipe(bytes, new CompressionStream('deflate')),
+      inflate: (bytes) => pipe(bytes, new DecompressionStream('deflate')),
+    },
+  }));
+  reportResources.catch(() => {
+    reportResources = null;
+  });
+  return reportResources;
+}
+const reportApi = createReportApi({
+  crm: services,
+  members: () => users.reportMembers(ORG),
+  pdf: browserPdfResources,
+  mailer: notConfiguredMailer('U demonstraciji se e-mail ne šalje.'),
+});
+
+async function answerReports(method, path, query, body) {
+  const hit = reportApi.match(method, path);
+  if (hit === 'none') return [404, api.badRequest];
+  if (hit === 'method') return [405, api.badRequest];
+  const ctx = await signedInContext();
+  if (!ctx) return [401, { success: false, message: 'Prijavite se ponovno.' }];
+  const result = await reportApi.run(method, path, ctx, body, query);
+  if ('bytes' in result) {
+    return [
+      result.status,
+      new Response(result.bytes, {
+        status: result.status,
+        headers: { 'Content-Type': 'application/pdf' },
+      }),
+    ];
+  }
+  return [result.status, result.json];
+}
+
 async function answer(method, path, query, body) {
   if (path === '/api/auth/session') {
     const me = await member();
@@ -473,6 +534,15 @@ window.fetch = (input, init = {}) => {
       body = init.body ? JSON.parse(init.body) : {};
     } catch {
       return jsonResponse(400, api.badRequest);
+    }
+    if (parsed.pathname.startsWith('/api/reports/')) {
+      const [status, payload] = await answerReports(
+        method,
+        parsed.pathname,
+        parsed.searchParams,
+        body,
+      );
+      return payload instanceof Response ? payload : jsonResponse(status, payload);
     }
     const [status, payload] = await answer(method, parsed.pathname, parsed.searchParams, body);
     return jsonResponse(status, payload);

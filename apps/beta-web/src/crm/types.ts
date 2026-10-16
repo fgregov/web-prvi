@@ -94,6 +94,29 @@ export interface Opportunity extends TenantRecord {
 }
 
 /**
+ * One change of an opportunity's status (public.opportunity_status_history),
+ * appended on every create, close and reopen; never changed or deleted. The
+ * reports count an opportunity by its current status and closedAt; this is
+ * the history behind it (and for later historical analysis).
+ */
+export interface OpportunityStatusChange {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly opportunityId: string;
+  /** Null for the status it was created with. */
+  readonly fromStatus: Opportunity['status'] | null;
+  readonly toStatus: Opportunity['status'];
+  /** The amount at that moment: a win's final amount (else the estimate), otherwise the estimate. */
+  readonly amount: number | null;
+  readonly currency: string;
+  readonly ownerId: string | null;
+  readonly changedAt: Iso;
+  readonly changedBy: string | null;
+  /** app: recorded when it happened · backfill: rebuilt from createdAt/closedAt of older records. */
+  readonly source: 'app' | 'backfill';
+}
+
+/**
  * A sales offer (public.offers): created outside Renvara (ERP, Word), tracked
  * here. Belongs to a customer, optionally to one of its opportunities and
  * contacts. Waits for feedback from `sentAt` until answered (or withdrawn, or
@@ -349,6 +372,33 @@ export interface NotificationDelivery {
   updatedAt: Iso;
 }
 
+// ------------------------------------------------------------- reports ---
+export type ReportType = 'revenue' | 'quarters' | 'won_lost' | 'sales_reps';
+
+/**
+ * One "Pošalji e-mail" of a report (public.report_email_log): when, by whom,
+ * to whom, which report and how it ended. Never the message text or the PDF.
+ */
+export interface ReportEmail {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly sentBy: string;
+  readonly sentByName: string;
+  readonly recipient: string;
+  readonly reportType: ReportType;
+  readonly periodFrom: CalendarDate | null;
+  readonly periodTo: CalendarDate | null;
+  readonly attachmentName: string;
+  /** sent: the e-mail service accepted it · failed: it refused or did not answer. */
+  readonly status: 'sent' | 'failed';
+  readonly provider: string;
+  /** The service's id of the accepted message. */
+  readonly providerMessageId: string | null;
+  /** Short reason of a failure (status code or kind), never secrets. */
+  readonly error: string | null;
+  readonly createdAt: Iso;
+}
+
 // ------------------------------------------------------- users (ADR-0014) ---
 /** owner: every right, always; admin: given rights, may hold user administration; user: given rights. */
 export type MemberRole = 'owner' | 'admin' | 'user';
@@ -424,6 +474,7 @@ export interface CrmData {
   customers: Customer[];
   contacts: Contact[];
   opportunities: Opportunity[];
+  opportunityStatusChanges: OpportunityStatusChange[];
   tasks: Task[];
   activities: Activity[];
   leads: Lead[];
@@ -439,6 +490,7 @@ export interface CrmData {
   users: UserProfile[];
   userPermissions: UserPermission[];
   auditLog: AuditEntry[];
+  reportEmails: ReportEmail[];
 }
 
 /** Who is acting, for which organization, at what time. Built per request from the session. */

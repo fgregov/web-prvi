@@ -23,8 +23,7 @@ export const PAGE_ROUTES = {
   '/sales-calendar': 'calendar',
   '/opportunity-pipeline': 'opportunity-pipeline',
   '/feedback-overview': 'feedback-overview',
-  // Modules in production: a status page each, no data.
-  '/reports': 'module',
+  '/reports': 'reports',
   '/users': 'users',
   '/users/new': 'user-new',
   '/settings': 'notifications',

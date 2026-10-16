@@ -14,7 +14,7 @@ server (apps/beta-web) runs without Supabase today; the Supabase schema exists
 **Decision.**
 
 * **One catalog of rights.** `public/app/js/core/permissions.js` lists 38
-  rights `<module>.<action>` in five groups (Prodaja, Dodatne funkcije,
+  rights (40 since ADR-0015: the report rights) `<module>.<action>` in five groups (Prodaja, Dodatne funkcije,
   Dashboard, Upravljanje korisnicima, Obavijesti). A right can *require*
   others (creating leads requires seeing leads; a Dashboard widget requires
   the Dashboard **and** the data right it shows). User administration rights

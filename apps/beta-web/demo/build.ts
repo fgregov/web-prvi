@@ -215,6 +215,29 @@ for (const name of [
     ]),
   );
 }
+// IZVJEŠTAJI: the same report engine, PDF writer and API as the server. Node
+// only: the HTTP routes and the server's font files (the demo loads the same
+// fonts from the pdf.js CDN copy). E-mail is never sent from the demo.
+for (const name of [
+  'report-engine.ts',
+  'report-pdf.ts',
+  'report-api.ts',
+  'pdf/pdf-writer.ts',
+  'pdf/truetype.ts',
+]) {
+  write(
+    `server/reports/${name.replace(/\.ts$/, '.js')}`,
+    stripModule(resolve(APP, 'src/reports', name), name, [
+      ["from '@renvara/domain'", "from '../domain/index.js'"],
+      ["from '../../public/app/js/core/", "from '../../app/js/core/"],
+    ]),
+  );
+}
+write('server/email/mailer.js', stripModule(resolve(APP, 'src/email/mailer.ts'), 'mailer.ts', []));
+write(
+  'server/http/request-limiter.js',
+  stripModule(resolve(APP, 'src/http/request-limiter.ts'), 'request-limiter.ts', []),
+);
 const DOMAIN_SRC = resolve(ROOT, 'packages/domain/src');
 for (const file of walk(DOMAIN_SRC)) {
   if (file.endsWith('.test.ts')) continue;
@@ -322,6 +345,7 @@ const STYLE_FILES = [
   'app/css/notifications.css',
   'viewer/viewer.css',
   'app/css/users.css',
+  'app/css/reports.css',
   'app/css/web.css', // last: the web layout (tablets, computers) wins over the mobile rules
 ];
 const styles = Object.fromEntries(
@@ -345,7 +369,13 @@ write(
     '',
   ].join('\n'),
 );
-cpSync(resolve(APP, 'demo/runtime.js'), join(OUT, 'demo/runtime.js'));
+write(
+  'demo/runtime.js',
+  readFileSync(resolve(APP, 'demo/runtime.js'), 'utf8').replace(
+    "const REPORT_LOGO = '/brand/renvara-logo.png';",
+    () => `const REPORT_LOGO = '${LOGO}';`,
+  ),
+);
 cpSync(resolve(APP, 'demo/database-store.js'), join(OUT, 'demo/database-store.js'));
 cpSync(resolve(APP, 'demo/document-store-idb.js'), join(OUT, 'demo/document-store-idb.js'));
 

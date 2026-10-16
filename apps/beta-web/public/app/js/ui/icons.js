@@ -222,6 +222,8 @@ const ICONS = {
     ],
   ],
   'arrow-up-down': [['path', 'm21 16-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16']],
+  download: [['path', 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3']],
+  'rotate-ccw': [['path', 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5']],
 };
 
 export function icon(name, className = 'rv-icon') {

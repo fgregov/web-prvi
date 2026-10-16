@@ -47,11 +47,11 @@ update public.profiles set oib = '69435151530', phone = '+385 91 111 2222', firs
 select plan(49);
 
 -- ----------------------------------------------------------- defaults ---
-select is((select count(*)::int from private.permission_definitions), 38, 'the catalog has 38 rights');
+select is((select count(*)::int from private.permission_definitions), 40, 'the catalog has 40 rights (38 + the two of IZVJEŠTAJI)');
 select is((select count(*)::int from public.member_permissions where user_id = 'c3000000-0000-4000-8000-000000000003'),
-  31, 'a new Korisnik gets the 31 default rights (no user administration)');
+  32, 'a new Korisnik gets the 32 default rights (no user administration, no comparing representatives)');
 select is((select count(*)::int from public.member_permissions where user_id = 'd4000000-0000-4000-8000-000000000004'),
-  38, 'a new administrator gets every right');
+  40, 'a new administrator gets every right');
 select is((select count(*)::int from public.member_permissions where user_id = 'a1000000-0000-4000-8000-000000000001'),
   0, 'an owner has no stored rights (holds all implicitly)');
 select ok(private.is_valid_oib('69435151530') and not private.is_valid_oib('69435151531')
@@ -64,7 +64,7 @@ select pg_temp.login_as('c3000000-0000-4000-8000-000000000003');
 select ok(private.has_permission('0a000000-0000-4000-8000-00000000000a', 'customers.view'), 'Carol may see customers');
 select ok(not private.has_permission('0a000000-0000-4000-8000-00000000000a', 'users.view'), 'Carol may not see the member list');
 select is((select my_access('0a000000-0000-4000-8000-00000000000a') ->> 'role'), 'user', 'my_access: role Korisnik');
-select is((select jsonb_array_length(my_access('0a000000-0000-4000-8000-00000000000a') -> 'permissions')), 31,
+select is((select jsonb_array_length(my_access('0a000000-0000-4000-8000-00000000000a') -> 'permissions')), 32,
   'my_access: her rights');
 select throws_ok($$ select oib from public.profiles $$, '42501', null, 'teammates cannot read the OIB column');
 select throws_ok($$ select phone from public.profiles $$, '42501', null, 'teammates cannot read the phone column');
@@ -172,7 +172,7 @@ delete from public.member_permissions
 select pg_temp.as_server();
 select throws_ok($$ select public.admin_set_member_access('0a000000-0000-4000-8000-00000000000a',
   'd4000000-0000-4000-8000-000000000004', 'e5000000-0000-4000-8000-000000000005', 'user',
-  '{leads.view,leads.create,reports.view}') $$,
+  '{leads.view,leads.create,opportunities.view,reports.view}') $$,
   '42501', null, 'an administrator cannot give a right they do not hold');
 select throws_ok($$ select public.admin_set_member_access('0a000000-0000-4000-8000-00000000000a',
   'd4000000-0000-4000-8000-000000000004', 'e5000000-0000-4000-8000-000000000005', 'admin', '{leads.view}') $$,

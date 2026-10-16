@@ -290,6 +290,21 @@ export function createCrmApi(
         ok({ opportunity: crm.opportunities.closeOpportunity(ctx, id(params), body) }),
     },
     {
+      // A won or lost deal is active again (its WON/LOST and report numbers go with it).
+      method: 'POST',
+      pattern: new RegExp(`^/api/opportunities/${ID}/reopen$`),
+      allow: need('opportunities.edit'),
+      handler: ({ ctx, params }) =>
+        ok({ opportunity: crm.opportunities.reopenOpportunity(ctx, id(params)) }),
+    },
+    {
+      method: 'GET',
+      pattern: new RegExp(`^/api/opportunities/${ID}/status-history$`),
+      allow: need('opportunities.view'),
+      handler: ({ ctx, params }) =>
+        ok({ history: crm.opportunities.statusHistory(ctx, id(params)) }),
+    },
+    {
       // A lead's deal → the customer the lead was converted into (ADR-0009), explicitly.
       method: 'POST',
       pattern: new RegExp(`^/api/opportunities/${ID}/link-customer$`),

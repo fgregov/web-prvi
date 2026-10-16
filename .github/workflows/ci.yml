@@ -78,6 +78,46 @@ jobs:
             http://localhost:3500/api/auth/login | grep -q '"success":true'
           test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/users)" = 200
           test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/viewer/pdfjs/build/pdf.min.mjs)" = 200
+          test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/reports)" = 200
+          curl -s -b cookies.txt -H 'Origin: http://localhost:3500' -H 'Content-Type: application/json' \
+            -d '{"type":"won_lost","preset":"current_year"}' -o report.pdf http://localhost:3500/api/reports/pdf
+          head -c 8 report.pdf | grep -q '%PDF-1.7'
+
+  release-zip:
+    name: RENVARA_CRM_REPORTS_v1.0.zip (npm install, npm run dev on port 3000)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/release-zip.mjs
+      - name: From a fresh unzip (npm install, first start, reports)
+        run: |
+          mkdir -p "$RUNNER_TEMP/zip" && cd "$RUNNER_TEMP/zip"
+          unzip -q "$GITHUB_WORKSPACE/dist/release/RENVARA_CRM_REPORTS_v1.0.zip"
+          cd RENVARA_CRM_REPORTS_v1.0
+          ! find . -name '.env' | grep -q .
+          npm install --no-audit --no-fund
+          pw="Ci$(openssl rand -hex 8)x1"
+          printf 'CI Vlasnik\nci.owner\n\n%s\n%s\n' "$pw" "$pw" > answers.txt
+          npm run dev < answers.txt > run.log 2>&1 &
+          for i in $(seq 1 60); do grep -q 'Listening on http://localhost:3000' run.log && break; sleep 1; done
+          cat run.log
+          ! grep -qF "$pw" apps/beta-web/.env
+          curl -fs -o /dev/null http://localhost:3000/login
+          curl -s -c cookies.txt -H 'Content-Type: application/json' \
+            -d "{\"username\":\"ci.owner\",\"password\":\"$pw\"}" \
+            http://localhost:3000/api/auth/login | grep -q '"success":true'
+          for type in revenue quarters won_lost sales_reps; do
+            curl -s -b cookies.txt -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' \
+              -d "{\"type\":\"$type\",\"preset\":\"current_year\"}" \
+              http://localhost:3000/api/reports/generate | grep -q '"success":true'
+          done
+          curl -s -b cookies.txt -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' \
+            -d '{"type":"revenue","preset":"current_year"}' -o report.pdf http://localhost:3000/api/reports/pdf
+          head -c 8 report.pdf | grep -q '%PDF-1.7'
+          npm test
 
   database:
     name: Database (migrations, RLS & invariant tests, generated types)

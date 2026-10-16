@@ -237,6 +237,7 @@ async function showPeriod({ quiet = false } = {}) {
       info.isCurrent ? refreshOperational() : null,
     ]);
     if (mine !== ticket) return; // a newer selection is loading
+    if (!metricsEl.isConnected) return; // left Početna meanwhile (in-page navigation of the demo)
     renderKpiCards(metricsEl, summary);
     if (info.isCurrent) {
       if (summary.pipelineOverview) {
@@ -258,6 +259,7 @@ async function showPeriod({ quiet = false } = {}) {
       el.classList.add('is-entering');
     }
   } catch (error) {
+    if (!metricsEl.isConnected) return;
     if (!(error instanceof ApiError && error.status === 401)) showToast(error.message);
   } finally {
     if (mine === ticket) metricsEl.removeAttribute('aria-busy');

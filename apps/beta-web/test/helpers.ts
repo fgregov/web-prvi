@@ -11,6 +11,7 @@ import {
   inMemoryCrm,
   type Logger,
 } from '../src/app.ts';
+import type { Mailer } from '../src/email/mailer.ts';
 import { createLocalIdentityLayer, type IdentityLayer } from '../src/identity/local.ts';
 import { loadAuthConfig } from '../src/auth/config.ts';
 import { createAuthService } from '../src/auth/service.ts';
@@ -42,7 +43,7 @@ export interface TestServer {
 
 export async function startTestServer(
   env = testEnv(),
-  options: { crm?: CrmOptions; apiLimits?: ApiLimits } = {},
+  options: { crm?: CrmOptions; apiLimits?: ApiLimits; mailer?: Mailer } = {},
 ): Promise<TestServer> {
   const config = loadAuthConfig(env);
   const clock = {
@@ -81,6 +82,7 @@ export async function startTestServer(
       publicOrigin: config.publicOrigin,
       trustProxy: config.trustProxy,
       ...(options.apiLimits ? { apiLimits: options.apiLimits } : {}),
+      ...(options.mailer ? { mailer: options.mailer } : {}),
     }),
   );
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

@@ -24,7 +24,10 @@ deploy/               the BETA web app in the cloud: Docker Compose + Caddy, Fly
 demo-app/             the demo as pages that open from disk (README in Croatian)
                       the real app on one computer: `pnpm --filter @renvara/beta-web localhost:build`
                       → apps/beta-web/dist/renvara-localhost.zip (needs only Node.js; README inside)
+scripts/release-zip.mjs  the whole project for npm: dist/release/RENVARA_CRM_REPORTS_v1.0.zip
+                      (`npm install`, `npm run dev` → http://localhost:3000; POKRETANJE-LOKALNO.md)
 docs/
+  reports/            IZVJEŠTAJI v1.0: rules, migrations, configuration, limits (Croatian)
   architecture/       how the system is built (start here)
   adr/                architecture decision records
   open-questions.md   decisions waiting for product input
@@ -36,10 +39,14 @@ Requirements: Node 22+, pnpm 10, Docker.
 
 ```bash
 pnpm install
+pnpm dev          # the web app on http://localhost:3000 (first start asks for the owner)
 pnpm db:start     # local Supabase; applies migrations
 pnpm db:test      # database security & invariant tests
 pnpm check        # format, typecheck, unit tests
 ```
+
+With npm instead (RENVARA_CRM_REPORTS_v1.0.zip): `npm install`, `npm run dev`
+— see POKRETANJE-LOKALNO.md (Croatian).
 
 Supabase Studio runs at http://localhost:54323 after `pnpm db:start`.
 

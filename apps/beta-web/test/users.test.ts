@@ -43,22 +43,32 @@ const OIB = '69435151530';
 
 // ----------------------------------------------------------- catalog ---
 describe('rights catalog', () => {
-  it('the database migration seeds exactly the same rights', () => {
-    const sql = readFileSync(
-      here('../../../supabase/migrations/20261017120000_user_management.sql'),
-      'utf8',
-    );
+  it('the database migrations seed exactly the same rights', () => {
+    // The catalog of 20261017120000_user_management.sql, then the rights and
+    // changes of later migrations (20261018120000_reports.sql), in order.
+    const sql = ['20261017120000_user_management.sql', '20261018120000_reports.sql']
+      .map((file) => readFileSync(here(`../../../supabase/migrations/${file}`), 'utf8'))
+      .join('\n');
     const rows = [
       ...sql.matchAll(
-        /\('([a-z_.]+)',\s*'([a-z_]+)',\s*\d+,\s*(true|false),\s*(true|false),\s*'\{([^}]*)\}'\)/g,
+        /\('([a-z_.]+)',\s*'([a-z_]+)',\s*(\d+),\s*(true|false),\s*(true|false),\s*'\{([^}]*)\}'\)/g,
       ),
-    ].map(([, key = '', group, adminOnly, defaultGrant, requires]) => ({
-      key,
-      group,
-      adminOnly: adminOnly === 'true',
-      defaultGrant: defaultGrant === 'true',
-      requires: (requires ?? '').split(',').filter(Boolean).sort(),
-    }));
+    ]
+      .map(([, key = '', group, order, adminOnly, defaultGrant, requires]) => ({
+        key,
+        group,
+        order: Number(order),
+        adminOnly: adminOnly === 'true',
+        defaultGrant: defaultGrant === 'true',
+        requires: (requires ?? '').split(',').filter(Boolean).sort(),
+      }))
+      .sort((a, b) => a.order - b.order);
+    for (const [, requires = '', key] of sql.matchAll(
+      /update private\.permission_definitions\s+set requires = '\{([^}]*)\}'\s+where key = '([a-z_.]+)'/g,
+    )) {
+      const row = rows.find((r) => r.key === key);
+      if (row) row.requires = requires.split(',').filter(Boolean).sort();
+    }
     const groupOf = (key: string) =>
       PERMISSION_GROUPS.find((g) => g.items.some((i) => i.key === key))?.key;
     expect(rows.map((r) => r.key)).toEqual(PERMISSIONS.map((p) => p.key));

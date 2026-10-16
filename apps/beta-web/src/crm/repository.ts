@@ -1,7 +1,7 @@
 // Persistence contract for the CRM: one JSON document. Services only see
 // CrmRepository, so the storage (memory, file, browser demo, later Supabase)
 // can change without touching them. The file-backed version is file-repository.ts.
-import type { CrmData, Lead, Offer, Opportunity } from './types.ts';
+import type { CrmData, Lead, Offer, Opportunity, OpportunityStatusChange } from './types.ts';
 
 export interface CrmRepository {
   /** The live document. Mutate it, then call commit(). */
@@ -22,6 +22,7 @@ export const emptyData = (): CrmData => ({
   customers: [],
   contacts: [],
   opportunities: [],
+  opportunityStatusChanges: [],
   tasks: [],
   activities: [],
   leads: [],
@@ -37,7 +38,80 @@ export const emptyData = (): CrmData => ({
   users: [],
   userPermissions: [],
   auditLog: [],
+  reportEmails: [],
 });
+
+/**
+ * The status history of opportunities saved before it was recorded, rebuilt
+ * from what is reliable: the status each was created with (at createdAt) and,
+ * for a closed one, its close (at closedAt). Marked `backfill`. Nothing is
+ * guessed from updatedAt.
+ */
+function backfillStatusHistory(opportunities: readonly Opportunity[]): OpportunityStatusChange[] {
+  const out: OpportunityStatusChange[] = [];
+  for (const o of opportunities) {
+    const base = {
+      organizationId: o.organizationId,
+      opportunityId: o.id,
+      currency: o.currency,
+      ownerId: o.ownerId,
+      changedBy: o.ownerId,
+      source: 'backfill' as const,
+    };
+    const closedAtCreation = o.status !== 'active' && o.closedAt === o.createdAt;
+    out.push({
+      ...base,
+      id: globalThis.crypto.randomUUID(),
+      fromStatus: null,
+      toStatus: closedAtCreation ? o.status : 'active',
+      amount: closedAtCreation && o.status === 'won' ? (o.wonValue ?? o.value) : o.value,
+      changedAt: o.createdAt,
+    });
+    if (o.status !== 'active' && o.closedAt && !closedAtCreation) {
+      out.push({
+        ...base,
+        id: globalThis.crypto.randomUUID(),
+        fromStatus: 'active',
+        toStatus: o.status,
+        amount: o.status === 'won' ? (o.wonValue ?? o.value) : o.value,
+        changedAt: o.closedAt,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Rights added with IZVJEŠTAJI (the same step as the database migration
+ * 20261018120000_reports.sql): a member who could open reports may also e-mail
+ * them; an administrator also compares sales representatives. Runs once, on the
+ * first load of a document from before the reports.
+ */
+function grantReportRights(data: CrmData) {
+  const now = new Date().toISOString();
+  const has = (orgId: string, userId: string, key: string) =>
+    data.userPermissions.some(
+      (p) => p.organizationId === orgId && p.userId === userId && p.key === key && p.allowed,
+    );
+  for (const user of data.users) {
+    if (user.role === 'owner') continue; // an owner holds every right implicitly
+    const grant = (key: string) => {
+      if (has(user.organizationId, user.id, key)) return;
+      data.userPermissions.push({
+        organizationId: user.organizationId,
+        userId: user.id,
+        key,
+        allowed: true,
+        updatedAt: now,
+        updatedBy: null,
+      });
+    };
+    if (has(user.organizationId, user.id, 'reports.view')) {
+      grant('reports.email');
+      if (user.role === 'admin') grant('reports.sales_reps');
+    }
+  }
+}
 
 /**
  * A stored document as the current code expects it. Collections added later
@@ -48,9 +122,15 @@ export const emptyData = (): CrmData => ({
  * convertedAt, wonBasis = 'conversion'. Nothing else changes and no sale is
  * invented. Data from before MOBILNE OBAVIJESTI: a user with reminders still to
  * fire keeps receiving them ("Podsjetnik" on); everything else starts off.
+ * Data from before IZVJEŠTAJI: the status history is rebuilt from createdAt
+ * and closedAt, and the new report rights follow reports.view.
  */
 export function normalizeData(input: Partial<CrmData>): CrmData {
   const data = { ...emptyData(), ...input } as CrmData;
+  if (input.opportunityStatusChanges === undefined) {
+    data.opportunityStatusChanges = backfillStatusHistory(data.opportunities);
+  }
+  if (input.reportEmails === undefined) grantReportRights(data);
   if (input.notificationPreferences === undefined) {
     const now = new Date().toISOString();
     const seen = new Set<string>();

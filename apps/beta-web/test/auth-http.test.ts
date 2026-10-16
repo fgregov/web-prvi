@@ -325,7 +325,7 @@ describe('demo CRM routes', () => {
       ['/sales-calendar', 'calendar.js'],
       ['/opportunity-pipeline', 'opportunity-pipeline.js'],
       ['/feedback-overview', 'feedback-overview.js'],
-      ['/reports', 'module.js'],
+      ['/reports', 'reports.js'],
       ['/users', 'users.js'],
       ['/users/new', 'user-new.js'],
       ['/users/abc-123', 'user.js'],

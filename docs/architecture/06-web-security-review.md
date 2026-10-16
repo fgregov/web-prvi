@@ -24,7 +24,7 @@ tables (`member_permissions`, `admin_audit_log`, `admin_*` functions) for
 
 ## Korisnici (ADR-0014)
 
-* **Rights on the server.** 38 rights in `core/permissions.js` (same keys in
+* **Rights on the server.** 40 rights in `core/permissions.js` (same keys in
   `private.permission_definitions`). Every page address and API route has its
   rule; without it: 403 (page with "Povratak na početnu") or `403` JSON.
   Hidden buttons are only convenience (tests: `users.test.ts`,
@@ -51,6 +51,31 @@ tables (`member_permissions`, `admin_audit_log`, `admin_*` functions) for
   database.
 * **Personal data.** OIB and phone: not in the member list, not readable by
   teammates in Supabase (column privileges).
+
+## IZVJEŠTAJI (ADR-0015)
+
+* **Every report, PDF and e-mail checked on the server**: `reports.view` and
+  `opportunities.view` for all, `reports.sales_reps` for comparing
+  colleagues, `reports.email` for sending (tests: `reports.test.ts`, E2E).
+  The organization comes from the session; filters are read and checked on
+  the server (chosen customer, deal and representative must exist in it).
+* **E-mail only from the server.** The Resend key is an environment variable
+  of the server, never in a page; the PDF is made on the server from the same
+  filters (the browser sends no numbers and no file). Address and subject are
+  checked (no header injection), the attachment name is cleaned. One request
+  id → at most one e-mail (plus the service's idempotency key); limits per
+  member (10 / 10 min) and per organization (200 / day). Not configured →
+  503, never a false success.
+* **Logs without personal data.** The send log keeps who, to whom, report,
+  period, attachment name and the result — not the text or the PDF; the
+  server log has no addresses or keys. Supabase: `report_email_log` written by
+  the service role only, append-only; members see their own sends,
+  owners/administrators all.
+* **Limits**: 60 reports per minute per member, 1.100 days and 5.000 closed
+  deals per report, 15 MB per e-mailed PDF. PDF responses: `no-store`,
+  `default-src 'none'; sandbox`.
+* **Status history** is append-only (store and `opportunity_status_history`,
+  written by a trigger; RLS by `opportunities.view`).
 
 ## Controls in place (verified by tests in apps/beta-web/test)
 

@@ -142,6 +142,26 @@ export function opportunityActions(done, { returnTo } = {}) {
       });
     },
 
+    /**
+     * A won or lost deal back to active: it leaves the WON/LOST numbers and the
+     * reports until it is closed again (then it counts on that day).
+     */
+    async reopen(o) {
+      const yes = await confirmDialog({
+        title: 'Ponovno otvoriti priliku?',
+        message: `„${o.title}” više neće biti ${o.status === 'won' ? 'dobivena (WON) i neće se računati u prihod' : 'izgubljena (LOST)'} dok je ponovno ne zatvorite. Promjena se bilježi u povijesti statusa.`,
+        cancelLabel: 'Ne',
+        confirmLabel: 'Ponovno otvori',
+      });
+      if (!yes) return;
+      try {
+        await api.reopenOpportunity(o.id);
+        await done('Prilika je ponovno otvorena.');
+      } catch (failure) {
+        await done(failure instanceof ApiError ? failure.message : 'Pokušajte ponovno.');
+      }
+    },
+
     reminder(o) {
       openReminderSheet({
         title: 'Podsjetnik za priliku',

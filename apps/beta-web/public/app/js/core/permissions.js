@@ -21,7 +21,9 @@ const view = (module, label, extra = {}) => ({ key: `${module}.view`, label, ...
  * needs to make sense (creating leads needs seeing leads; a Dashboard widget
  * needs the Dashboard and the data right it shows); `adminOnly`: only an
  * administrator (or the owner) may hold it; `needs`: for a Dashboard widget,
- * the data right it shows (a widget never shows data its user may not see).
+ * the data right it shows (a widget never shows data its user may not see);
+ * `defaultGrant: false`: not among a new Korisnik's rights (an administrator
+ * gives it on purpose).
  */
 export const PERMISSION_GROUPS = Object.freeze([
   {
@@ -72,7 +74,20 @@ export const PERMISSION_GROUPS = Object.freeze([
       view('calendar', 'Sales kalendar'),
       view('pipeline', 'Opportunity pipeline'),
       view('feedback', 'Feedback overview'),
-      view('reports', 'Izvještaji'),
+      view('reports', 'Izvještaji — pregled, PDF i preuzimanje', {
+        requires: ['opportunities.view'],
+      }),
+      {
+        key: 'reports.sales_reps',
+        label: 'Izvještaji — usporedba prodajnih predstavnika',
+        requires: ['reports.view'],
+        defaultGrant: false,
+      },
+      {
+        key: 'reports.email',
+        label: 'Izvještaji — slanje e-mailom',
+        requires: ['reports.view'],
+      },
     ],
   },
   {
@@ -196,9 +211,14 @@ const BY_KEY = new Map(PERMISSIONS.map((p) => [p.key, p]));
 export const permissionLabel = (key) => BY_KEY.get(key)?.label ?? key;
 export const isAdminOnly = (key) => BY_KEY.get(key)?.adminOnly === true;
 
-/** A new user's rights unless the administrator chooses others: the CRM, no administration. */
+/**
+ * A new user's rights unless the administrator chooses others: the CRM, no
+ * administration, nothing marked `defaultGrant: false` (comparing colleagues).
+ */
 export const DEFAULT_USER_PERMISSIONS = Object.freeze(
-  PERMISSION_KEYS.filter((key) => !key.startsWith('users.')),
+  PERMISSIONS.filter((p) => !p.key.startsWith('users.') && p.defaultGrant !== false).map(
+    (p) => p.key,
+  ),
 );
 
 /** Everything an owner has (owners are never restricted). */

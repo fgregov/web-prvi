@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { consoleLogger, createApp } from './app.ts';
+import { mailerFromEnv } from './email/mailer.ts';
 import { ConfigError, loadAuthConfig } from './auth/config.ts';
 import { createAuthService, systemClock } from './auth/service.ts';
 import { createLocalIdentityLayer } from './identity/local.ts';
@@ -99,8 +100,15 @@ const sender = createWebPushSender(vapid);
 const scheduler = createReminderScheduler({ services, sender, logger: consoleLogger });
 scheduler.start();
 
+// IZVJEŠTAJI → "Pošalji e-mail": an e-mail service when configured (email/mailer.ts).
+const mailer = mailerFromEnv(process.env);
+if (!mailer.configured) {
+  consoleLogger.info('email_not_configured', { reason: mailer.problem });
+}
+
 const server = createServer(
   createApp(auth, {
+    mailer,
     users: identity.users,
     crm: {
       services,
@@ -116,7 +124,8 @@ const server = createServer(
 server.listen(port, host, () => {
   console.log(
     `[renvara-beta] Listening on http://${host === '127.0.0.1' ? 'localhost' : host}:${port} ` +
-      `(secure cookies: ${config.secureCookies ? 'on' : 'off'}, push reminders: ${sender.configured ? 'on' : 'off'}` +
+      `(secure cookies: ${config.secureCookies ? 'on' : 'off'}, push reminders: ${sender.configured ? 'on' : 'off'}, ` +
+      `report e-mail: ${mailer.configured ? mailer.provider : 'off'}` +
       `${config.publicOrigin ? `, public address: ${config.publicOrigin}` : ''}` +
       `${config.trustProxy ? ', behind a proxy' : ''})`,
   );

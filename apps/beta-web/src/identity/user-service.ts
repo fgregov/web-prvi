@@ -166,6 +166,31 @@ export function createUserService({
     },
 
     /**
+     * Members as the reports name them (IZVJEŠTAJI): name, role and status —
+     * no e-mail, phone or OIB. Read on the server for a member who may run a
+     * report; it never needs the right to see the user list.
+     */
+    async reportMembers(organizationId: string) {
+      const members: Array<{ id: string; name: string; role: MemberRole; status: MemberStatus }> =
+        [];
+      for (let page = 1; page <= 50; page += 1) {
+        const { items, total } = await directory.list(organizationId, {
+          status: 'all',
+          q: '',
+          sort: 'lastName',
+          dir: 'asc',
+          page,
+          pageSize: 200,
+        });
+        for (const u of items) {
+          members.push({ id: u.id, name: displayName(u), role: u.role, status: u.status });
+        }
+        if (items.length === 0 || members.length >= total) break;
+      }
+      return members;
+    },
+
+    /**
      * Sign-in: the provider checks the password, then the member must be
      * active in this organization. `notice`: the password was changed by an
      * administrator since the last sign-in.
