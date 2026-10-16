@@ -1,0 +1,15 @@
+{
+  "name": "renvara-localhost",
+  "private": true,
+  "description": "Renvara CRM na ovom računalu: http://localhost:3000. Treba samo Node.js; npm install nije potreban.",
+  "type": "module",
+  "scripts": {
+    "start": "node program/start.mjs",
+    "demo": "node program/start.mjs --demo",
+    "email": "node program/start.mjs --email",
+    "nova-lozinka": "node program/start.mjs --nova-lozinka"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}

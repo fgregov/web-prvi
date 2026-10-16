@@ -4,10 +4,13 @@
 //
 //   renvara-localhost/
 //     Pokreni-Renvaru-Windows.bat · Pokreni-Renvaru-Mac.command · pokreni-renvaru-linux.sh
+//     Pokreni-DEMO-Windows.bat · Pokreni-DEMO-Mac.command      DEMO records (podaci-demo)
+//     package.json                             npm start · npm run demo · npm run email (no install)
 //     PROCITAJ-ME.txt
 //     program/
 //       start.mjs                              first-run setup, start, browser (localhost/start.mjs)
 //       apps/beta-web/server/renvara.mjs       the server (src/server.ts) in one file
+//       apps/beta-web/server/demo-seed.mjs     OPTIONAL demo records (scripts/seed-demo.ts)
 //       apps/beta-web/public/                  pages and assets (clean edition: no demo data)
 //       apps/beta-web/node_modules/pdfjs-dist  PDF checks and the viewer (only the files used)
 //       prototypes/home/                       Početna
@@ -48,29 +51,36 @@ mkdirSync(join(WEB, 'server'), { recursive: true });
 // One ES module with the CRM, Korisnici and @renvara/domain inside; Node's own
 // modules and pdf.js (loaded on demand, from node_modules below) stay outside.
 let cleanEdition = false;
-const bundle = await rolldown({
-  input: join(APP, 'src/server.ts'),
-  platform: 'node',
-  external: [/^node:/, /^pdfjs-dist\//],
-  logLevel: 'warn',
-  plugins: [
-    {
-      name: 'clean-edition',
-      load(id) {
-        if (resolve(id) !== EDITION) return null;
-        cleanEdition = true;
-        return CLEAN_EDITION;
-      },
-    },
+const cleanEditionPlugin = {
+  name: 'clean-edition',
+  load(id: string) {
+    if (resolve(id) !== EDITION) return null;
+    cleanEdition = true;
+    return CLEAN_EDITION;
+  },
+};
+for (const [input, file, banner] of [
+  [
+    'src/server.ts',
+    'server/renvara.mjs',
+    '// Renvara server (apps/beta-web/src/server.ts), bundled by localhost/build.ts.',
   ],
-});
-await bundle.write({
-  file: join(WEB, 'server/renvara.mjs'),
-  format: 'esm',
-  codeSplitting: false,
-  banner: '// Renvara server (apps/beta-web/src/server.ts), bundled by localhost/build.ts.',
-});
-await bundle.close();
+  [
+    'scripts/seed-demo.ts',
+    'server/demo-seed.mjs',
+    '// OPTIONAL demo records for podaci-demo (apps/beta-web/scripts/seed-demo.ts), bundled by localhost/build.ts.',
+  ],
+] as const) {
+  const bundle = await rolldown({
+    input: join(APP, input),
+    platform: 'node',
+    external: [/^node:/, /^pdfjs-dist\//],
+    logLevel: 'warn',
+    plugins: [cleanEditionPlugin],
+  });
+  await bundle.write({ file: join(WEB, file), format: 'esm', codeSplitting: false, banner });
+  await bundle.close();
+}
 
 // ------------------------------------------------- pages and assets ---
 cpSync(join(APP, 'public'), join(WEB, 'public'), { recursive: true });
@@ -107,10 +117,19 @@ writeFileSync(
   join(OUT, 'PROCITAJ-ME.txt'),
   `﻿${crlf(readFileSync(join(SOURCE, 'PROCITAJ-ME.txt'), 'utf8'))}`,
 );
-for (const file of ['Pokreni-Renvaru-Mac.command', 'pokreni-renvaru-linux.sh']) {
+writeFileSync(
+  join(OUT, 'Pokreni-DEMO-Windows.bat'),
+  crlf(readFileSync(join(SOURCE, 'Pokreni-DEMO-Windows.bat'), 'utf8')),
+);
+for (const file of [
+  'Pokreni-Renvaru-Mac.command',
+  'Pokreni-DEMO-Mac.command',
+  'pokreni-renvaru-linux.sh',
+]) {
   cpSync(join(SOURCE, file), join(OUT, file));
   chmodSync(join(OUT, file), 0o755);
 }
+cpSync(join(SOURCE, 'package.json'), join(OUT, 'package.json'));
 
 let commit = 'unknown';
 try {
@@ -125,7 +144,12 @@ writeFileSync(
 
 // --------------------------------------------------------------- check ---
 for (const file of [
+  'package.json',
+  'Pokreni-DEMO-Windows.bat',
   'program/apps/beta-web/server/renvara.mjs',
+  'program/apps/beta-web/server/demo-seed.mjs',
+  'program/apps/beta-web/node_modules/pdfjs-dist/standard_fonts/LiberationSans-Regular.ttf',
+  'program/apps/beta-web/public/app/pages/reports.html',
   'program/apps/beta-web/public/login/index.html',
   'program/apps/beta-web/public/app/pages/users.html',
   'program/prototypes/home/index.html',

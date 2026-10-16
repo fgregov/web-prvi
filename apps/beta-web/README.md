@@ -647,14 +647,17 @@ only Node.js 20.11+ (no `pnpm install`, no network):
 | File | Purpose |
 | ---- | ------- |
 | `Pokreni-Renvaru-Windows.bat`, `Pokreni-Renvaru-Mac.command`, `pokreni-renvaru-linux.sh` | Double-click: start, open the browser |
-| `program/start.mjs` (`localhost/start.mjs`) | First start: asks the owner's name, username, e-mail and password; keeps only its scrypt hash (`RENVARA_BETA_PASSWORD_HASH`), a session secret and VAPID keys in `podaci/postavke.json` (0600). Then starts the server on `127.0.0.1` (port 3000 or the next free one) with data in `podaci/`. `--nova-lozinka`, `--port=`, `--bez-preglednika` |
+| `Pokreni-DEMO-Windows.bat`, `Pokreni-DEMO-Mac.command` | The same with `--demo`: demo records (`scripts/seed-demo.ts`, bundled as `server/demo-seed.mjs`) written once into `podaci-demo/`, never into `podaci/`; refused while the normal app runs on the port |
+| `package.json` | `npm start`, `npm run demo`, `npm run email`, `npm run nova-lozinka` (no dependencies, nothing to install) |
+| `program/start.mjs` (`localhost/start.mjs`) | First start: asks the owner's name, username, e-mail and password; keeps only its scrypt hash (`RENVARA_BETA_PASSWORD_HASH`), a session secret and VAPID keys in `podaci/postavke.json` (0600). Then starts the server on `127.0.0.1` (port 3000 or the next free one) with data in `podaci/`, time zone Europe/Zagreb (`RENVARA_ORG_TIMEZONE` overrides). `--demo`, `--email` (Resend key, hidden, and sender for IZVJEŠTAJI → e-mail; kept in `postavke.json`, passed to the server as `RESEND_API_KEY`/`RENVARA_EMAIL_FROM`, environment variables win), `--nova-lozinka`, `--port=`, `--bez-preglednika` |
 | `PROCITAJ-ME.txt` | Instructions for users (Croatian) |
 
 The server finds its files from its own location (`src/app-dir.ts`), so the
 layout below `program/` mirrors the repository. The CI job "Localhost package"
-unzips it outside the repository, runs the first start and signs in; the
-Pages workflow publishes the ZIP (`/renvara-localhost.zip`) and attaches it to
-the run.
+unzips it outside the repository, runs the first start, signs in, makes a
+report PDF and starts the DEMO (its records in the reports, `podaci/`
+unchanged); the Pages workflow publishes the ZIP (`/renvara-localhost.zip`)
+and attaches it to the run.
 
 ## Static demo
 

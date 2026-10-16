@@ -3,28 +3,37 @@
 //
 //   prvi put        pita ime, korisničko ime, e-mail i lozinku vlasnika;
 //                   lozinka se sprema samo kao scrypt hash (nikad kao tekst)
+//   --demo          DEMO podaci za isprobavanje, u zasebnoj mapi `podaci-demo`
+//                   (nikad pomiješani s vašim podacima u `podaci`)
+//   --email         postavlja slanje izvještaja e-mailom (Resend API ključ i
+//                   adresa pošiljatelja; spremaju se samo u podaci/postavke.json)
 //   --nova-lozinka  nova lozinka vlasnika
 //   --bez-preglednika  ne otvara preglednik
 //   --port=3000     drugi port
 //
 // Treba samo Node.js (20.11 ili noviji); ništa se ne instalira i ne preuzima.
+// Isto i s npm: npm start · npm run demo · npm run email (package.json uz ovu mapu).
 import { spawn } from 'node:child_process';
 import { createECDH, randomBytes, scrypt } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const PROGRAM = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(PROGRAM, '..');
 const DATA = join(ROOT, 'podaci');
 const SETTINGS = join(DATA, 'postavke.json');
 const SERVER = join(PROGRAM, 'apps', 'beta-web', 'server', 'renvara.mjs');
+const DEMO_SEED = join(PROGRAM, 'apps', 'beta-web', 'server', 'demo-seed.mjs');
 const DEFAULT_PORT = 3000;
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
+const DEMO = flag('demo');
+/** Where this run keeps its records: `podaci`, or `podaci-demo` for --demo. */
+const RECORDS = DEMO ? join(ROOT, 'podaci-demo') : DATA;
 const portArg = Number(args.find((a) => a.startsWith('--port='))?.slice('--port='.length));
 
 const say = (text = '') => process.stdout.write(`${text}\n`);
@@ -225,6 +234,75 @@ async function newPassword(settings) {
   say('  ✔ Lozinka je promijenjena. Prijavite se ponovno.');
 }
 
+/** --email: the e-mail service of IZVJEŠTAJI → "Pošalji e-mail" (Resend). */
+async function emailSettings(settings) {
+  say();
+  say('  Slanje izvještaja e-mailom (IZVJEŠTAJI → POŠALJI E-MAIL) ide preko servisa');
+  say('  Resend (https://resend.com): napravite API ključ i potvrdite domenu pošiljatelja.');
+  say('  Prazan ključ (samo Enter) isključuje slanje.');
+  say();
+  const apiKey = (
+    await ask('  Resend API ključ (počinje s re_; ne prikazuje se): ', { hidden: true })
+  ).trim();
+  if (!apiKey) {
+    delete settings.email;
+    saveSettings(settings);
+    say('  ✔ Slanje e-mailom je isključeno.');
+    return;
+  }
+  const from = await askUntil(
+    '  Pošiljatelj (npr. RENVARA CRM <izvjestaji@vasa-domena.hr>): ',
+    (v) =>
+      /^(?:[^<>\r\n"]{1,100}\s<)?[^\s@<>]+@[^\s@<>]+\.[A-Za-z]{2,}>?$/.test(v)
+        ? null
+        : 'Upišite adresu pošiljatelja (ime <adresa>).',
+  );
+  const replyTo = await askUntil('  Adresa za odgovore (neobavezno, Enter za preskočiti): ', (v) =>
+    !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Neispravan e-mail.',
+  );
+  settings.email = { provider: 'resend', apiKey, from, ...(replyTo ? { replyTo } : {}) };
+  saveSettings(settings);
+  say(
+    '  ✔ Spremljeno (samo u podaci/postavke.json na ovom računalu). Renvara se sada pokreće s njime.',
+  );
+}
+
+/** --demo: demo records written once into podaci-demo (never into podaci). */
+async function prepareDemo(settings) {
+  if (existsSync(join(RECORDS, 'crm.json'))) return;
+  const { seedDemoFile } = await import(pathToFileURL(DEMO_SEED).href);
+  mkdirSync(RECORDS, { recursive: true });
+  seedDemoFile({
+    RENVARA_DATA_FILE: join(RECORDS, 'crm.json'),
+    RENVARA_BETA_USERNAME: settings.owner.username,
+    RENVARA_BETA_DISPLAY_NAME: settings.owner.displayName,
+    RENVARA_ORG_TIMEZONE: timeZone(),
+  });
+  say('  ✔ DEMO podaci su pripremljeni u mapi "podaci-demo".');
+}
+
+/** E-mail of the reports: the environment wins over the saved settings. */
+function emailEnv(settings) {
+  const keys = [
+    'RESEND_API_KEY',
+    'RENVARA_EMAIL_FROM',
+    'RENVARA_EMAIL_REPLY_TO',
+    'RENVARA_EMAIL_PROVIDER',
+    'RENVARA_RESEND_API_URL',
+  ];
+  const saved = settings.email
+    ? {
+        RESEND_API_KEY: settings.email.apiKey,
+        RENVARA_EMAIL_FROM: settings.email.from,
+        ...(settings.email.replyTo ? { RENVARA_EMAIL_REPLY_TO: settings.email.replyTo } : {}),
+      }
+    : {};
+  const fromEnv = Object.fromEntries(
+    keys.filter((k) => process.env[k]).map((k) => [k, process.env[k]]),
+  );
+  return { ...saved, ...fromEnv };
+}
+
 // --------------------------------------------------------------- start ---
 const isFree = (port) =>
   new Promise((done) => {
@@ -262,34 +340,53 @@ function openBrowser(url) {
   }
 }
 
+/**
+ * The organization's time zone (dates, "today", report periods): Europe/Zagreb
+ * as on the BETA server, so both count the same day, whatever the computer's
+ * clock is set to. Another zone: RENVARA_ORG_TIMEZONE=Europe/Vienna npm start
+ */
 function timeZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Zagreb';
-  } catch {
-    return 'Europe/Zagreb';
+  const wanted = process.env.RENVARA_ORG_TIMEZONE;
+  if (wanted) {
+    try {
+      new Intl.DateTimeFormat('hr-HR', { timeZone: wanted });
+      return wanted;
+    } catch {
+      say(`  ! Nepoznata vremenska zona "${wanted}", koristim Europe/Zagreb.`);
+    }
   }
+  return 'Europe/Zagreb';
 }
 
 async function main() {
   let settings = readSettings();
   if (!settings) {
     settings = await firstRun();
-  } else if (flag('nova-lozinka')) {
+  } else if (flag('nova-lozinka') || flag('email')) {
     const port = Number.isInteger(portArg) && portArg > 0 ? portArg : settings.port || DEFAULT_PORT;
     if (await runningRenvara(port)) {
       input.close();
-      fail('Renvara upravo radi. Zatvorite njezin prozor, pa ponovite --nova-lozinka.');
+      fail(
+        `Renvara upravo radi. Zatvorite njezin prozor, pa ponovite naredbu (npm run ${flag('email') ? 'email' : 'nova-lozinka'}).`,
+      );
       return;
     }
-    await newPassword(settings);
+    if (flag('nova-lozinka')) await newPassword(settings);
+    else await emailSettings(settings);
   }
   input.close();
+  if (DEMO) await prepareDemo(settings);
 
   let port = Number.isInteger(portArg) && portArg > 0 ? portArg : settings.port || DEFAULT_PORT;
   if (!(await isFree(port))) {
     if (await runningRenvara(port)) {
       const url = `http://localhost:${port}`;
       say();
+      if (DEMO) {
+        // Both would share the sign-in in the browser (cookies of localhost).
+        fail(`Renvara već radi na ${url}. Zatvorite njezin prozor, pa pokrenite DEMO.`);
+        return;
+      }
       say(`  Renvara već radi na ${url} (u drugom prozoru). Otvaram preglednik.`);
       openBrowser(`${url}/login`);
       return;
@@ -318,10 +415,11 @@ async function main() {
     RENVARA_BETA_DISPLAY_NAME: settings.owner.displayName,
     RENVARA_BETA_EMAIL: settings.owner.email ?? '',
     RENVARA_SESSION_SECRET: settings.sessionSecret,
-    RENVARA_DATA_FILE: join(DATA, 'crm.json'),
-    RENVARA_IDENTITY_FILE: join(DATA, 'identity.json'),
-    RENVARA_DOCUMENTS_DIR: join(DATA, 'ponude'),
+    RENVARA_DATA_FILE: join(RECORDS, 'crm.json'),
+    RENVARA_IDENTITY_FILE: join(RECORDS, 'identity.json'),
+    RENVARA_DOCUMENTS_DIR: join(RECORDS, 'ponude'),
     RENVARA_ORG_TIMEZONE: timeZone(),
+    ...emailEnv(settings),
     ...(settings.push
       ? {
           RENVARA_VAPID_PUBLIC_KEY: settings.push.publicKey,
@@ -347,10 +445,19 @@ async function main() {
           started = true;
           say();
           say('  ────────────────────────────────────────────────────────────');
-          say(`  ✔ Renvara radi:  ${url}`);
+          say(`  ✔ Renvara${DEMO ? ' (DEMO)' : ''} radi:  ${url}`);
           say('    Otvorite tu adresu u pregledniku (Chrome, Edge, Safari, Firefox).');
           say('    Ne zatvarajte ovaj prozor dok radite. Kraj rada: Ctrl+C ili zatvorite prozor.');
-          say('    Podaci: mapa "podaci" pokraj ove mape (kopirajte je za sigurnosnu kopiju).');
+          say(
+            DEMO
+              ? '    DEMO podaci: mapa "podaci-demo" (vaši podaci u mapi "podaci" se ne diraju).'
+              : '    Podaci: mapa "podaci" pokraj ove mape (kopirajte je za sigurnosnu kopiju).',
+          );
+          say(
+            env.RESEND_API_KEY
+              ? '    E-mail izvještaja: uključen (Resend).'
+              : '    E-mail izvještaja: nije postavljen (npm run email ili --email).',
+          );
           say('  ────────────────────────────────────────────────────────────');
           say();
           openBrowser(`${url}/login`);

@@ -67,6 +67,7 @@ jobs:
           test -x Pokreni-Renvaru-Mac.command && test -x pokreni-renvaru-linux.sh
           pw="Ci$(openssl rand -hex 8)x1"
           printf 'CI Vlasnik\nci.owner\n\n%s\n%s\n' "$pw" "$pw" > answers.txt
+          printf '%s' "$pw" > ci-password.txt
           node program/start.mjs --bez-preglednika --port=3500 < answers.txt > run.log 2>&1 &
           for i in $(seq 1 30); do grep -q 'Renvara radi' run.log && break; sleep 1; done
           cat run.log
@@ -82,6 +83,27 @@ jobs:
           curl -s -b cookies.txt -H 'Origin: http://localhost:3500' -H 'Content-Type: application/json' \
             -d '{"type":"won_lost","preset":"current_year"}' -o report.pdf http://localhost:3500/api/reports/pdf
           head -c 8 report.pdf | grep -q '%PDF-1.7'
+          kill "$!"
+          for i in $(seq 1 20); do curl -s -o /dev/null http://localhost:3500/login || break; sleep 0.5; done
+      - name: DEMO mode (its own folder podaci-demo, records in the reports)
+        working-directory: ${{ runner.temp }}/lh/renvara-localhost
+        run: |
+          test -x Pokreni-DEMO-Mac.command && test -f Pokreni-DEMO-Windows.bat
+          before="$(find podaci -type f -exec sha256sum {} + | sort | sha256sum)"
+          node program/start.mjs --demo --bez-preglednika --port=3500 > demo.log 2>&1 &
+          for i in $(seq 1 30); do grep -q 'Renvara (DEMO) radi' demo.log && break; sleep 1; done
+          cat demo.log
+          test -f podaci-demo/crm.json
+          pw="$(cat ci-password.txt)"
+          curl -s -c demo-cookies.txt -H 'Content-Type: application/json' \
+            -d "{\"username\":\"ci.owner\",\"password\":\"$pw\"}" \
+            http://localhost:3500/api/auth/login | grep -q '"success":true'
+          curl -s -b demo-cookies.txt -H 'Origin: http://localhost:3500' -H 'Content-Type: application/json' \
+            -d '{"type":"won_lost","preset":"current_quarter"}' http://localhost:3500/api/reports/generate > demo-report.json
+          node -e 'const r = require("./demo-report.json").report; if (!(r.totals.wonCount > 0)) throw new Error(JSON.stringify(r.totals))'
+          kill "$!"
+          for i in $(seq 1 20); do curl -s -o /dev/null http://localhost:3500/login || break; sleep 0.5; done
+          test "$before" = "$(find podaci -type f -exec sha256sum {} + | sort | sha256sum)"
 
   release-zip:
     name: RENVARA_CRM_REPORTS_v1.0.zip (npm install, npm run dev on port 3000)
@@ -103,6 +125,7 @@ jobs:
           npm install --no-audit --no-fund
           pw="Ci$(openssl rand -hex 8)x1"
           printf 'CI Vlasnik\nci.owner\n\n%s\n%s\n' "$pw" "$pw" > answers.txt
+          printf '%s' "$pw" > ci-password.txt
           npm run dev < answers.txt > run.log 2>&1 &
           for i in $(seq 1 60); do grep -q 'Listening on http://localhost:3000' run.log && break; sleep 1; done
           cat run.log

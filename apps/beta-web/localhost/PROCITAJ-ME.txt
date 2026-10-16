@@ -1,8 +1,10 @@
-RENVARA NA VAŠEM RAČUNALU (localhost)
-=====================================
+RENVARA CRM NA VAŠEM RAČUNALU (http://localhost:3000)
+=====================================================
 
-Ovo je prava Renvara (isti server kao BETA u oblaku), pokrenuta na vašem
-računalu. Otvarate je u pregledniku na adresi http://localhost:3000.
+Ovo je prava Renvara (isti server kao BETA u oblaku), gotova za pokretanje
+na vašem računalu: kupci, leadovi, prilike, zadaci, Sales kalendar,
+Follow-up ponude, Korisnici i IZVJEŠTAJI (PDF, preuzimanje, e-mail).
+Otvarate je u pregledniku na adresi http://localhost:3000.
 Radi bez interneta, a podaci ostaju samo na ovom računalu.
 
 
@@ -10,7 +12,7 @@ Radi bez interneta, a podaci ostaju samo na ovom računalu.
 ---------------------
 Node.js, verzija LTS (besplatno): https://nodejs.org
 Preuzmite instalacijski program za svoj sustav i instalirajte ga
-(sve zadane postavke). Ništa drugo nije potrebno.
+(sve zadane postavke). Ništa drugo nije potrebno — ni "npm install".
 
 
 2. POKRETANJE
@@ -27,6 +29,9 @@ Raspakirajte ZIP u mapu po želji (npr. Dokumenti\Renvara), pa:
 
   Linux:    ./pokreni-renvaru-linux.sh
 
+  Ili u terminalu, u ovoj mapi (bilo koji sustav):
+            npm start          (isto što i: node program/start.mjs)
+
 Otvorit će se prozor (terminal). PRVI PUT pita:
   - ime i prezime vlasnika,
   - korisničko ime za prijavu,
@@ -41,7 +46,41 @@ VAŽNO: ne zatvarajte prozor dok radite. Kraj rada: zatvorite prozor ili
 pritisnite Ctrl+C. Sljedeći put opet dvoklik: podaci su sačuvani.
 
 
-3. KORISNICI
+3. DEMO PODACI ZA ISPROBAVANJE (neobavezno)
+-------------------------------------------
+Renvara počinje prazna. Za isprobavanje s gotovim primjerima (kupci,
+prilike dobivene i izgubljene u više kvartala, zadaci, ponude):
+
+  Windows:  dvoklik na  Pokreni-DEMO-Windows.bat
+  Mac:      dvoklik na  Pokreni-DEMO-Mac.command
+  Linux:    ./pokreni-renvaru-linux.sh --demo
+  terminal: npm run demo
+
+DEMO podaci su u zasebnoj mapi  podaci-demo  — nikad se ne miješaju s
+vašim podacima u mapi  podaci. Prijava je ista (vlasnik iz prvog
+pokretanja). Ne pokrećite DEMO i običnu Renvaru istodobno. DEMO od nule:
+zatvorite ga i obrišite mapu podaci-demo.
+
+
+4. IZVJEŠTAJI
+-------------
+Izbornik Izvještaji: Ukupni prihod za razdoblje, Promet po kvartalima,
+WON / LOST analiza, Usporedba prodajnih predstavnika. Odaberite filtre,
+GENERIRAJ IZVJEŠTAJ, zatim PREGLED PDF-a, PREUZMI PDF ili POŠALJI E-MAIL.
+
+Slanje e-mailom ide preko servisa Resend (https://resend.com): napravite
+API ključ i potvrdite domenu pošiljatelja, zatim jednom, dok Renvara NE
+radi:
+  terminal u ovoj mapi:  npm run email   (ili: node program/start.mjs --email)
+Upišite ključ (ne prikazuje se) i pošiljatelja, npr.
+"RENVARA CRM <izvjestaji@vasa-domena.hr>". Spremaju se samo u
+podaci/postavke.json na ovom računalu, a Renvara se zatim pokrene sa
+slanjem uključenim (vrijedi i za DEMO). Prazan ključ isključuje slanje.
+Bez toga sve radi, a POŠALJI E-MAIL jasno kaže da slanje nije
+postavljeno (PDF možete preuzeti).
+
+
+5. KORISNICI
 ------------
 Vi ste vlasnik organizacije (sva prava). Ostale korisnike dodajete u
 izborniku Korisnici → Dodaj. Novi korisnik ne dobiva lozinku od vas:
@@ -54,37 +93,35 @@ računalo u uredu). Za rad više ljudi s različitih uređaja koristite BETA u
 oblaku (deploy/README.md u repozitoriju).
 
 
-4. PODACI I SIGURNOSNA KOPIJA
+6. PODACI I SIGURNOSNA KOPIJA
 -----------------------------
 Sve je u mapi  podaci  (pokraj mape program):
   crm.json         kupci, kontakti, leadovi, prilike, zadaci, ponude, korisnici
   identity.json    lozinke korisnika (samo scrypt hash), jednokratne poveznice
   ponude\          PDF dokumenti ponuda
   postavke.json    vlasnik (lozinka samo kao hash), ključ sesija, ključevi za
-                   obavijesti
+                   obavijesti, postavke e-maila (ako ste ih upisali)
 
 Sigurnosna kopija: zatvorite Renvaru i kopirajte cijelu mapu  podaci.
 Vraćanje: kopiju vratite na isto mjesto.
 Mapu podaci ne šaljite drugima: u njoj su vaši poslovni podaci i ključevi.
 
 
-5. ZABORAVLJENA LOZINKA VLASNIKA
+7. ZABORAVLJENA LOZINKA VLASNIKA
 --------------------------------
-  Windows:  u ovoj mapi otvorite naredbeni redak i upišite
-              node program\start.mjs --nova-lozinka
-  Mac/Linux: u Terminalu, u ovoj mapi:
-              node program/start.mjs --nova-lozinka
+  terminal u ovoj mapi:  npm run nova-lozinka
+                         (ili: node program/start.mjs --nova-lozinka)
 Lozinke ostalih korisnika mijenja vlasnik u Korisnici → korisnik →
 Lozinka i sigurnost (ili im pošalje poveznicu za novu lozinku).
 
 
-6. NOVA VERZIJA
+8. NOVA VERZIJA
 ---------------
 Raspakirajte novi ZIP i u njega premjestite svoju mapu  podaci  (ili
 zamijenite samo mapu  program  u postojećoj mapi). Podaci ostaju.
 
 
-7. DOBRO JE ZNATI
+9. DOBRO JE ZNATI
 -----------------
 - Renvara sluša samo na ovom računalu (127.0.0.1): drugi uređaji u mreži
   ne mogu joj pristupiti.
@@ -93,4 +130,7 @@ zamijenite samo mapu  program  u postojećoj mapi). Podaci ostaju.
 - Follow-up poveznice za kupce (pregled ponude) otvaraju se samo na ovom
   računalu: kupac ih s localhosta ne može otvoriti. Za slanje kupcima
   potreban je server s javnom https adresom (BETA u oblaku).
+- Datumi ("danas", rokovi, razdoblja izvještaja) računaju se po
+  hrvatskom vremenu (Europe/Zagreb), kao u BETA verziji, bez obzira na
+  sat računala.
 - Ovo nije sustav za sigurnosnu kopiju: kopirajte mapu podaci redovito.
