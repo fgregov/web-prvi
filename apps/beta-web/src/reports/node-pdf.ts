@@ -4,11 +4,11 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { deflateSync, inflateSync } from 'node:zlib';
-import { APP_DIR } from '../app-dir.ts';
+import { APP_DIR, PDFJS_DIR } from '../app-dir.ts';
 import { parseTrueType } from './pdf/truetype.ts';
 import type { PdfResources } from './report-pdf.ts';
 
-const FONTS_DIR = resolve(APP_DIR, 'node_modules/pdfjs-dist/standard_fonts');
+const FONTS_DIR = resolve(PDFJS_DIR, 'standard_fonts');
 const LOGO = resolve(APP_DIR, '../../prototypes/home/assets/renvara-logo.png');
 
 let loaded: Promise<PdfResources> | null = null;

@@ -536,7 +536,7 @@ describe('CustomerService', () => {
 describe('Demo seed', () => {
   it('reproduces the dashboard rows as real, consistent records', () => {
     const data = seedDemoData(ctxA);
-    const seeded = createCrmServices(createMemoryRepository(data));
+    const seeded = createCrmServices(createMemoryRepository(data), { demoContent: true });
     expect(seeded.calendar.getDay(ctxA, TODAY).map((t) => t.title)).toEqual([
       'Sastanak s Adria Tech',
       'Poziv – Marko Horvat (Initium)',

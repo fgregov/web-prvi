@@ -10,6 +10,8 @@
 //   - the clean edition (core/edition.js → DEMO_CONTENT = false): a new
 //     installation starts empty; demo records only with npm run dev:demo,
 //     in files of their own
+//   - .npmrc legacy-peer-deps (npm 10 workspaces bug with vitest's optional
+//     peers), vite listed as a dev dependency instead
 // Only files tracked by git go in: no node_modules, no .env, no data, no keys.
 //
 //   node scripts/release-zip.mjs [--no-lock]   → dist/release/RENVARA_CRM_REPORTS_v1.0.zip
@@ -54,6 +56,8 @@ root.engines = { node: '>=22.18' };
 const supabase = root.devDependencies.supabase;
 delete root.devDependencies.supabase;
 root.optionalDependencies = { supabase };
+// vitest's required peer (pnpm installs peers itself; npm here does not, see .npmrc).
+root.devDependencies.vite = '8.3.2';
 root.scripts = {
   dev: 'npm run dev -w @renvara/beta-web',
   'dev:demo': 'npm run dev:demo -w @renvara/beta-web',
@@ -85,6 +89,13 @@ for (const file of [
   }
   save(file, pkg);
 }
+
+// npm 10 stops on vitest's optional peer dependencies in workspaces ("reading
+// 'edgesOut'"); without automatic peers it installs cleanly (vite is listed above).
+writeFileSync(
+  join(STAGE, '.npmrc'),
+  '# RENVARA_CRM_REPORTS_v1.0: peers are listed in package.json (vite for vitest).\nlegacy-peer-deps=true\n',
+);
 
 // The clean edition: an installation starts with no records.
 writeFileSync(

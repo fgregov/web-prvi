@@ -105,7 +105,8 @@ describe('DashboardService · period summary', () => {
     timeZone: 'Europe/Zagreb',
     now: new Date('2026-10-07T09:00:00Z'),
   };
-  const crm = () => createCrmServices(createMemoryRepository(seedDemoData(ctx)));
+  const crm = () =>
+    createCrmServices(createMemoryRepository(seedDemoData(ctx)), { demoContent: true });
 
   it('filters real records by period and adds the demo baseline', () => {
     const services = crm();
@@ -245,5 +246,5 @@ describe('Clean start (no demo content)', () => {
 });
 
 function crmWithDemo() {
-  return createCrmServices(createMemoryRepository(emptyData()));
+  return createCrmServices(createMemoryRepository(emptyData()), { demoContent: true });
 }

@@ -43,7 +43,8 @@ beforeEach(async () => {
   ] as const) {
     (data[key] as unknown[]).push(...other[key]);
   }
-  crm = createCrmServices(createMemoryRepository(data));
+  // The presentation demo's features (demo reset) are tested here, whatever the edition.
+  crm = createCrmServices(createMemoryRepository(data), { demoContent: true });
   server = await startTestServer(undefined, {
     crm: { services: crm, organizationId: ORG, timeZone: 'Europe/Zagreb', now: () => NOW },
   });

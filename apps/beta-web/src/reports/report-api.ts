@@ -143,7 +143,10 @@ export function createReportApi(options: ReportApiOptions) {
       return await work();
     } catch (error) {
       if (error instanceof CrmValidationError) return invalid(error.errors, error.message);
-      log('report.error', { error: (error as Error)?.name ?? 'Error' });
+      log('report.error', {
+        error: (error as Error)?.name ?? 'Error',
+        code: (error as { code?: unknown })?.code ?? null,
+      });
       return {
         status: 500,
         json: {
