@@ -1,0 +1,150 @@
+/**
+ * Controlled vocabularies of the RENVARA domain.
+ *
+ * These mirror the PostgreSQL enums 1:1. `@renvara/database` contains a
+ * compile-time contract that fails the build if the two ever diverge, so the
+ * database stays authoritative while the domain stays free of generated code.
+ */
+
+export const MEMBER_ROLES = ['owner', 'admin', 'manager', 'sales'] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+
+export const MEMBER_STATUSES = ['active', 'suspended', 'removed'] as const;
+export type MemberStatus = (typeof MEMBER_STATUSES)[number];
+
+export const CUSTOMER_STATUSES = ['prospect', 'active_customer', 'inactive_customer'] as const;
+export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
+
+/** Ordered: index = position in the pipeline. */
+export const OPPORTUNITY_STAGES = [
+  'new_lead',
+  'contacted',
+  'qualified',
+  'proposal',
+  'negotiation',
+] as const;
+export type OpportunityStage = (typeof OPPORTUNITY_STAGES)[number];
+
+export const OPPORTUNITY_STATUSES = ['active', 'won', 'lost'] as const;
+export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
+
+export const INTEREST_LEVELS = ['low', 'medium', 'high'] as const;
+export type InterestLevel = (typeof INTEREST_LEVELS)[number];
+
+export const ACTIVITY_TYPES = [
+  'phone_call',
+  'email',
+  'meeting',
+  'note',
+  'offer_sent',
+  'offer_answered',
+  'offer_viewed',
+  'follow_up',
+  'status_change',
+  'other',
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export const ACTIVITY_SOURCES = [
+  'manual',
+  'system',
+  'ai_assistant',
+  'import',
+  'integration',
+] as const;
+export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];
+
+/** Ordered as in the DB enum. `follow_up` is a plain type (no follow-up engine yet). */
+export const TASK_TYPES = [
+  'general',
+  'call',
+  'email',
+  'meeting',
+  'follow_up',
+  'send_offer',
+  'send_document',
+  'other',
+] as const;
+export type TaskType = (typeof TASK_TYPES)[number];
+
+export const TASK_STATUSES = ['open', 'completed', 'cancelled'] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+export const TASK_PRIORITIES = ['low', 'normal', 'high'] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+/** Lead pipeline position before it becomes a customer. */
+export const LEAD_STAGES = ['new', 'contacted', 'qualified'] as const;
+export type LeadStage = (typeof LEAD_STAGES)[number];
+
+/**
+ * Lead outcome (ADR-0009): `won` = at least one of its opportunities was won
+ * (commercial success; converting it into a customer is a separate, later
+ * step), `lost` = closed as lost.
+ */
+export const LEAD_STATUSES = ['active', 'won', 'lost'] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+/**
+ * Why a lead is WON: `opportunity` = one of its opportunities was won;
+ * `conversion` = recorded as WON by converting it into a customer (the meaning
+ * of WON before ADR-0009; no won opportunity is known).
+ */
+export const LEAD_WON_BASES = ['opportunity', 'conversion'] as const;
+export type LeadWonBasis = (typeof LEAD_WON_BASES)[number];
+
+/**
+ * MOBILNE OBAVIJESTI: the events a user can receive push notifications for,
+ * each switched on or off on its own (all off for a new user). The feedback
+ * bands are the Feedback Overview's (1–4D, 5–9D, 10D+), not task priorities.
+ */
+export const NOTIFICATION_TYPES = [
+  'offer_viewed',
+  'reminder_due',
+  'task_deadline',
+  'opportunity_deadline',
+  'feedback_low',
+  'feedback_medium',
+  'feedback_high',
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const LEAD_SOURCES = [
+  'manual',
+  'referral',
+  'web',
+  'email',
+  'phone',
+  'event',
+  'social',
+  'partner',
+  'other',
+] as const;
+export type LeadSource = (typeof LEAD_SOURCES)[number];
+
+export const LEAD_LOST_REASONS = [
+  'not_interested',
+  'no_response',
+  'competitor',
+  'price',
+  'postponed',
+  'not_a_fit',
+  'duplicate',
+  'other',
+] as const;
+export type LeadLostReason = (typeof LEAD_LOST_REASONS)[number];
+
+/**
+ * Sales offer (public.offers). Only a `sent` offer waits for feedback; an
+ * answer is recorded explicitly (a viewed PDF is not an answer).
+ */
+export const OFFER_STATUSES = ['draft', 'sent', 'answered', 'withdrawn'] as const;
+export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+/** Follow-up Engine engagement signals (ADR-0008): a link request vs. a rendered view. */
+export const OFFER_EVENT_TYPES = ['link_access', 'document_view'] as const;
+export type OfferEventType = (typeof OFFER_EVENT_TYPES)[number];
+
+/** Push reminder delivery (public.reminders): pending → processing → sent | failed; or cancelled. */
+export const REMINDER_STATUSES = ['pending', 'processing', 'sent', 'failed', 'cancelled'] as const;
+export type ReminderStatus = (typeof REMINDER_STATUSES)[number];

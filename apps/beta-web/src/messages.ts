@@ -1,0 +1,11 @@
+/** User-facing Croatian messages returned by the API. Kept in one place so the UI stays consistent. */
+export const MESSAGES = {
+  invalidCredentials: 'Neispravno korisničko ime ili lozinka.',
+  missingCredentials: 'Unesite korisničko ime i lozinku.',
+  badRequest: 'Neispravan zahtjev.',
+  tooManyAttempts: 'Previše neuspjelih pokušaja. Pokušajte ponovno za minutu.',
+  tooManyRequests: 'Previše zahtjeva u kratkom vremenu. Pričekajte trenutak i pokušajte ponovno.',
+  serverError: 'Došlo je do pogreške. Pokušajte ponovno.',
+  sessionRequired: 'Sesija je istekla. Prijavite se ponovno.',
+  invalidInput: 'Provjerite označena polja.',
+} as const;

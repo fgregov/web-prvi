@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+.vs/
+
+# BETA CRM data (apps/beta-web, RENVARA_DATA_FILE)
+.data/
+
+# Signing keys and app packages never belong in the repository
+*.p8
+*.ipa
+*.mobileprovision

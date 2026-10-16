@@ -1,0 +1,492 @@
+/* Renvara · KORISNICI (users.html, user-new.html, user.html): control bar,
+   table with one selectable row, rights accordions, password section. */
+
+/* ------------------------------------------------------- control bar --- */
+.rv-users__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.rv-users__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.rv-users__status {
+  flex: 0 0 190px;
+}
+
+.rv-users__search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.rv-users__search .rv-search {
+  margin-bottom: 0;
+}
+
+.rv-users__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rv-users__actions [hidden] {
+  display: none;
+}
+
+.rv-users__actions .rv-btn:disabled {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.rv-users__hint {
+  margin: 0 0 10px;
+  color: var(--rv-muted);
+  font-size: 13px;
+}
+
+.rv-users__hint[hidden],
+.rv-users__hint:empty {
+  display: none;
+}
+
+/* -------------------------------------------------------------- table --- */
+.rv-users__table-card {
+  overflow: hidden;
+}
+
+/* Narrow screens: the table scrolls inside its card, never the page. */
+.rv-users__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rv-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.rv-table th,
+.rv-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--rv-divider);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.rv-table thead th {
+  background: var(--rv-surface-muted);
+  color: var(--rv-text-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.rv-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.rv-table__pick {
+  width: 72px;
+  text-align: center !important;
+}
+
+.rv-table__pick input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--rv-red);
+  cursor: pointer;
+}
+
+.rv-table__row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.rv-table__row:hover {
+  background: var(--rv-surface-muted);
+}
+
+.rv-table__row.is-selected {
+  background: var(--rv-red-tint);
+  box-shadow: inset 3px 0 0 var(--rv-red);
+}
+
+.rv-table__row.is-inactive td:not(.rv-table__pick) {
+  color: var(--rv-muted);
+}
+
+.rv-table__nowrap {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rv-table__email {
+  white-space: nowrap;
+}
+
+.rv-users__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.rv-users__sort .rv-icon {
+  opacity: 0.45;
+}
+
+.rv-users__sort.is-active {
+  color: var(--rv-ink);
+}
+
+.rv-users__sort.is-active .rv-icon {
+  opacity: 1;
+  color: var(--rv-red);
+}
+
+.rv-users__sort:focus-visible {
+  outline: 2px solid var(--rv-red);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.rv-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rv-pager[hidden] {
+  display: none;
+}
+
+.rv-pager__info {
+  color: var(--rv-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------- user detail page --- */
+.rv-user-header {
+  margin-bottom: 16px;
+}
+
+.rv-user-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rv-user-section__title {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.rv-user-section__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.rv-user-section__alt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rv-divider);
+}
+
+.rv-user-profile-form,
+.rv-user-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rv-user-section .rv-screen__error {
+  margin: 0;
+}
+
+.rv-user-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.rv-user-facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rv-user-facts dt {
+  color: var(--rv-muted);
+  font-size: 13px;
+}
+
+.rv-user-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .rv-user-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rv-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rv-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--rv-red);
+}
+
+.rv-user-success {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-green-soft);
+  color: var(--rv-green-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rv-user-success[hidden],
+.rv-user-dirty[hidden] {
+  display: none;
+}
+
+.rv-user-dirty {
+  margin: 0;
+  color: var(--rv-red-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.rv-notice--warn {
+  background: #fff8e1;
+}
+
+.rv-notice--warn .rv-icon {
+  color: #a16207;
+}
+
+/* ------------------------------------------------------ PRAVA PRISTUPA --- */
+.rv-rights {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rv-rights__role {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rv-rights__role .rv-segmented {
+  max-width: 460px;
+}
+
+.rv-rights__role input:disabled + span {
+  cursor: not-allowed;
+}
+
+.rv-rights__message {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--rv-radius-field);
+  background: var(--rv-red-soft);
+  color: var(--rv-red-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rv-rights__message[hidden] {
+  display: none;
+}
+
+.rv-rights__group.is-invalid {
+  border-color: var(--rv-red);
+}
+
+/* Nested in a section: a quieter card. */
+.rv-user-section .rv-rights__group,
+.rv-user-new__rights .rv-rights__group {
+  box-shadow: none;
+}
+
+.rv-rights__group .rv-section__title {
+  font-size: 15px;
+}
+
+.rv-rights__group .rv-accordion__toggle {
+  min-height: 56px;
+}
+
+.rv-rights__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-rights__row {
+  border-bottom: 1px solid var(--rv-divider);
+}
+
+.rv-rights__row:last-child {
+  border-bottom: 0;
+}
+
+.rv-rights__row .rv-switch__text {
+  font-weight: 500;
+}
+
+.rv-rights__row.is-disabled .rv-switch {
+  cursor: not-allowed;
+}
+
+.rv-rights__row.is-disabled .rv-switch__text {
+  color: var(--rv-muted);
+}
+
+.rv-rights__row.is-disabled .rv-switch__track {
+  opacity: 0.55;
+}
+
+.rv-rights__hint {
+  margin: -4px 0 10px;
+  color: var(--rv-muted);
+  font-size: 12px;
+}
+
+.rv-rights__row.is-invalid .rv-rights__hint {
+  color: var(--rv-red-text);
+  font-weight: 600;
+}
+
+.rv-user-new {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rv-user-new__rights {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rv-user-new__rights .rv-form__section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --------------------------------------------------- POVIJEST PROMJENA --- */
+.rv-audit {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-audit__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rv-divider);
+  font-size: 14px;
+}
+
+.rv-audit__item:last-child {
+  border-bottom: 0;
+}
+
+.rv-audit__item.is-denied strong {
+  color: var(--rv-red-text);
+}
+
+.rv-audit__detail {
+  color: var(--rv-text-2);
+  overflow-wrap: anywhere;
+}
+
+.rv-audit__detail:empty {
+  display: none;
+}
+
+.rv-audit__meta {
+  color: var(--rv-muted);
+  font-size: 12px;
+}
+
+/* -------------------------------------------- password link dialog --- */
+.rv-link-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rv-link-dialog__url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.rv-link-dialog__status {
+  margin: 0;
+  color: var(--rv-green-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rv-link-dialog__status:empty {
+  display: none;
+}

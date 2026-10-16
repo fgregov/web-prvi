@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+supabase/
+*.md
+.github/workflows/main.yml
+# Xcode project (managed by Xcode and the Capacitor CLI)
+apps/ios/ios/
+# Demo app folder (built by apps/beta-web/demo/folder.ts)
+demo-app/*.html
+# Standalone iOS project (exported by apps/ios/scripts/export-project.mjs)
+demo-app-ios/

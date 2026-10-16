@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - gh-pages
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript (format, typecheck, unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  docker:
+    name: Docker image (cloud deployment, deploy/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -f apps/beta-web/Dockerfile -t renvara-beta .
+      - name: Starts, serves the login page, protects the app, keeps data in /data
+        run: |
+          docker run -d --name renvara -p 3000:3000 \
+            -e RENVARA_BETA_USERNAME=ci \
+            -e RENVARA_BETA_PASSWORD="$(openssl rand -hex 16)" \
+            -e RENVARA_SESSION_SECRET="$(openssl rand -base64 48)" \
+            renvara-beta
+          for i in $(seq 1 30); do curl -fs -o /dev/null http://localhost:3000/login && break; sleep 1; done
+          curl -fs -o /dev/null http://localhost:3000/login
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/dashboard)" = 302
+          docker exec renvara sh -c 'test "$(id -un)" = node && test -s /data/crm.json'
+          docker exec renvara grep -q 'DEMO_CONTENT = false' apps/beta-web/public/app/js/core/edition.js
+      - if: always()
+        run: docker logs renvara || true
+
+  localhost:
+    name: Localhost package (one folder, only Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @renvara/beta-web localhost:build
+      - name: From a fresh unzip outside the repository (setup, sign-in, pages)
+        run: |
+          mkdir -p "$RUNNER_TEMP/lh" && cd "$RUNNER_TEMP/lh"
+          unzip -q "$GITHUB_WORKSPACE/apps/beta-web/dist/renvara-localhost.zip"
+          cd renvara-localhost
+          test -x Pokreni-Renvaru-Mac.command && test -x pokreni-renvaru-linux.sh
+          pw="Ci$(openssl rand -hex 8)x1"
+          printf 'CI Vlasnik\nci.owner\n\n%s\n%s\n' "$pw" "$pw" > answers.txt
+          printf '%s' "$pw" > ci-password.txt
+          node program/start.mjs --bez-preglednika --port=3500 < answers.txt > run.log 2>&1 &
+          for i in $(seq 1 30); do grep -q 'Renvara radi' run.log && break; sleep 1; done
+          cat run.log
+          curl -fs -o /dev/null http://localhost:3500/login
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3500/dashboard)" = 302
+          ! grep -rqF "$pw" podaci
+          curl -s -c cookies.txt -H 'Content-Type: application/json' \
+            -d "{\"username\":\"ci.owner\",\"password\":\"$pw\"}" \
+            http://localhost:3500/api/auth/login | grep -q '"success":true'
+          test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/users)" = 200
+          test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/viewer/pdfjs/build/pdf.min.mjs)" = 200
+          test "$(curl -s -b cookies.txt -o /dev/null -w '%{http_code}' http://localhost:3500/reports)" = 200
+          curl -s -b cookies.txt -H 'Origin: http://localhost:3500' -H 'Content-Type: application/json' \
+            -d '{"type":"won_lost","preset":"current_year"}' -o report.pdf http://localhost:3500/api/reports/pdf
+          head -c 8 report.pdf | grep -q '%PDF-1.7'
+          kill "$!"
+          for i in $(seq 1 20); do curl -s -o /dev/null http://localhost:3500/login || break; sleep 0.5; done
+      - name: DEMO mode (its own folder podaci-demo, records in the reports)
+        working-directory: ${{ runner.temp }}/lh/renvara-localhost
+        run: |
+          test -x Pokreni-DEMO-Mac.command && test -f Pokreni-DEMO-Windows.bat
+          before="$(find podaci -type f -exec sha256sum {} + | sort | sha256sum)"
+          node program/start.mjs --demo --bez-preglednika --port=3500 > demo.log 2>&1 &
+          for i in $(seq 1 30); do grep -q 'Renvara (DEMO) radi' demo.log && break; sleep 1; done
+          cat demo.log
+          test -f podaci-demo/crm.json
+          pw="$(cat ci-password.txt)"
+          curl -s -c demo-cookies.txt -H 'Content-Type: application/json' \
+            -d "{\"username\":\"ci.owner\",\"password\":\"$pw\"}" \
+            http://localhost:3500/api/auth/login | grep -q '"success":true'
+          curl -s -b demo-cookies.txt -H 'Origin: http://localhost:3500' -H 'Content-Type: application/json' \
+            -d '{"type":"won_lost","preset":"current_quarter"}' http://localhost:3500/api/reports/generate > demo-report.json
+          node -e 'const r = require("./demo-report.json").report; if (!(r.totals.wonCount > 0)) throw new Error(JSON.stringify(r.totals))'
+          kill "$!"
+          for i in $(seq 1 20); do curl -s -o /dev/null http://localhost:3500/login || break; sleep 0.5; done
+          test "$before" = "$(find podaci -type f -exec sha256sum {} + | sort | sha256sum)"
+
+  release-zip:
+    name: RENVARA_CRM_REPORTS_v1.0.zip (npm install, npm run dev on port 3000)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # npm only here (no pnpm on this runner): no automatic pnpm cache
+          package-manager-cache: false
+      - run: node scripts/release-zip.mjs
+      - name: From a fresh unzip (npm install, first start, reports)
+        run: |
+          mkdir -p "$RUNNER_TEMP/zip" && cd "$RUNNER_TEMP/zip"
+          unzip -q "$GITHUB_WORKSPACE/dist/release/RENVARA_CRM_REPORTS_v1.0.zip"
+          cd RENVARA_CRM_REPORTS_v1.0
+          ! find . -name '.env' | grep -q .
+          npm install --no-audit --no-fund
+          pw="Ci$(openssl rand -hex 8)x1"
+          printf 'CI Vlasnik\nci.owner\n\n%s\n%s\n' "$pw" "$pw" > answers.txt
+          printf '%s' "$pw" > ci-password.txt
+          npm run dev < answers.txt > run.log 2>&1 &
+          for i in $(seq 1 60); do grep -q 'Listening on http://localhost:3000' run.log && break; sleep 1; done
+          cat run.log
+          ! grep -qF "$pw" apps/beta-web/.env
+          curl -fs -o /dev/null http://localhost:3000/login
+          curl -s -c cookies.txt -H 'Content-Type: application/json' \
+            -d "{\"username\":\"ci.owner\",\"password\":\"$pw\"}" \
+            http://localhost:3000/api/auth/login | grep -q '"success":true'
+          for type in revenue quarters won_lost sales_reps; do
+            curl -s -b cookies.txt -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' \
+              -d "{\"type\":\"$type\",\"preset\":\"current_year\"}" \
+              http://localhost:3000/api/reports/generate | grep -q '"success":true'
+          done
+          curl -s -b cookies.txt -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' \
+            -d '{"type":"revenue","preset":"current_year"}' -o report.pdf http://localhost:3000/api/reports/pdf
+          head -c 8 report.pdf | grep -q '%PDF-1.7'
+          npm test
+
+  database:
+    name: Database (migrations, RLS & invariant tests, generated types)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start local Postgres and apply all migrations
+        run: pnpm exec supabase db start
+      - name: Run pgTAP tests
+        run: pnpm db:test
+      - name: Generated types are up to date
+        run: |
+          pnpm db:types
+          git diff --exit-code -- packages/database/src/database.types.ts

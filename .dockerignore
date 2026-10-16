@@ -1,0 +1,16 @@
+# Build context of apps/beta-web/Dockerfile: only what the image needs.
+**/node_modules
+**/.data
+**/.env
+**/.env.*
+**/dist
+**/coverage
+.git
+.github
+docs
+supabase
+demo-app
+apps/beta-web/demo
+apps/beta-web/test
+**/*.p8
+**/*.ipa

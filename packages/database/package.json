@@ -1,0 +1,19 @@
+{
+  "name": "@renvara/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generated PostgreSQL types (supabase gen types) and the enum contract with @renvara/domain.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@renvara/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

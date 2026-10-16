@@ -1,0 +1,439 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { MESSAGES } from '../src/messages.ts';
+import {
+  cookiePair,
+  get,
+  login,
+  PASSWORD,
+  startTestServer,
+  testEnv,
+  USERNAME,
+  type TestServer,
+} from './helpers.ts';
+
+let server: TestServer;
+beforeEach(async () => {
+  server = await startTestServer();
+});
+afterEach(async () => {
+  await server.close();
+});
+
+async function signIn(): Promise<string> {
+  const response = await login(server.url, USERNAME, PASSWORD);
+  expect(response.status).toBe(200);
+  return cookiePair(response);
+}
+
+describe('POST /api/auth/login', () => {
+  it('TEST 1 · correct credentials → 200, redirect target and a secure session cookie', async () => {
+    const response = await login(server.url, USERNAME, PASSWORD);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, redirectTo: '/dashboard' });
+    const cookie = response.headers.get('set-cookie') ?? '';
+    expect(cookie).toMatch(/^renvara_session=[\w-]+\.[\w-]+; /);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Lax');
+    expect(cookie).toContain('Path=/');
+    expect(cookie).toContain('Max-Age=28800');
+    expect(cookie).not.toContain('Secure'); // local HTTP development
+    expect(response.headers.get('cache-control')).toContain('no-store');
+  });
+
+  it.each([
+    ['TEST 2 · wrong password', USERNAME, 'wrong'],
+    ['TEST 3 · wrong username', 'wrong', PASSWORD],
+    ['TEST 4 · upper-case username', 'FGREGOV', PASSWORD],
+    ['TEST 5 · upper-case password', USERNAME, PASSWORD.toUpperCase()],
+    ['username with suffix', `${USERNAME}1`, PASSWORD],
+    ['password with trailing space', USERNAME, `${PASSWORD} `],
+    ['admin/admin', 'admin', 'admin'],
+  ])('%s → 401, generic message, no session', async (_name, username, password) => {
+    const response = await login(server.url, username, password);
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ success: false, message: MESSAGES.invalidCredentials });
+    expect(response.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('TEST 6 · empty username → 400', async () => {
+    const response = await login(server.url, '   ', PASSWORD);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ success: false, message: MESSAGES.missingCredentials });
+  });
+
+  it('TEST 7 · empty password → 400', async () => {
+    const response = await login(server.url, USERNAME, '');
+    expect(response.status).toBe(400);
+    expect(response.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('trims surrounding spaces from the username only', async () => {
+    expect((await login(server.url, `  ${USERNAME}  `, PASSWORD)).status).toBe(200);
+  });
+
+  it('rejects malformed, non-JSON, cross-site and wrong-method requests', async () => {
+    const malformed = await fetch(`${server.url}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"username":',
+    });
+    expect(malformed.status).toBe(400);
+
+    const form = await fetch(`${server.url}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `username=${USERNAME}&password=${PASSWORD}`,
+    });
+    expect(form.status).toBe(415);
+
+    const crossSite = await login(server.url, USERNAME, PASSWORD, {
+      Origin: 'https://evil.example',
+    });
+    expect(crossSite.status).toBe(403);
+    expect(crossSite.headers.get('set-cookie')).toBeNull();
+
+    const viaGet = await fetch(`${server.url}/api/auth/login?username=${USERNAME}&password=x`);
+    expect(viaGet.status).toBe(405);
+  });
+
+  it('rate-limits repeated failures per client, even for the right password', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      expect((await login(server.url, USERNAME, `wrong-${i}`)).status).toBe(401);
+    }
+    const blocked = await login(server.url, USERNAME, PASSWORD);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('retry-after')).toBe('60');
+    expect(await blocked.json()).toEqual({ success: false, message: MESSAGES.tooManyAttempts });
+
+    server.clock.now += 60_000;
+    expect((await login(server.url, USERNAME, PASSWORD)).status).toBe(200);
+  });
+
+  it('without RENVARA_TRUST_PROXY a client cannot dodge the limit with X-Forwarded-For', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const spoofed = { 'X-Forwarded-For': `203.0.113.${i}` };
+      expect((await login(server.url, USERNAME, `wrong-${i}`, spoofed)).status).toBe(401);
+    }
+    const next = { 'X-Forwarded-For': '203.0.113.99' };
+    expect((await login(server.url, USERNAME, PASSWORD, next)).status).toBe(429);
+    server.clock.now += 60_000;
+  });
+
+  it('never logs the password and never sends CORS headers', async () => {
+    const response = await login(server.url, USERNAME, `${PASSWORD}-typo`);
+    await login(server.url, USERNAME, PASSWORD);
+    expect(server.logs.join('\n')).not.toContain(PASSWORD);
+    expect(server.logs.some((line) => line.includes('"event":"login_failed"'))).toBe(true);
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
+  });
+});
+
+describe('protected dashboard', () => {
+  it('TEST 8 · valid session → approved dashboard, not cacheable', async () => {
+    const response = await get(server.url, '/dashboard', await signIn());
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('<base href="/dashboard/" />');
+    expect(html).toContain('Opportunity Pipeline');
+    expect(response.headers.get('cache-control')).toContain('no-store');
+
+    const asset = await get(server.url, '/dashboard/styles.css', await signIn());
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get('content-type')).toContain('text/css');
+  });
+
+  it('TEST 9 · no session → redirect to /login (page and assets)', async () => {
+    for (const path of ['/dashboard', '/dashboard/', '/dashboard/app.js']) {
+      const response = await get(server.url, path);
+      expect(response.status).toBe(302);
+      expect(response.headers.get('location')).toBe('/login');
+    }
+  });
+
+  it('TEST 10 · tampered session → redirect to /login and the cookie is cleared', async () => {
+    const [name, value] = (await signIn()).split('=') as [string, string];
+    const [body, signature] = value.split('.') as [string, string];
+    const forgedBody = Buffer.from(
+      JSON.stringify({
+        ...JSON.parse(Buffer.from(body, 'base64url').toString()),
+        username: 'admin',
+      }),
+    ).toString('base64url');
+    const response = await get(server.url, '/dashboard', `${name}=${forgedBody}.${signature}`);
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/login');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+  });
+
+  it('expired session → redirect to /login?reason=expired', async () => {
+    const cookie = await signIn();
+    server.clock.now += 8 * 60 * 60 * 1000;
+    const response = await get(server.url, '/dashboard', cookie);
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/login?reason=expired');
+  });
+
+  it('refuses path traversal out of the dashboard folder', async () => {
+    const cookie = await signIn();
+    for (const path of [
+      '/dashboard/..%2f..%2fpackage.json',
+      '/dashboard/.env',
+      '/dashboard/assets/x.txt',
+    ]) {
+      expect((await get(server.url, path, cookie)).status).toBe(404);
+    }
+  });
+});
+
+describe('logout', () => {
+  it('TEST 11 · logout clears the cookie and ends the session', async () => {
+    const cookie = await signIn();
+    const response = await fetch(`${server.url}/api/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: '{}',
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, redirectTo: '/login' });
+    expect(response.headers.get('set-cookie')).toMatch(/^renvara_session=; .*Max-Age=0/);
+
+    const session = await get(server.url, '/api/auth/session', cookie);
+    expect(await session.json()).toEqual({ authenticated: false });
+  });
+
+  it('TEST 12 · the old cookie no longer opens /dashboard after logout', async () => {
+    const cookie = await signIn();
+    await fetch(`${server.url}/api/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: '{}',
+    });
+    const response = await get(server.url, '/dashboard', cookie);
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/login');
+  });
+});
+
+describe('entry routes and session endpoint', () => {
+  it('routes / and /login by session state', async () => {
+    expect((await get(server.url, '/')).headers.get('location')).toBe('/login');
+    const cookie = await signIn();
+    expect((await get(server.url, '/', cookie)).headers.get('location')).toBe('/dashboard');
+    expect((await get(server.url, '/login', cookie)).headers.get('location')).toBe('/dashboard');
+    expect((await get(server.url, '/login')).status).toBe(200);
+  });
+
+  it('GET /api/auth/session exposes identity only', async () => {
+    const response = await get(server.url, '/api/auth/session', await signIn());
+    const body = (await response.json()) as { permissions: string[] };
+    expect(body).toMatchObject({
+      authenticated: true,
+      user: { id: `beta-${USERNAME}`, displayName: 'Frane Gregov', role: 'owner' },
+    });
+    // The first owner holds every right; the browser only shows them.
+    expect(body.permissions).toContain('users.manage_permissions');
+    expect(JSON.stringify(body)).not.toContain(PASSWORD);
+  });
+
+  it('serves no credentials to the browser', async () => {
+    for (const path of ['/login', '/login/login.js', '/login/login.css']) {
+      const text = await (await get(server.url, path)).text();
+      expect(text).not.toContain(PASSWORD);
+    }
+  });
+});
+
+describe('demo CRM routes', () => {
+  it('protects every CRM page and asset', async () => {
+    for (const path of [
+      '/sales/customers',
+      '/sales/customers/new',
+      '/sales/customers/abc-123',
+      '/opportunity-pipeline',
+      '/sales/opportunities/new',
+      '/sales/contacts/new',
+      '/sales/tasks',
+      '/sales/tasks/new',
+      '/sales/tasks/abc-123',
+      '/sales/tasks/abc-123/edit',
+      '/sales-calendar',
+      '/app/js/core/api.js',
+      '/app/css/pages.css',
+    ]) {
+      const response = await get(server.url, path);
+      expect(response.status, path).toBe(302);
+      expect(response.headers.get('location')).toBe('/login');
+    }
+  });
+
+  it('serves CRM pages and modules with a session', async () => {
+    const cookie = await signIn();
+    for (const path of [
+      '/sales/customers',
+      '/sales/customers/9b2f1c3e-0000-4000-8000-000000000001',
+      '/opportunity-pipeline',
+      '/sales-calendar',
+    ]) {
+      const response = await get(server.url, path, cookie);
+      expect(response.status, path).toBe(200);
+      expect(await response.text()).toContain('type="module"');
+    }
+    for (const [path, script] of [
+      ['/sales/tasks', 'tasks.js'],
+      ['/sales/tasks/new', 'task-form.js'],
+      ['/sales/tasks/abc-123', 'task.js'],
+      ['/sales/tasks/abc-123/edit', 'task-form.js'],
+      ['/sales/contacts/new', 'contact-new.js'],
+      ['/sales/opportunities/new', 'opportunity-new.js'],
+    ] as const) {
+      const response = await get(server.url, path, cookie);
+      expect(response.status, path).toBe(200);
+      expect(await response.text(), path).toContain(`/app/js/pages/${script}"`);
+    }
+    const module = await get(server.url, '/app/js/core/api.js', cookie);
+    expect(module.headers.get('content-type')).toContain('text/javascript');
+    expect((await get(server.url, '/sales/customers/bad%2Fid', cookie)).status).toBe(404);
+    expect((await get(server.url, '/app/../src/app.ts', cookie)).status).toBe(404);
+  });
+
+  it('serves the dedicated New Customer screen at /sales/customers/new (not the profile page)', async () => {
+    const response = await get(server.url, '/sales/customers/new', await signIn());
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('/app/js/pages/customer-new.js');
+    expect(html).not.toContain('/app/js/pages/customer.js');
+    expect(response.headers.get('cache-control')).toContain('no-store');
+  });
+
+  it('gives every page its own address (core/routes.js), each behind the sign-in', async () => {
+    const cookie = await signIn();
+    for (const [path, script] of [
+      ['/dashboard', 'dashboard.js'],
+      ['/follow-up', 'follow-up.js'],
+      ['/follow-up/new', 'follow-up-new.js'],
+      ['/follow-up/abc-123', 'follow-up-offer.js'],
+      ['/sales/leads', 'leads.js'],
+      ['/sales/leads/new', 'lead-new.js'],
+      ['/sales/leads/abc-123', 'lead.js'],
+      ['/sales/leads/abc-123/convert', 'lead-convert.js'],
+      ['/sales/opportunities', 'opportunity-list.js'],
+      ['/sales/opportunities/new', 'opportunity-new.js'],
+      ['/sales/opportunities/abc-123', 'opportunity.js'],
+      ['/sales/tasks', 'tasks.js'],
+      ['/sales/customers', 'customers.js'],
+      ['/sales/customers/abc-123', 'customer.js'],
+      ['/sales-calendar', 'calendar.js'],
+      ['/opportunity-pipeline', 'opportunity-pipeline.js'],
+      ['/feedback-overview', 'feedback-overview.js'],
+      ['/reports', 'reports.js'],
+      ['/users', 'users.js'],
+      ['/users/new', 'user-new.js'],
+      ['/users/abc-123', 'user.js'],
+      ['/settings', 'notifications.js'],
+    ] as const) {
+      const anonymous = await get(server.url, path);
+      expect(anonymous.status, path).toBe(302);
+      expect(anonymous.headers.get('location'), path).toBe('/login');
+      const response = await get(server.url, path, cookie);
+      expect(response.status, path).toBe(200);
+      expect(await response.text(), path).toContain(`/app/js/pages/${script}"`);
+    }
+  });
+
+  it('sends old addresses to the page they are now (301, query kept)', async () => {
+    for (const [from, to] of [
+      ['/customers', '/sales/customers'],
+      ['/customers?status=all', '/sales/customers?status=all'],
+      ['/customers/new?returnTo=%2Fdashboard', '/sales/customers/new?returnTo=%2Fdashboard'],
+      ['/customers/abc-123', '/sales/customers/abc-123'],
+      ['/contacts/new?companyId=c1', '/sales/contacts/new?companyId=c1'],
+      ['/opportunities', '/opportunity-pipeline'],
+      ['/opportunities/new', '/sales/opportunities/new'],
+      ['/tasks', '/sales/tasks'],
+      ['/tasks/abc-123/edit', '/sales/tasks/abc-123/edit'],
+      ['/leads', '/sales/leads'],
+      ['/leads/abc-123/convert', '/sales/leads/abc-123/convert'],
+      ['/calendar?week=2026-10-12', '/sales-calendar?week=2026-10-12'],
+      ['/notifications', '/settings'],
+      ['/more', '/dashboard'],
+      ['/sales/leads/', '/sales/leads'],
+      ['/reports/', '/reports'],
+      ['/tasks/', '/sales/tasks'],
+    ] as const) {
+      const response = await get(server.url, from);
+      expect(response.status, from).toBe(301);
+      expect(response.headers.get('location'), from).toBe(to);
+    }
+  });
+
+  it('answers an unknown address with the page-not-found screen (404)', async () => {
+    const cookie = await signIn();
+    for (const [path, session] of [
+      ['/nepostojeca-stranica', cookie],
+      ['/nepostojeca-stranica', undefined],
+      ['/sales', cookie],
+      ['/sales/customers/abc-123/xyz', cookie],
+      ['/customers-x', undefined],
+      ['/dashboard-x', cookie],
+    ] as const) {
+      const response = await get(server.url, path, session);
+      expect(response.status, path).toBe(404);
+      expect(response.headers.get('content-type'), path).toContain('text/html');
+      expect(response.headers.get('location'), path).toBeNull();
+      expect(await response.text(), path).toContain('Stranica nije pronađena');
+    }
+    expect((await get(server.url, '/api/nepostojece')).status).toBe(404);
+  });
+
+  it('session endpoint includes the user id used as CRM owner', async () => {
+    const body = (await (await get(server.url, '/api/auth/session', await signIn())).json()) as {
+      user: { id: string };
+    };
+    expect(body.user.id).toBe('beta-fgregov');
+  });
+});
+
+describe('production cookies', () => {
+  it('uses Secure and the __Host- prefix when NODE_ENV=production', async () => {
+    await server.close();
+    server = await startTestServer(testEnv({ NODE_ENV: 'production' }));
+    const response = await login(server.url, USERNAME, PASSWORD);
+    const cookie = response.headers.get('set-cookie') ?? '';
+    expect(cookie).toMatch(/^__Host-renvara_session=/);
+    expect(cookie).toContain('Secure');
+  });
+});
+
+describe('behind a reverse proxy (RENVARA_TRUST_PROXY=true)', () => {
+  let proxied: TestServer;
+  beforeEach(async () => {
+    proxied = await startTestServer(testEnv({ RENVARA_TRUST_PROXY: 'true' }));
+  });
+  afterEach(() => proxied.close());
+
+  // Every request reaches the server from the proxy; the proxy appends the client last.
+  const via = (client: string, sent?: string) => ({
+    'X-Forwarded-For': sent ? `${sent}, ${client}` : client,
+  });
+
+  it('limits each client separately, so one client cannot lock everyone out', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      expect((await login(proxied.url, USERNAME, `wrong-${i}`, via('198.51.100.7'))).status).toBe(
+        401,
+      );
+    }
+    expect((await login(proxied.url, USERNAME, PASSWORD, via('198.51.100.7'))).status).toBe(429);
+    expect((await login(proxied.url, USERNAME, PASSWORD, via('198.51.100.8'))).status).toBe(200);
+  });
+
+  it('uses the address the proxy appended, not one the client sent', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const headers = via('198.51.100.7', `203.0.113.${i}`); // client-chosen entry varies
+      expect((await login(proxied.url, USERNAME, `wrong-${i}`, headers)).status).toBe(401);
+    }
+    expect(
+      (await login(proxied.url, USERNAME, PASSWORD, via('198.51.100.7', '1.2.3.4'))).status,
+    ).toBe(429);
+    expect(proxied.logs.some((line) => line.includes('"ip":"198.51.100.7"'))).toBe(true);
+  });
+});
