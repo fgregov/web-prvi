@@ -1,0 +1,112 @@
+import type { DB } from '../db/index.js';
+import { ensureMachineLocation } from '../modules/catalog/service.js';
+import { inventorySettings } from '../modules/inventory/operations.js';
+import { postMovement, reverseMovement } from '../modules/inventory/ledger.js';
+import { SYSTEM_ACTOR, type Actor } from '../modules/audit/audit.js';
+import { todayLocal } from '../lib/time.js';
+
+export interface PostingSummary {
+  enabled: boolean;
+  posted: number;
+  reversed: number;
+  unmapped: number;
+  noMachine: number;
+  unchanged: number;
+}
+
+interface SaleRow {
+  id: number;
+  machine_id: number | null;
+  tv_product_id: number | null;
+  quantity: number;
+  status: 'valid' | 'cancelled';
+  sold_date_local: string;
+  revision: number;
+  stock_movement_id: number | null;
+  product_name_raw: string | null;
+}
+
+/**
+ * Knjiži prodaju iz Televenda na zalihu AUTOMATA (nikad na centralno skladište – roba je iz
+ * centralnog skladišta već razdužena prijenosom u vozilo/automat). Svaka verzija transakcije
+ * knjiži se najviše jednom (source_ref = sale:<id>:r<revizija>, UNIQUE). Storno ili ispravak
+ * transakcije stornira prethodno knjiženje i, ako je transakcija i dalje valjana, knjiži novu verziju.
+ */
+export function postSalesToMachineStock(db: DB, saleIds: number[] | 'all', actor: Actor = SYSTEM_ACTOR): PostingSummary {
+  const settings = inventorySettings(db);
+  const summary: PostingSummary = { enabled: !!settings.salesPostingStartDate, posted: 0, reversed: 0, unmapped: 0, noMachine: 0, unchanged: 0 };
+  if (!settings.salesPostingStartDate) return summary;
+  const start = settings.salesPostingStartDate;
+  const rows = (
+    saleIds === 'all'
+      ? db.prepare('SELECT * FROM sales_transactions WHERE sold_date_local >= ? ORDER BY id').all(start)
+      : saleIds.length
+        ? db
+            .prepare(`SELECT * FROM sales_transactions WHERE id IN (${saleIds.map(() => '?').join(',')}) AND sold_date_local >= ? ORDER BY id`)
+            .all(...saleIds, start)
+        : []
+  ) as SaleRow[];
+  const productOf = db.prepare('SELECT product_id FROM product_televend_links WHERE tv_product_id = ?');
+  const movementRef = db.prepare('SELECT source_ref FROM stock_movements WHERE id = ?');
+  for (const s of rows) {
+    db.transaction(() => {
+      const ref = `sale:${s.id}:r${s.revision}`;
+      if (s.stock_movement_id) {
+        const posted = movementRef.get(s.stock_movement_id) as { source_ref: string } | undefined;
+        if (posted?.source_ref === ref && s.status === 'valid') {
+          summary.unchanged++;
+          return;
+        }
+        reverseMovement(
+          db,
+          s.stock_movement_id,
+          { reason: s.status === 'cancelled' ? 'storno prodaje u Televendu' : 'ispravak prodaje u Televendu', docDate: todayLocal(), allowSale: true },
+          actor,
+        );
+        db.prepare('UPDATE sales_transactions SET stock_movement_id = NULL WHERE id = ?').run(s.id);
+        summary.reversed++;
+      }
+      if (s.status !== 'valid') return;
+      const link = s.tv_product_id ? (productOf.get(s.tv_product_id) as { product_id: number } | undefined) : undefined;
+      if (!link) {
+        summary.unmapped++;
+        return;
+      }
+      if (!s.machine_id) {
+        summary.noMachine++;
+        return;
+      }
+      const locationId = ensureMachineLocation(db, s.machine_id);
+      const r = postMovement(
+        db,
+        {
+          type: 'sale',
+          docDate: s.sold_date_local,
+          sourceRef: ref,
+          note: `Prodaja Televend #${s.id}${s.product_name_raw ? ` (${s.product_name_raw})` : ''}`,
+          lines: [{ productId: link.product_id, locationId, qtyDelta: -s.quantity }],
+          allowNegativeAtMachine: true,
+        },
+        actor,
+      );
+      db.prepare('UPDATE sales_transactions SET stock_movement_id = ? WHERE id = ?').run(r.movementId, s.id);
+      summary.posted++;
+    })();
+  }
+  return summary;
+}
+
+export function unpostedSalesCount(db: DB): { unmapped: number; pending: number } {
+  const start = inventorySettings(db).salesPostingStartDate;
+  if (!start) return { unmapped: 0, pending: 0 };
+  const r = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN l.id IS NULL THEN 1 ELSE 0 END) AS unmapped,
+         SUM(CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END) AS pending
+       FROM sales_transactions s LEFT JOIN product_televend_links l ON l.tv_product_id = s.tv_product_id
+       WHERE s.status = 'valid' AND s.stock_movement_id IS NULL AND s.sold_date_local >= ?`,
+    )
+    .get(start) as { unmapped: number | null; pending: number | null };
+  return { unmapped: r.unmapped ?? 0, pending: r.pending ?? 0 };
+}

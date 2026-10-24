@@ -1,0 +1,30 @@
+{
+  "name": "vendistock",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VendiStock – Inventory & Sales Intelligence (Vending Express, interna aplikacija)",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "npm run start -w server",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "test": "npm run test -w server",
+    "test:e2e": "npm run test:e2e -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "user:create": "npm run user:create -w server --",
+    "demo:seed": "npm run demo:seed -w server",
+    "service:install": "node scripts/windows/service-install.cjs",
+    "service:uninstall": "node scripts/windows/service-uninstall.cjs"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

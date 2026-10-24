@@ -1,0 +1,15 @@
+node_modules/
+dist/
+client/dist/
+server/dist/
+data/
+certs/
+daemon/
+.env
+*.log
+*.db
+*.db-wal
+*.db-shm
+coverage/
+.DS_Store
+browsers/

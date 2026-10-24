@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+@theme {
+  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --color-petrol-50: #eef7f7;
+  --color-petrol-100: #d5ecec;
+  --color-petrol-200: #aed9da;
+  --color-petrol-300: #7fbfc1;
+  --color-petrol-400: #4f9fa2;
+  --color-petrol-500: #328386;
+  --color-petrol-600: #246a6e;
+  --color-petrol-700: #1d575b;
+  --color-petrol-800: #18474b;
+  --color-petrol-900: #133a3d;
+  --color-petrol-950: #0b2527;
+  /* Boje podataka u grafikonima (validirane: CVD, kontrast, kroma) */
+  --color-series-1: #0a9d95;
+  --color-series-2: #eb6834;
+}
+
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --page: #f4f7f7;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--page);
+  color: #0f172a;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='number']::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
+.recharts-cartesian-grid line {
+  stroke: #e5eaea;
+}
+.recharts-text {
+  fill: #64748b;
+  font-size: 12px;
+}
