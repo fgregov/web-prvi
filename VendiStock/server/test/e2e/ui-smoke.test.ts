@@ -12,6 +12,7 @@ import { createUser } from '../../src/modules/users/service.js';
 import { createReceipt } from '../../src/modules/inventory/operations.js';
 import { defaultDatasetConfig } from '../../src/televend/config.js';
 import { importDataset } from '../../src/televend/importers.js';
+import { runAutomation } from '../../src/televend/automationRunner.js';
 import { ACTOR, makeContext, product, supplier, vehicle } from '../helpers.js';
 
 const PASS = 'Sigurna!Lozinka2026';
@@ -25,7 +26,7 @@ describe('Korisničko sučelje (E2E)', () => {
     const p = product(ctx, { code: 'GAZ-001', name: 'Coca-Cola 0,5 L', supplierId: s });
     vehicle(ctx);
     createReceipt(ctx.db, { docDate: '2026-10-20', lines: [{ productId: p, qty: 70, unitPrice: 0.6 }] }, ACTOR);
-    importDataset(
+    const salesImport = importDataset(
       ctx.db,
       'sales',
       [
@@ -35,6 +36,7 @@ describe('Korisničko sučelje (E2E)', () => {
       { ...defaultDatasetConfig(), columns: { transactionId: 'ID', soldAt: 'Vrijeme', machineName: 'Automat', productName: 'Artikl', quantity: 'Količina', amount: 'Iznos' } },
       { source: 'manual_upload', fileName: 'e2e.csv', fileBuffer: null, period: null, syncRunId: null, userId: null, fetchedAt: new Date().toISOString() },
     );
+    runAutomation(ctx.db, [{ dataset: 'sales', summary: salesImport }]);
     const app = await buildApp(ctx);
     await app.listen({ host: '127.0.0.1', port: 0 });
     const base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
@@ -51,13 +53,13 @@ describe('Korisničko sučelje (E2E)', () => {
       await page.click('button[type=submit]');
       await page.getByText('Ukupna vrijednost skladišta').waitFor();
       const pages: [string, string[]][] = [
-        ['/artikli', ['Kategorije', 'Dobavljači', 'Televend povezivanje', 'Normativi']],
+        ['/artikli', ['Nabavne cijene', 'Kategorije', 'Dobavljači', 'Televend povezivanje', 'Normativi']],
         ['/skladiste', ['Dokumenti', 'Povijest skladišta', 'Inventura', 'Lokacije', 'Rezervacije']],
         ['/automati', ['Dopune iz Televenda']],
         ['/analitika', ['TOP po prihodu', 'Po automatima', 'Po kategorijama', 'Dnevno / mjesečno', 'Najmanja prodaja', 'Usporedba razdoblja']],
         ['/nabava', ['Narudžbe', 'Povijest upozorenja']],
         ['/izvjestaji', []],
-        ['/postavke', ['Izvori podataka', 'Uvoz datoteke', 'Povijest sinkronizacija', 'E-mail i upozorenja', 'Skladište i nabava', 'Korisnici', 'Backup', 'Revizijski zapis', 'Sustav', 'Moj račun']],
+        ['/postavke', ['Izvori podataka', 'Uvoz datoteke', 'Povijest sinkronizacija', 'E-mail i upozorenja', 'Automatizacija i skladište', 'Korisnici', 'Backup', 'Revizijski zapis', 'Sustav', 'Moj račun']],
       ];
       for (const [path, tabs] of pages) {
         await page.goto(base + path);
@@ -77,6 +79,16 @@ describe('Korisničko sučelje (E2E)', () => {
       await page.getByText(/proknjižen/).waitFor();
       const bal = ctx.db.prepare("SELECT qty FROM stock_balances b JOIN locations l ON l.id = b.location_id WHERE l.type = 'central' AND b.product_id = ?").get(p) as { qty: number };
       expect(bal.qty).toBe(100);
+      // Ručni unos nabavne cijene za artikl stvoren iz Televenda
+      const auto = ctx.db.prepare("SELECT id FROM products WHERE auto_created = 1").get() as { id: number } | undefined;
+      if (auto) {
+        await page.goto(base + '/artikli');
+        await page.getByRole('button', { name: 'Nabavne cijene', exact: true }).click();
+        await page.locator('tbody input[type=number]').first().fill('0.55');
+        await page.getByRole('button', { name: /Spremi cijene/ }).click();
+        await page.getByText(/Spremljeno nabavnih cijena/).waitFor();
+        expect(ctx.db.prepare('SELECT purchase_price, price_set FROM products WHERE id = ?').get(auto.id)).toEqual({ purchase_price: 0.55, price_set: 1 });
+      }
     } finally {
       await browser.close();
       await app.close();

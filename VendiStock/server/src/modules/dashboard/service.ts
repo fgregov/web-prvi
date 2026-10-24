@@ -4,6 +4,7 @@ import { recommendations } from '../procurement/service.js';
 import { hasAnySales, summary, timeseries, topProducts } from '../sales/analytics.js';
 import { getConnectorStatus } from '../../televend/config.js';
 import { lastBackup } from '../backup/service.js';
+import { automationOverview } from '../automation/service.js';
 
 export function dashboard(ctx: AppContext, period: { from: string; to: string }) {
   const db = ctx.db;
@@ -45,6 +46,7 @@ export function dashboard(ctx: AppContext, period: { from: string; to: string })
       autoSyncSuspended: tv.autoSyncSuspended,
     },
     lastBackup: lastBackup(ctx),
+    automation: automationOverview(db),
     demoMode: ctx.config.mode === 'demo',
   };
 }

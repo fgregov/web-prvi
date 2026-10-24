@@ -19,7 +19,7 @@ export default function Settings() {
     { key: 'upload', label: 'Uvoz datoteke', show: canEdit },
     { key: 'sync', label: 'Povijest sinkronizacija', show: true },
     { key: 'email', label: 'E-mail i upozorenja', show: isAdmin },
-    { key: 'inventory', label: 'Skladište i nabava', show: isAdmin },
+    { key: 'inventory', label: 'Automatizacija i skladište', show: isAdmin },
     { key: 'users', label: 'Korisnici', show: isAdmin },
     { key: 'backup', label: 'Backup', show: isAdmin },
     { key: 'audit', label: 'Revizijski zapis', show: isAdmin },

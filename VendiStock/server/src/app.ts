@@ -7,6 +7,7 @@ import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
+import { APP_VERSION } from './config.js';
 import type { AppContext } from './context.js';
 import { loadSession, safeEqual, SESSION_COOKIE } from './auth/sessions.js';
 import { AppError, forbidden, unauthorized } from './lib/errors.js';
@@ -155,7 +156,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     return reply.code(500).send({ error: { code: 'INTERNAL', message: 'Interna pogreška poslužitelja. Detalji su zapisani u dnevnik.' } });
   });
 
-  app.get('/api/health', async () => ({ ok: true, version: ctx.config.mode === 'test' ? 'test' : '1.0.0', mode: ctx.config.mode, time: new Date().toISOString() }));
+  app.get('/api/health', async () => ({ ok: true, version: APP_VERSION, mode: ctx.config.mode, time: new Date().toISOString() }));
 
   registerAuthRoutes(app, ctx);
   registerCatalogRoutes(app, ctx);

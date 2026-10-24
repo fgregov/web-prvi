@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth';
 import { fmtMoney, fmtNum, fmtQty } from '../lib/format';
 import type { Category, Product, Supplier } from '../lib/types';
 import Recipes from './Recipes';
+import PurchasePrices from './PurchasePrices';
 
 const UNITS = ['kom', 'kg', 'g', 'l', 'ml', 'pak', 'kut'];
 
@@ -20,18 +21,19 @@ export function useCatalog() {
   return { products, categories, suppliers };
 }
 
-type Tab = 'products' | 'categories' | 'suppliers' | 'televend' | 'recipes';
+type Tab = 'products' | 'prices' | 'categories' | 'suppliers' | 'televend' | 'recipes';
 
 export default function Products() {
   const [tab, setTab] = useState<Tab>('products');
   return (
     <div>
-      <PageHeader title="Artikli" subtitle="Artikli, kategorije, dobavljači i povezivanje s Televend artiklima" />
+      <PageHeader title="Artikli" subtitle="Artikli se automatski stvaraju iz Televend Clouda; ručno se unosi nabavna cijena (i po potrebi minimalna/ciljana zaliha)" />
       <Tabs<Tab>
         value={tab}
         onChange={setTab}
         tabs={[
           { key: 'products', label: 'Artikli' },
+          { key: 'prices', label: 'Nabavne cijene' },
           { key: 'categories', label: 'Kategorije' },
           { key: 'suppliers', label: 'Dobavljači' },
           { key: 'televend', label: 'Televend povezivanje' },
@@ -39,6 +41,7 @@ export default function Products() {
         ]}
       />
       {tab === 'products' && <ProductList />}
+      {tab === 'prices' && <PurchasePrices />}
       {tab === 'categories' && <Categories />}
       {tab === 'suppliers' && <Suppliers />}
       {tab === 'televend' && <TelevendLinks />}
@@ -107,7 +110,8 @@ function ProductList() {
     (p) =>
       (!cat || String(p.category_id) === cat) &&
       (!supplier || String(p.supplier_id) === supplier) &&
-      (status === 'all' || (status === 'active' ? p.active : !p.active) || (status === 'low' && p.is_low)),
+      (status === 'all' ||
+        (status === 'low' ? !!p.is_low : status === 'noprice' ? !!p.active && !p.price_set : status === 'active' ? !!p.active : !p.active)),
   );
 
   const columns: Column<Product>[] = [
@@ -117,14 +121,23 @@ function ProductList() {
       header: 'Naziv',
       render: (p) => (
         <div>
-          <div className="font-medium text-slate-900">{p.name}</div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium text-slate-900">{p.name}</span>
+            {p.auto_created ? <Badge color="petrol">iz Televenda</Badge> : null}
+          </div>
           {p.televend_names && <div className="max-w-xs truncate text-xs text-slate-500">Televend: {p.televend_names}</div>}
         </div>
       ),
     },
     { key: 'category_name', header: 'Kategorija', render: (p) => p.category_name ?? '—' },
     { key: 'supplier_name', header: 'Dobavljač', render: (p) => p.supplier_name ?? '—' },
-    { key: 'purchase_price', header: 'Nabavna cijena', align: 'right', exportType: 'money', render: (p) => fmtMoney(p.purchase_price) },
+    {
+      key: 'purchase_price',
+      header: 'Nabavna cijena',
+      align: 'right',
+      exportType: 'money',
+      render: (p) => (p.price_set ? fmtMoney(p.purchase_price) : <Badge color="yellow">nije unesena</Badge>),
+    },
     { key: 'unit', header: 'JM' },
     { key: 'pack_size', header: 'Pakiranje', align: 'right', exportType: 'qty', render: (p) => fmtNum(p.pack_size) },
     { key: 'min_stock', header: 'Min.', align: 'right', exportType: 'qty', render: (p) => fmtNum(p.min_stock) },
@@ -234,6 +247,7 @@ function ProductList() {
               <option value="active">Aktivni</option>
               <option value="inactive">Neaktivni</option>
               <option value="low">Ispod minimuma</option>
+              <option value="noprice">Bez nabavne cijene</option>
               <option value="all">Svi</option>
             </Select>
             {canEdit && (

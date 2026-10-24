@@ -73,6 +73,7 @@ export interface MachineRecord {
 }
 export interface ProductRecord extends MachineRef, ProductRef {
   price: number | null;
+  category: string | null;
 }
 export interface StockRecord extends MachineRef, ProductRef {
   quantity: number;
@@ -189,7 +190,7 @@ export function mapRows<D extends Dataset>(dataset: D, rows: Cell[][], cfg: Data
           machineKey: machineKey!,
         } satisfies MachineRecord;
       } else if (dataset === 'products') {
-        rec = { ...mref, ...pref(), price: num(row, 'price') } satisfies ProductRecord;
+        rec = { ...mref, ...pref(), price: num(row, 'price'), category: cellText(get(row, 'category')) } satisfies ProductRecord;
       } else if (dataset === 'sales') {
         let soldAtUtc: string | null = null;
         if (cfg.columns.soldAt) soldAtUtc = parseSourceDateTime(get(row, 'soldAt'), cfg.dateFormat);

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { APP_VERSION } from '../config.js';
 import type { AppContext } from '../context.js';
 import { createSession, destroySession, destroyUserSessions, SESSION_COOKIE } from '../auth/sessions.js';
 import { verifyPassword } from '../auth/passwords.js';
@@ -22,8 +23,8 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   app.get('/api/auth/me', async (req) => {
-    if (!req.user || !req.session) return { user: null, csrfToken: null, mode: ctx.config.mode };
-    return { user: req.user, csrfToken: req.session.csrf_token, mode: ctx.config.mode };
+    if (!req.user || !req.session) return { user: null, csrfToken: null, mode: ctx.config.mode, version: APP_VERSION };
+    return { user: req.user, csrfToken: req.session.csrf_token, mode: ctx.config.mode, version: APP_VERSION };
   });
 
   app.post(
@@ -70,6 +71,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
     needsSetup: countUsers(ctx.db) === 0,
     localRequest: isLoopback(req.ip),
     mode: ctx.config.mode,
+    version: APP_VERSION,
   }));
 
   app.post(

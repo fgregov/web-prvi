@@ -29,6 +29,7 @@ export const DATASET_FIELDS: Record<Dataset, { key: string; label: string; requi
     { key: 'productName', label: 'Naziv artikla', required: true, kind: 'text' },
     { key: 'machineName', label: 'Automat', kind: 'text' },
     { key: 'price', label: 'Cijena', kind: 'number' },
+    { key: 'category', label: 'Kategorija', kind: 'text' },
   ],
   sales: [
     { key: 'transactionId', label: 'ID transakcije', kind: 'text' },

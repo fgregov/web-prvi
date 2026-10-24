@@ -10,6 +10,7 @@ interface SetupStatus {
   needsSetup: boolean;
   localRequest: boolean;
   mode: string;
+  version?: string;
 }
 
 export default function Login() {
@@ -87,7 +88,7 @@ export default function Login() {
             </Button>
           </form>
         </div>
-        <p className="mt-6 text-center text-xs text-slate-400">VendiStock 1.0.0 · Vending Express · interna aplikacija</p>
+        <p className="mt-6 text-center text-xs text-slate-400">VendiStock {setup.data?.version ?? ''} · Vending Express · interna aplikacija</p>
       </div>
     </div>
   );

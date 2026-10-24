@@ -19,6 +19,8 @@ export interface Product {
   televend_links: number;
   televend_names: string | null;
   is_low: number;
+  auto_created: number;
+  price_set: number;
 }
 
 export interface Category {

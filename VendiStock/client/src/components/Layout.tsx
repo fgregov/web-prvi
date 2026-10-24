@@ -19,7 +19,7 @@ const NAV = [
 const ROLE: Record<string, string> = { admin: 'Administrator', user: 'Korisnik', viewer: 'Pregled' };
 
 export function Layout() {
-  const { user, logout, mode } = useAuth();
+  const { user, logout, mode, version } = useAuth();
   const [open, setOpen] = useState(false);
   const nav = (
     <nav className="flex flex-1 flex-col gap-0.5 px-3">
@@ -51,6 +51,7 @@ export function Layout() {
       <button onClick={() => void logout()} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-petrol-100/80 hover:bg-white/6 hover:text-white">
         <LogOut className="h-4 w-4" /> Odjava
       </button>
+      {version && <div className="mt-2 px-3 text-[11px] text-petrol-300">VendiStock v{version}</div>}
     </div>
   );
   return (

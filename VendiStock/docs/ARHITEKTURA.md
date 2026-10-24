@@ -10,7 +10,8 @@
 │ TanStack Query    │  + X-CSRF-Token   │  │  sesije (httpOnly, SameSite=Strict), CSRF, uloge, Zod       │
 └───────────────────┘                   │  ├ REST API (/api/*) + statički klijent (client/dist)         │
                                         │  ├ servisi: skladišna knjiga, artikli, nabava, upozorenja,    │
-                                        │  │  e-mail, analitika, izvozi (XLSX/PDF), backup, normativi    │
+                                        │  │  e-mail, analitika, izvozi (XLSX/PDF), backup, normativi,   │
+                                        │  │  automatizacija (artikli/zalihe iz Televenda)               │
                                         │  ├ Televend konektor (Playwright/Chromium, headless)  ───────────► Televend Cloud
                                         │  ├ planer: sinkronizacija, backup, upozorenja, e-mail          │    (korisnički portal)
                                         │  └ SQLite (WAL) + šifrirane tajne (AES-256-GCM, DPAPI ključ)  ─────► SMTP
@@ -32,7 +33,7 @@ Jedan proces (Node.js) poslužuje API i sučelje, izvodi pozadinske poslove i ko
 | `stock_ledger` | **skladišna knjiga** – pojedinačna kretanja (artikl, lokacija, ±količina, stanje nakon) |
 | `stock_balances` | materijalizirano trenutačno stanje (ažurira se u istoj transakciji) |
 | `stock_reservations`, `inventory_counts(_lines)` | rezervacije, inventure |
-| `machines`, `tv_products`, `product_televend_links` | automati, Televend artikli, ručno povezivanje s lokalnim artiklima |
+| `machines`, `tv_products`, `product_televend_links` | automati, Televend artikli, povezivanje s lokalnim artiklima (automatsko ili ručno) |
 | `sales_transactions`, `sales_transaction_revisions` | prodaja (dedupe ključ, izvor, vrijeme preuzimanja, revizije) |
 | `tv_machine_stock`, `tv_refills` | stanja u automatima i dopune iz Televenda |
 | `sync_runs`, `import_batches`, `televend_discovery_reports` | povijest sinkronizacija, uvoza i istraživanja |
@@ -47,8 +48,9 @@ Migracije su u `server/src/db/schema.ts` i izvršavaju se automatski pri pokreta
 Sve promjene zaliha idu isključivo kroz `postMovement()` (`server/src/modules/inventory/ledger.ts`):
 
 1. U jednoj transakciji: zaglavlje dokumenta + stavke knjige + ažuriranje `stock_balances` + procjena upozorenja + revizijski zapis.
-2. Stanje lokacije ne smije pasti ispod nule (osim lokacije automata pri knjiženju prodaje iz Televenda, jer stanje
-   automata nije uvijek poznato).
+2. Stanje lokacije ne smije pasti ispod nule – osim kod automatskih dokumenata iz Televenda (`auto_generated = 1`:
+   prodaja, dopune, usklađenje stanja automata), jer stvarni događaj već se dogodio i mora biti evidentiran; negativno
+   centralno stanje (npr. nedostaje ručni ulaz robe) prikazuje se upozorenjem.
 3. `source_ref` je jedinstven – isti vanjski događaj (prodaja, dopuna) ne može se proknjižiti dvaput.
 4. Dokumenti se ne mijenjaju: **storno** knjiži suprotne stavke (jedan storno po dokumentu), **ispravak** = storno +
    novi dokument povezan s originalom; izmjena napomene/broja dokumenta bilježi vrijednosti prije/poslije.

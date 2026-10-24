@@ -3,7 +3,7 @@
 Rezultati **stvarno izvršenih** testova u razvojnom okruženju (Linux, Node.js 22.22.0, Chromium 153, Playwright 1.63).
 
 ```
-npm test            → Test Files 7 passed (7) · Tests 86 passed (86)
+npm test            → Test Files 8 passed (8) · Tests 95 passed (95)
 npm run test:e2e    → Tests 1 passed (1)
 ```
 
@@ -45,6 +45,18 @@ npm run test:e2e    → Tests 1 passed (1)
 - ✓ Sprječavanje dvostrukog skidanja zaliha (prodaja → automat) > jedinstveni source_ref onemogućuje dvostruko knjiženje iste verzije transakcije
 - ✓ Sprječavanje dvostrukog skidanja zaliha (prodaja → automat) > TOP artikli po količini (primarno) i prihodu (zasebno)
 - ✓ Sprječavanje dvostrukog skidanja zaliha (prodaja → automat) > svi analitički izvještaji (automati, kategorije, dnevno/mjesečno, najmanja prodaja, usporedba)
+
+## Automatizacija (ručno samo nabavna cijena) — `server/test/automation.test.ts` (9 testova, svi prolaze)
+
+- ✓ Automatsko stvaranje artikala; ručno se unosi samo nabavna cijena > novi Televend artikli postaju lokalni artikli (šifra TV-…, cijena 0, „cijena nije unesena”)
+- ✓ Automatsko stvaranje artikala; ručno se unosi samo nabavna cijena > ručno uneseni artikl istog naziva se povezuje umjesto stvaranja duplikata
+- ✓ Automatsko skladište iz Televend podataka > datum početka postavlja se pri prvom uvozu; povijesna prodaja se analizira, ali ne knjiži
+- ✓ Automatsko skladište iz Televend podataka > dopuna: centralno → automat automatski; prodaja smanjuje automat; ponovni uvoz ništa ne udvostručuje
+- ✓ Automatsko skladište iz Televend podataka > dopuna koja je već ručno evidentirana prijenosom samo se povezuje (bez dvostrukog knjiženja)
+- ✓ Automatsko skladište iz Televend podataka > nedostaje ručni ulaz robe: automatska dopuna se ipak knjiži, centralno stanje ide u minus i to se prijavljuje
+- ✓ Automatsko skladište iz Televend podataka > usklađenje stanja automata s Televendom knjiži samo razliku; isto stanje ponovno → bez novog dokumenta
+- ✓ Automatsko skladište iz Televend podataka > storno prodaje u Televendu vraća zalihu automata; ručni storno automatske dopune vraća dopunu na čekanje
+- ✓ Automatsko skladište iz Televend podataka > vrijednost skladišta i nabava koriste ručno unesene nabavne cijene
 
 ## Nabava, upozorenja i e-mail — `server/test/procurement-alerts.test.ts` (15 testova, svi prolaze)
 
@@ -116,7 +128,7 @@ npm run test:e2e    → Tests 1 passed (1)
 
 ## E2E test sučelja — `server/test/e2e/ui-smoke.test.ts` (1 test, prolazi)
 
-- ✓ prijava, sve stranice (Dashboard, Artikli, Skladište, Automati, Analitika, Nabava, Izvještaji, Postavke) i sve njihove kartice učitavaju se bez JavaScript grešaka i bez HTTP 5xx odgovora; ulaz robe kroz sučelje povećava stanje centralnog skladišta (70 → 100).
+- ✓ prijava, sve stranice (Dashboard, Artikli, Skladište, Automati, Analitika, Nabava, Izvještaji, Postavke) i sve njihove kartice učitavaju se bez JavaScript grešaka i bez HTTP 5xx odgovora; ulaz robe kroz sučelje povećava stanje centralnog skladišta (70 → 100); nabavna cijena artikla automatski stvorenog iz Televenda unosi se kroz Artikli → Nabavne cijene (0,55 €, status „uneseno”).
 
 Dodatno je ručno pokrenut preglednički pregled demo baze (≈7.300 izmišljenih transakcija) na 1440×900 i 390×844 (mobitel) – bez grešaka u konzoli; snimke su u `docs/screenshots/`.
 
@@ -124,7 +136,7 @@ Dodatno je ručno pokrenut preglednički pregled demo baze (≈7.300 izmišljeni
 
 | Područje | Razlog | Kako provjeriti |
 |---|---|---|
-| Stvarni Televend Cloud | razvojno okruženje nije imalo mrežni pristup domenama Televenda; struktura portala nepoznata | Postavke → Televend Cloud → Testiraj povezivanje, zatim Istraži portal (vidi TELEVEND-CONNECTOR.md) |
+| Stvarni Televend Cloud (`https://app.televendcloud.com`) | razvojno okruženje nema mrežni pristup domeni portala (proxy: `CONNECT tunnel failed, response 403`, provjereno 2026-10-24); struktura izvještaja još nepoznata | Postavke → Televend Cloud → Testiraj povezivanje, zatim Istraži portal (vidi TELEVEND-CONNECTOR.md) |
 | Windows DPAPI | dostupan samo na Windowsu; u testu je PowerShell simuliran (provjereni argumenti, skripta i da ključ ide samo kroz stdin) | prvo pokretanje servisa: Postavke → Sustav → „Status ključa: dostupan” |
 | Windows servis, PowerShell skripte (instalacija, certifikat, vatrozid) | nisu izvršene na Windowsu | instalacija prema README-u na ciljnom računalu |
 | Slanje stvarnog e-maila | SMTP transport je u testovima zamijenjen testnim | Postavke → E-mail → Pošalji testnu poruku |

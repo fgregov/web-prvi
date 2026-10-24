@@ -104,7 +104,7 @@ export function updateProduct(db: DB, id: number, input: ProductInput, actor: Ac
     if (dup) throw conflict(`Interna šifra „${input.code}” već postoji.`);
     db.prepare(
       `UPDATE products SET code = ?, name = ?, category_id = ?, supplier_id = ?, purchase_price = ?, unit = ?, pack_size = ?,
-         min_stock = ?, target_stock = ?, active = ?, note = ?, updated_at = ? WHERE id = ?`,
+         min_stock = ?, target_stock = ?, active = ?, note = ?, updated_at = ?, price_set = 1 WHERE id = ?`,
     ).run(
       input.code,
       input.name,
@@ -122,6 +122,25 @@ export function updateProduct(db: DB, id: number, input: ProductInput, actor: Ac
     );
     evaluateLowStock(db, [id]);
     audit(db, actor, 'product.update', 'product', id, { before, after: input });
+  })();
+}
+
+/** Ručni unos nabavnih cijena (jedini ručni unos za artikle koje aplikacija stvara iz Televenda). */
+export function setPurchasePrices(db: DB, items: { id: number; purchasePrice: number }[], actor: Actor): number {
+  return db.transaction(() => {
+    const get = db.prepare('SELECT purchase_price, price_set FROM products WHERE id = ?');
+    const upd = db.prepare('UPDATE products SET purchase_price = ?, price_set = 1, updated_at = ? WHERE id = ?');
+    let n = 0;
+    for (const it of items) {
+      const before = get.get(it.id) as { purchase_price: number; price_set: number } | undefined;
+      if (!before) throw notFound(`Artikl #${it.id} nije pronađen.`);
+      const price = roundPrice(it.purchasePrice);
+      if (before.price_set === 1 && before.purchase_price === price) continue;
+      upd.run(price, nowIso(), it.id);
+      audit(db, actor, 'product.purchase_price', 'product', it.id, { before: before.purchase_price, after: price });
+      n++;
+    }
+    return n;
   })();
 }
 

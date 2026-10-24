@@ -39,6 +39,7 @@ import { getSetting, setSetting } from '../modules/settings/store.js';
 import { createUser, listUsers, setPassword, updateUser } from '../modules/users/service.js';
 import { destroyUserSessions } from '../auth/sessions.js';
 import { postSalesToMachineStock } from '../televend/salesPosting.js';
+import { autoBookRefills, autoCreateProducts, automationOverview, automationSettings, DEFAULT_AUTOMATION } from '../modules/automation/service.js';
 
 const timeHHmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'vrijeme u formatu HH:mm');
 
@@ -107,20 +108,39 @@ export function registerSettingsRoutes(app: FastifyInstance, ctx: AppContext) {
     procurement: getSetting(ctx.db, 'procurement.config', DEFAULT_PROCUREMENT_SETTINGS),
   }));
   app.put('/api/settings/inventory', { preHandler: adminOnly }, async (req) => {
+    const b = parse(z.object({ updatePurchasePriceOnReceipt: z.boolean(), roundToPacks: z.boolean() }), req.body);
+    const before = { inventory: inventorySettings(ctx.db), procurement: getSetting(ctx.db, 'procurement.config', DEFAULT_PROCUREMENT_SETTINGS) };
+    setSetting(ctx.db, 'inventory.config', { ...DEFAULT_INVENTORY_SETTINGS, updatePurchasePriceOnReceipt: b.updatePurchasePriceOnReceipt });
+    setSetting(ctx.db, 'procurement.config', { ...DEFAULT_PROCUREMENT_SETTINGS, roundToPacks: b.roundToPacks });
+    audit(ctx.db, actorOf(req), 'settings.inventory', 'settings', 'inventory', { before, after: b });
+    return { ok: true };
+  });
+
+  // ------------------------------------------------ Automatizacija (artikli i skladište iz Televenda)
+  app.get('/api/settings/automation', async () => automationOverview(ctx.db));
+  app.put('/api/settings/automation', { preHandler: adminOnly }, async (req) => {
     const b = parse(
       z.object({
-        updatePurchasePriceOnReceipt: z.boolean(),
-        salesPostingStartDate: zIsoDate.nullable(),
-        roundToPacks: z.boolean(),
+        autoCreateProducts: z.boolean(),
+        autoPostSales: z.boolean(),
+        autoBookRefills: z.boolean(),
+        autoSyncMachineStock: z.boolean(),
+        refillSourceLocationId: z.number().int().positive().nullable(),
+        startDate: zIsoDate.nullable(),
       }),
       req.body,
     );
-    const before = inventorySettings(ctx.db);
-    setSetting(ctx.db, 'inventory.config', { ...DEFAULT_INVENTORY_SETTINGS, updatePurchasePriceOnReceipt: b.updatePurchasePriceOnReceipt, salesPostingStartDate: b.salesPostingStartDate });
-    setSetting(ctx.db, 'procurement.config', { ...DEFAULT_PROCUREMENT_SETTINGS, roundToPacks: b.roundToPacks });
-    audit(ctx.db, actorOf(req), 'settings.inventory', 'settings', 'inventory', { before, after: b });
-    const posting = b.salesPostingStartDate ? postSalesToMachineStock(ctx.db, 'all', actorOf(req)) : null;
-    return { ok: true, posting };
+    if (b.refillSourceLocationId && !ctx.db.prepare("SELECT 1 FROM locations WHERE id = ? AND type <> 'machine' AND active = 1").get(b.refillSourceLocationId)) {
+      throw badRequest('Izvorna lokacija dopuna mora biti aktivno skladište ili vozilo.');
+    }
+    const before = automationSettings(ctx.db);
+    setSetting(ctx.db, 'automation.config', { ...DEFAULT_AUTOMATION, ...b });
+    audit(ctx.db, actorOf(req), 'settings.automation', 'settings', 'automation', { before, after: b });
+    // primijeni odmah na već preuzete podatke (od datuma početka)
+    const created = b.autoCreateProducts ? autoCreateProducts(ctx.db, actorOf(req)).length : 0;
+    const sales = postSalesToMachineStock(ctx.db, 'all', actorOf(req));
+    const refills = autoBookRefills(ctx.db, actorOf(req));
+    return { ok: true, createdProducts: created, sales, refills, overview: automationOverview(ctx.db) };
   });
 
   // ------------------------------------------------ Backup

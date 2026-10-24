@@ -9,11 +9,13 @@ podatke dostupne prijavljenom korisniku – prvenstveno kroz postojeće funkcije
 | Što | Stanje |
 |---|---|
 | Mehanizam konektora (prijava, MFA/CAPTCHA detekcija, ručna sesija, istraživanje, izvoz, tablice, uvoz, sinkronizacija, ponavljanje) | izrađen i automatski testiran na **lokalnom testnom portalu** (`server/test/fixtures/mockPortal.ts`, izmišljena struktura) |
-| Povezivanje sa **stvarnim** Televend Cloudom | **nije testirano** – razvojno okruženje nije imalo mrežni pristup domenama Televenda; adresa portala, struktura stranica i format izvoza nisu poznati |
+| Adresa stranice za prijavu | `https://app.televendcloud.com` (službena adresa; zadana vrijednost u postavkama i popisu dopuštenih domena) |
+| Povezivanje sa **stvarnim** Televend Cloudom | **nije testirano** – razvojno okruženje nema mrežni pristup domeni portala (proxy odbija vezu, HTTP 403); struktura stranica i format izvoza još nisu poznati |
 | Dostupnost pojedinih podataka (automati, artikli, prodaja s datumom/vremenom, prihod po artiklu, prodaja po automatu, stanja u automatima, dopune) | **nije potvrđena** – utvrđuje se istraživanjem stvarnog portala |
 
-Konektor zato **ne sadrži ugrađene URL-ove, HTML selektore, nazive stupaca ni identifikatore Televenda**. Sve što ovisi
-o portalu konfigurira se nakon prijave, na temelju stvarnih stranica (Postavke → Izvori podataka).
+Osim službene adrese za prijavu, konektor **ne sadrži ugrađene putanje izvještaja, HTML selektore, nazive stupaca ni
+identifikatore Televenda**. Sve što ovisi o portalu konfigurira se nakon prijave, na temelju stvarnih stranica
+(Postavke → Izvori podataka).
 
 ## Tijek rada
 
@@ -24,7 +26,7 @@ Postavke → Televend Cloud                    Postavke → Izvori podataka     
 │ Testiraj povezivanje       │            │ izvor po skupu podataka:      │        │ za svaki uključeni izvor:  │
 │  ├ ok → sesija (šifrirano) │            │  stranica, izvoz/tablica,     │        │  preuzmi → parsiraj →      │
 │  ├ MFA/CAPTCHA → ručna     │            │  mapiranje stupaca            │        │  validiraj → uvezi (1 tx)  │
-│  │   kontrolirana sesija   │            │ Testiraj izvor (bez uvoza)    │        │  → knjiži prodaju (opc.)   │
+│  │   kontrolirana sesija   │            │ Testiraj izvor (bez uvoza)    │        │  → automatizacija          │
 │  └ greška → poruka + koraci│            └──────────────────────────────┘        └───────────────────────────┘
 └────────────────────────────┘
 ```
@@ -95,28 +97,42 @@ OCR se ne koristi; čitaju se strukturirani podaci (datoteke ili tekst tablica).
   transakcijski i razdoblje se pomiče tek nakon uspjeha, sljedeća sinkronizacija ponovno dohvaća isto razdoblje bez duplikata.
 - Povijest sinkronizacija (Postavke) sadrži status, trajanje, pokušaje, broj zapisa i dnevnik koraka.
 
-### 6. Knjiženje prodaje i dopune (`salesPosting.ts`, `refills.ts`)
+### 6. Automatizacija nakon uvoza (`automationRunner.ts`, `modules/automation/service.ts`, `salesPosting.ts`)
 
-- Uključuje se zadavanjem datuma početka (Postavke → Skladište i nabava). Prodaja povezanog artikla smanjuje zalihu
-  **lokacije automata**, nikad centralnog skladišta. Svaka verzija transakcije knjiži se najviše jednom
-  (`source_ref = sale:<id>:r<revizija>`, jedinstveno); storno/ispravak u Televendu stornira knjiženje.
-- Dopune iz Televenda usklađuju se s lokalnim prijenosima u automat (povezivanje bez ponovnog knjiženja) ili se knjiže
-  jednom kao novi prijenos (`source_ref = refill:<id>`), ili zanemaruju.
+Nakon svakog uspješnog uvoza (sinkronizacija ili ručni uvoz datoteke) izvodi se, redom (svaki korak se može
+isključiti u Postavke → Automatizacija i skladište):
+
+1. **Datum početka** knjiženja postavlja se automatski pri prvom uvozu (danas, Europe/Zagreb). Ranija prodaja ulazi
+   u analitiku, ali se ne knjiži na zalihe.
+2. **Artikli:** svaki Televend artikl bez veze dobiva lokalni artikl (šifra `TV-<ID>`, naziv/kategorija iz Televenda,
+   nabavna cijena 0 € i oznaka „nije unesena”) ili se povezuje s postojećim aktivnim artiklom istog naziva.
+   Nabavna cijena unosi se ručno (Artikli → Nabavne cijene ili kroz ulaz robe).
+3. **Prodaja** povezanog artikla smanjuje zalihu **lokacije automata**, nikad centralnog skladišta. Svaka verzija
+   transakcije knjiži se najviše jednom (`source_ref = sale:<id>:r<revizija>`, jedinstveno); storno/ispravak u
+   Televendu stornira knjiženje.
+4. **Dopune:** prvo se traži već ručno evidentiran prijenos/izlaz u isti automat (ista količina, ±2 dana) – tada se
+   dopuna samo povezuje; inače se jednom knjiži prijenos *izvorna lokacija → automat* (`source_ref = refill:<id>`).
+5. **Stanja u automatima:** razlika između snimka iz Televenda i stanja automata u VendiStocku knjiži se kao korekcija
+   (`source_ref = tvstock:<uvoz>:<automat>`); isti snimak ne stvara novi dokument.
+
+Automatski dokumenti nose oznaku `auto_generated` i smiju dovesti stanje u minus (npr. dopuna bez ručnog ulaza robe);
+negativno centralno stanje prikazuje se upozorenjem na Dashboardu i u Skladištu. Ručni dokumenti ne smiju u minus.
 
 ## Sigurnost konektora
 
 - Lozinka: AES-256-GCM, glavni ključ zaštićen **Windows DPAPI-jem**; nikad se ne vraća pregledniku niti zapisuje u dnevnik.
 - Kolačići sesije portala žive samo u backend pregledniku; spremaju se šifrirano (`televend.session`) i uklanjaju iz backupa.
 - Provjera URL-a: samo HTTPS (port 443), bez korisničkih podataka u URL-u, bez IP adresa i lokalnih imena, DNS ne smije
-  vraćati privatne/lokalne adrese, opcionalni popis `TELEVEND_ALLOWED_HOSTS`.
+  vraćati privatne/lokalne adrese, popis `TELEVEND_ALLOWED_HOSTS` (zadano `app.televendcloud.com`; `*` = bez popisa).
 - U pregledniku: navigacije (uključujući **svaki korak preusmjeravanja**, provjeren prije slanja) dopuštene su samo na
-  domenu portala i `TELEVEND_EXTRA_NAVIGATION_HOSTS`; zahtjevi prema lokalnim/privatnim adresama i ne-HTTPS protokolima
+  domenu portala i `TELEVEND_EXTRA_NAVIGATION_HOSTS` (zadano `*.televendcloud.com`); zahtjevi prema lokalnim/privatnim adresama i ne-HTTPS protokolima
   se blokiraju i bilježe. Service workeri su isključeni; preuzimanja se brišu nakon obrade.
 - Ručna sesija: dostupna samo administratoru, zatvara se nakon 10 min neaktivnosti, dopuštene su samo osnovne tipke.
 
 ## Što je potrebno za dovršetak (stvarni portal)
 
-1. Pristup računalu s internetskom vezom prema portalu i važeći korisnički račun (već je u planu – server Vending Expressa).
+1. Računalo s mrežnim pristupom `https://app.televendcloud.com` (server Vending Expressa) i važeći korisnički račun
+   – lozinka se unosi samo u Postavke → Televend Cloud (sprema se šifrirano), nikad u datoteke ili dokumentaciju.
 2. „Testiraj povezivanje” → ako je ishod `form_not_found` ili `uncertain`, unijeti selektore/indikator prijave ili poslati
    HTML stranice za prijavu (bez lozinki).
 3. „Istraži portal” i poslati izvještaj istraživanja (Postavke → Izvori podataka) ili snimke zaslona izbornika izvještaja.

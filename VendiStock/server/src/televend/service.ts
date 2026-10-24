@@ -26,7 +26,8 @@ import { extractDataset, type Period } from './extract.js';
 import { importDataset, type ImportSummary } from './importers.js';
 import { mapRows, tableToCells } from './mapping.js';
 import { parseReportFile, type Cell } from './parse.js';
-import { postSalesToMachineStock, type PostingSummary } from './salesPosting.js';
+import { type PostingSummary } from './salesPosting.js';
+import { runAutomation, type AutomationRunResult } from './automationRunner.js';
 import { validatePortalUrl, type PortalPolicy } from './urlPolicy.js';
 import { ManualSessionManager } from './manualSession.js';
 
@@ -56,6 +57,11 @@ export interface DatasetRunResult {
   summary?: ImportSummary;
   posting?: PostingSummary;
   error?: string;
+}
+
+export interface SyncOnceResult {
+  results: DatasetRunResult[];
+  automation: AutomationRunResult | null;
 }
 
 export class AuthError extends Error {
@@ -488,7 +494,7 @@ export class TelevendService {
       attempt++;
       try {
         log.info(`Pokušaj ${attempt}: sinkronizacija (${datasets.map((d) => DATASET_LABEL[d]).join(', ')})`);
-        const results = await this.runSyncOnce(log, datasets, runId, actor);
+        const { results, automation } = await this.runSyncOnce(log, datasets, runId, actor);
         const ok = results.filter((r) => r.ok);
         const status: 'success' | 'partial' | 'failed' = ok.length === results.length ? 'success' : ok.length ? 'partial' : 'failed';
         const sum = (k: 'inserted' | 'updated' | 'duplicate' | 'rejected' | 'rowsTotal') => ok.reduce((n, r) => n + (r.summary?.[k] ?? 0), 0);
@@ -504,7 +510,7 @@ export class TelevendService {
           errorCode: errors.length ? 'dataset_error' : null,
           errorMessage: errors.join(' | ') || null,
           log,
-          details: { results },
+          details: { results, automation },
         });
         const salesOk = results.find((r) => r.dataset === 'sales' && r.ok);
         const status0 = getConnectorStatus(this.db);
@@ -520,7 +526,7 @@ export class TelevendService {
           // Razdoblje prodaje pomiče se samo nakon uspješnog uvoza (prekinuta sinkronizacija ponovno dohvaća isto razdoblje)
           salesSyncedThrough: salesOk ? this.periodFor('sales').to : status0.salesSyncedThrough,
         });
-        return { runId, status, results, message: errors.join(' | ') || null };
+        return { runId, status, results, automation, message: errors.join(' | ') || null };
       } catch (e) {
         if (e instanceof AuthError) {
           const t = this.finishRun(runId, { status: 'failed', attempts: attempt, errorCode: e.result.status, errorMessage: e.message, log });
@@ -551,7 +557,7 @@ export class TelevendService {
     }
   }
 
-  private async runSyncOnce(log: StepLog, datasets: Dataset[], runId: number, actor: Actor): Promise<DatasetRunResult[]> {
+  private async runSyncOnce(log: StepLog, datasets: Dataset[], runId: number, actor: Actor): Promise<SyncOnceResult> {
     const cfg = getConnectorConfig(this.db);
     const { session, login } = await this.loginSession(log);
     try {
@@ -580,8 +586,7 @@ export class TelevendService {
             continue;
           }
           log.info(`${DATASET_LABEL[d]}: novih ${summary.inserted}, ažuriranih ${summary.updated}, duplikata ${summary.duplicate}, odbijenih ${summary.rejected}`);
-          const posting = d === 'sales' ? postSalesToMachineStock(this.db, summary.changedSalesIds) : undefined;
-          results.push({ dataset: d, ok: true, summary, posting });
+          results.push({ dataset: d, ok: true, summary });
         } catch (e) {
           if (isTransientError(e) && results.length === 0 && d === datasets[0]) throw e;
           const message = this.describeError(e);
@@ -590,7 +595,14 @@ export class TelevendService {
         }
       }
       await this.saveStorageState(session);
-      return results;
+      const imports = results.filter((r) => r.ok && r.summary).map((r) => ({ dataset: r.dataset, summary: r.summary! }));
+      const automation = imports.length ? runAutomation(this.db, imports, actor) : null;
+      if (automation) {
+        log.info(
+          `Automatika: novih artikala ${automation.createdProducts}, knjiženo prodaja ${automation.sales?.posted ?? 0}, dopuna ${automation.refills?.booked ?? 0} (povezano ${automation.refills?.reconciled ?? 0}), usklađenja stanja automata ${automation.machineStock?.movements ?? 0}`,
+        );
+      }
+      return { results, automation };
     } finally {
       await session.close();
     }
@@ -650,7 +662,8 @@ export class TelevendService {
       userId: actor.id,
       fetchedAt: nowIso(),
     });
-    const posting = dataset === 'sales' && summary.status === 'committed' ? postSalesToMachineStock(this.db, summary.changedSalesIds, actor) : null;
+    const automation = runAutomation(this.db, [{ dataset, summary }], actor);
+    const posting = automation.sales;
     audit(this.db, actor, 'televend.upload_import', 'import_batch', summary.batchId, {
       dataset,
       fileName,
@@ -660,7 +673,7 @@ export class TelevendService {
       duplicate: summary.duplicate,
       rejected: summary.rejected,
     });
-    return { summary, posting };
+    return { summary, posting, automation };
   }
 
   // ------------------------------------------------------------ Održavanje

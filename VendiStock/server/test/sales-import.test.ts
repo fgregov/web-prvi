@@ -7,6 +7,7 @@ import { centralLocationId } from '../src/modules/inventory/ledger.js';
 import { createReceipt, createTransfer } from '../src/modules/inventory/operations.js';
 import { linkTelevendProduct } from '../src/modules/catalog/service.js';
 import { setSetting } from '../src/modules/settings/store.js';
+import { DEFAULT_AUTOMATION } from '../src/modules/automation/service.js';
 import { byCategory, byMachine, comparePeriods, leastSold, summary, timeseries, topProducts, transactionsList } from '../src/modules/sales/analytics.js';
 import { saveCategory, updateProduct } from '../src/modules/catalog/service.js';
 import { buildXlsx } from '../src/lib/export/xlsx.js';
@@ -214,7 +215,7 @@ describe('Sprječavanje dvostrukog skidanja zaliha (prodaja → automat)', () =>
 
   it('prodaja smanjuje automat, NE centralno skladište; ponovno knjiženje ne skida ponovno', async () => {
     const { ctx, p, machineLoc, central } = await setup();
-    setSetting(ctx.db, 'inventory.config', { updatePurchasePriceOnReceipt: true, salesPostingStartDate: '2026-10-01' });
+    setSetting(ctx.db, 'automation.config', { ...DEFAULT_AUTOMATION, startDate: '2026-10-01' });
     const first = postSalesToMachineStock(ctx.db, 'all');
     expect(first.posted).toBe(1);
     expect(balance(ctx, p, machineLoc)).toBe(19);
@@ -230,7 +231,7 @@ describe('Sprječavanje dvostrukog skidanja zaliha (prodaja → automat)', () =>
 
   it('storno u Televendu stornira knjiženje (zaliha automata se vraća)', async () => {
     const { ctx, p, machineLoc } = await setup();
-    setSetting(ctx.db, 'inventory.config', { updatePurchasePriceOnReceipt: true, salesPostingStartDate: '2026-10-01' });
+    setSetting(ctx.db, 'automation.config', { ...DEFAULT_AUTOMATION, startDate: '2026-10-01' });
     postSalesToMachineStock(ctx.db, 'all');
     const imp = importCsv(ctx, csv(['T1;24.10.2026 08:00:00;Automat A;Coca-Cola 0,5;1;2,50;storno']));
     const r = postSalesToMachineStock(ctx.db, imp.changedSalesIds);
@@ -240,7 +241,7 @@ describe('Sprječavanje dvostrukog skidanja zaliha (prodaja → automat)', () =>
 
   it('jedinstveni source_ref onemogućuje dvostruko knjiženje iste verzije transakcije', async () => {
     const { ctx } = await setup();
-    setSetting(ctx.db, 'inventory.config', { updatePurchasePriceOnReceipt: true, salesPostingStartDate: '2026-10-01' });
+    setSetting(ctx.db, 'automation.config', { ...DEFAULT_AUTOMATION, startDate: '2026-10-01' });
     postSalesToMachineStock(ctx.db, 'all');
     ctx.db.prepare('UPDATE sales_transactions SET stock_movement_id = NULL').run(); // simulacija prekida između koraka
     expect(() => postSalesToMachineStock(ctx.db, 'all')).toThrow(/već proknjižen/);

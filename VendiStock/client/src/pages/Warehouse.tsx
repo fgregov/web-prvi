@@ -147,7 +147,7 @@ function StockTab() {
             { key: 'code', header: 'Šifra', render: (r) => <span className="font-mono text-xs">{r.code}</span> },
             { key: 'name', header: 'Artikl', render: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
             { key: 'category_name', header: 'Kategorija', render: (r) => r.category_name ?? '—' },
-            { key: 'central_qty', header: 'Centralno', align: 'right', exportType: 'qty', render: (r) => <b>{fmtQty(r.central_qty, r.unit)}</b> },
+            { key: 'central_qty', header: 'Centralno', align: 'right', exportType: 'qty', render: (r) => <b className={r.central_qty < 0 ? 'text-red-600' : ''}>{fmtQty(r.central_qty, r.unit)}</b> },
             { key: 'vehicle_qty', header: 'Vozila', align: 'right', exportType: 'qty', render: (r) => fmtNum(r.vehicle_qty) },
             { key: 'machine_qty', header: 'Automati', align: 'right', exportType: 'qty', render: (r) => <span className={r.machine_qty < 0 ? 'text-red-600' : ''}>{fmtNum(r.machine_qty)}</span> },
             { key: 'reserved_qty', header: 'Rezervirano', align: 'right', exportType: 'qty', render: (r) => fmtNum(r.reserved_qty) },

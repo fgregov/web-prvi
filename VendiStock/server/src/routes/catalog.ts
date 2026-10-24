@@ -25,6 +25,7 @@ import {
   saveSupplier,
   supplierSchema,
   updateProduct,
+  setPurchasePrices,
 } from '../modules/catalog/service.js';
 import { consumptionPreview, deleteRecipe, listRecipes, recipeSchema, saveRecipe } from '../modules/recipes/service.js';
 import { byMachine, timeseries, topProducts } from '../modules/sales/analytics.js';
@@ -53,6 +54,14 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext) {
     const { id } = parse(zIdParams, req.params);
     updateProduct(ctx.db, id, parse(productSchema, req.body), actorOf(req));
     return { ok: true };
+  });
+  // Ručni unos nabavnih (ulaznih) cijena – više artikala odjednom
+  app.put('/api/products/prices', { preHandler: editors }, async (req) => {
+    const b = parse(
+      z.object({ items: z.array(z.object({ id: z.number().int().positive(), purchasePrice: z.number().finite().min(0).max(1e7) })).min(1).max(5000) }),
+      req.body,
+    );
+    return { updated: setPurchasePrices(ctx.db, b.items, actorOf(req)) };
   });
   app.delete('/api/products/:id', { preHandler: editors }, async (req) => {
     const { id } = parse(zIdParams, req.params);

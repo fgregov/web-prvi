@@ -120,23 +120,29 @@ function findTvProduct(db: DB, ref: ProductRef, machineId: number | null, perMac
   return c.id;
 }
 
-function upsertTvProduct(db: DB, ref: ProductRef, machineId: number | null, perMachine: boolean, source: ImportSource, fetchedAt: string, price?: number | null): number {
+function upsertTvProduct(
+  db: DB,
+  ref: ProductRef,
+  machineId: number | null,
+  perMachine: boolean,
+  source: ImportSource,
+  fetchedAt: string,
+  price?: number | null,
+  category?: string | null,
+): number {
   const existingId = findTvProduct(db, ref, machineId, perMachine);
   if (existingId) {
-    db.prepare('UPDATE tv_products SET last_seen_at = ?, name = ?, last_price = COALESCE(?, last_price) WHERE id = ?').run(
-      fetchedAt,
-      ref.productName,
-      price ?? null,
-      existingId,
-    );
+    db.prepare(
+      'UPDATE tv_products SET last_seen_at = ?, name = ?, last_price = COALESCE(?, last_price), category_raw = COALESCE(?, category_raw) WHERE id = ?',
+    ).run(fetchedAt, ref.productName, price ?? null, category ?? null, existingId);
     return existingId;
   }
   const r = db
     .prepare(
-      `INSERT INTO tv_products (ext_key, source_id, name, machine_id, last_price, first_seen_at, last_seen_at, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tv_products (ext_key, source_id, name, machine_id, last_price, first_seen_at, last_seen_at, source, category_raw)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(ref.productKey, ref.productSourceId, ref.productName, perMachine ? machineId : null, price ?? null, fetchedAt, fetchedAt, source);
+    .run(ref.productKey, ref.productSourceId, ref.productName, perMachine ? machineId : null, price ?? null, fetchedAt, fetchedAt, source, category ?? null);
   return Number(r.lastInsertRowid);
 }
 
@@ -242,7 +248,7 @@ export function importDataset(db: DB, dataset: Dataset, rows: Cell[][], cfg: Dat
       for (const { record } of mapped.records as { record: DatasetRecord['products'] }[]) {
         const machineId = upsertMachine(db, record, meta.source, fetchedAt);
         const existed = findTvProduct(db, record, machineId, cfg.productsPerMachine) !== null;
-        upsertTvProduct(db, record, machineId, cfg.productsPerMachine, meta.source, fetchedAt, record.price);
+        upsertTvProduct(db, record, machineId, cfg.productsPerMachine, meta.source, fetchedAt, record.price, record.category);
         if (existed) updated++;
         else inserted++;
       }

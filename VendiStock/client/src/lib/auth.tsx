@@ -14,11 +14,13 @@ interface MeResponse {
   user: User | null;
   csrfToken: string | null;
   mode: 'production' | 'demo' | 'test';
+  version?: string;
 }
 
 interface AuthState {
   user: User | null;
   mode: MeResponse['mode'];
+  version: string | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -32,6 +34,7 @@ const Ctx = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<MeResponse['mode']>('production');
+  const [version, setVersion] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const qc = useQueryClient();
 
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCsrfToken(r.csrfToken);
     setUser(r.user);
     setMode(r.mode);
+    if (r.version) setVersion(r.version);
   }, []);
 
   useEffect(() => {
@@ -73,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       mode,
+      version,
       loading,
       login,
       logout,
@@ -80,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canEdit: user?.role === 'admin' || user?.role === 'user',
       isAdmin: user?.role === 'admin',
     }),
-    [user, mode, loading, login, logout, setSession],
+    [user, mode, version, loading, login, logout, setSession],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

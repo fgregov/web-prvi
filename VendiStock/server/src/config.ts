@@ -5,8 +5,13 @@ import { fileURLToPath } from 'node:url';
 /** Korijenska mapa projekta VendiStock (iznad server/). */
 export const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0-test.1';
 export const TIMEZONE = 'Europe/Zagreb';
+
+/** Službena adresa korisničkog portala Televend Cloud (potvrdio Vending Express). */
+export const TELEVEND_OFFICIAL_URL = 'https://app.televendcloud.com';
+export const TELEVEND_DEFAULT_ALLOWED_HOSTS = ['app.televendcloud.com'];
+export const TELEVEND_DEFAULT_NAVIGATION_HOSTS = ['*.televendcloud.com'];
 
 export type AppMode = 'production' | 'demo' | 'test';
 export type KeyProtection = 'dpapi' | 'file';
@@ -67,6 +72,12 @@ function list(v: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function hostList(v: string | undefined, def: string[]): string[] {
+  if (v === undefined || v.trim() === '') return def;
+  const l = list(v).map((h) => h.toLowerCase());
+  return l.includes('*') ? [] : l;
+}
+
 function resolvePath(p: string | undefined, def: string): string {
   const value = p && p.trim() ? p.trim() : def;
   return path.isAbsolute(value) ? value : path.resolve(PROJECT_ROOT, value);
@@ -118,8 +129,9 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     keyProtection,
     dpapiScope: env.DPAPI_SCOPE === 'LocalMachine' ? 'LocalMachine' : 'CurrentUser',
     televend: {
-      allowedHosts: list(env.TELEVEND_ALLOWED_HOSTS).map((h) => h.toLowerCase()),
-      extraNavigationHosts: list(env.TELEVEND_EXTRA_NAVIGATION_HOSTS).map((h) => h.toLowerCase()),
+      // Zadano: samo službeni portal. „*” uklanja ograničenje popisom (ostala pravila i dalje vrijede).
+      allowedHosts: hostList(env.TELEVEND_ALLOWED_HOSTS, TELEVEND_DEFAULT_ALLOWED_HOSTS),
+      extraNavigationHosts: hostList(env.TELEVEND_EXTRA_NAVIGATION_HOSTS, TELEVEND_DEFAULT_NAVIGATION_HOSTS),
       browserExecutable: env.TELEVEND_BROWSER_EXECUTABLE?.trim() || null,
       allowTestTargets: mode === 'test' && bool(env.TELEVEND_ALLOW_TEST_TARGETS, false),
     },

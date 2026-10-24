@@ -1,4 +1,4 @@
-# VendiStock 1.0.0 – Inventory & Sales Intelligence
+# VendiStock 1.1.0-test.1 – Inventory & Sales Intelligence
 
 Interna lokalna web aplikacija **Vending Expressa** za upravljanje zalihama, skladištem, prodajom i nabavom robe
 samoposlužnih automata, s automatiziranim preuzimanjem podataka iz korisničkog web portala **Televend Cloud**.
@@ -43,6 +43,7 @@ VendiStock/
 ├── package.json                 # npm workspaces (server, client) i zajedničke naredbe
 ├── .env.example                 # predložak konfiguracije servera
 ├── README.md
+├── CHANGELOG.md                 # popis promjena po verzijama
 ├── docs/
 │   ├── ARHITEKTURA.md           # arhitektura, model podataka, skladišna knjiga, deduplikacija
 │   ├── TELEVEND-CONNECTOR.md    # Televend konektor: tijek, sigurnost, konfiguracija, ograničenja
@@ -98,16 +99,25 @@ Nisu korišteni Supabase, Firebase ni bilo kakav vanjski hosting ili vanjska baz
 prodaja razdoblja, najprodavaniji proizvod, povezani automati, posljednja sinkronizacija), graf prodaje kroz vrijeme
 (odabir razdoblja), TOP 10 artikala, nabava, status Televend Clouda. Bez podataka prikazuje „Podaci nisu dostupni”.
 
+> **Načelo rada (od 1.1.0):** ručno se unosi samo **nabavna (ulazna) cijena** (i po želji ulaz robe s cijenom).
+> Artikle, automate i kretanja zaliha VendiStock generira sam iz Televend podataka – vidi [CHANGELOG.md](CHANGELOG.md).
+
 **Artikli** – interna šifra (jedinstvena), naziv, kategorija, dobavljač, nabavna cijena, JM, pakiranje, minimalna i
-ciljana zaliha, trenutno stanje (iz skladišne knjige), status; kategorije, dobavljači; **ručno povezivanje Televend
-artikala** s lokalnim artiklima (više Televend naziva → jedan artikl); **normativi** (priprema, bez automatskog razduživanja).
+ciljana zaliha, trenutno stanje (iz skladišne knjige), status; kategorije, dobavljači. Novi Televend artikli
+**automatski postaju lokalni artikli** (šifra `TV-<ID>`, oznaka „iz Televenda”, cijena „nije unesena”); postojeći
+artikl istog naziva se povezuje umjesto stvaranja duplikata. **Nabavne cijene** – tablični ručni unos cijena
+(filtar „samo bez unesene cijene”). Povezivanje Televend artikala može se i ručno ispraviti (više Televend naziva →
+jedan artikl); **normativi** (priprema, bez automatskog razduživanja).
 
 **Skladište** (neovisno o Televendu, model skladišne knjige):
 ulaz robe, izlaz robe (vozilo / automat / ostalo), prijenos (centralno → vozilo → automat, ukupna količina nepromijenjena),
 početno stanje, inventura (prebrojano vs. knjigovodstveno, korekcije), rezervacije, **storno i ispravak s revizijskim tragom**,
 povijest skladišta (Datum | Artikl | Vrsta promjene | Ulaz | Izlaz | Lokacija | Stanje nakon knjiženja) s filtrima i izvozom u Excel.
-Prodaja iz Televenda (opcionalno, od zadanog datuma) knjiži se na zalihu **automata**, nikad ponovno na centralno skladište;
-dopune iz Televenda usklađuju se s lokalnim prijenosima bez dvostrukog knjiženja.
+**Automatski iz Televenda:** prodaja se knjiži na zalihu **automata** (nikad ponovno na centralno skladište), od datuma
+početka koji se postavlja pri prvom uvozu; dopune se knjiže kao prijenos centralno → automat (ili se povezuju s već
+ručno evidentiranim prijenosom); stanja u automatima usklađuju zalihu automata (knjiži se samo razlika). Automatski
+dokumenti su označeni i smiju dovesti centralno stanje u minus (kad nedostaje ručni ulaz robe) – to se prikazuje
+upozorenjem; ručni dokumenti ne smiju u minus.
 
 **Automati** – popis, prodaja po automatu, roba u automatu (lokalno i prema Televendu), usklađivanje dopuna.
 
@@ -126,7 +136,7 @@ slanje bez duplikata.
 **Postavke** – Televend Cloud (URL, korisničko ime, lozinka; Spremi / Testiraj povezivanje / Sinkroniziraj sada /
 Prekini vezu; status, posljednja prijava, posljednja sinkronizacija, trajanje, broj zapisa, poruka o grešci),
 izvori podataka i istraživanje portala, ručni uvoz izvezene datoteke, povijest sinkronizacija, e-mail i upozorenja,
-skladište i nabava, korisnici (admin / korisnik / pregled), backup i vraćanje, revizijski zapis, sustav.
+automatizacija i skladište, korisnici (admin / korisnik / pregled), backup i vraćanje, revizijski zapis, sustav.
 
 **Tablice** – pretraga, sortiranje, filtriranje, paginacija i izvoz (Excel, CSV) u svim modulima.
 
@@ -242,19 +252,21 @@ Migracije baze izvršavaju se automatski pri pokretanju. Prije ažuriranja izrad
 
 ## Prvo povezivanje s Televend Cloudom
 
-1. **Postavke → Televend Cloud**: unesite HTTPS adresu stranice za prijavu korisničkog portala, korisničko ime i
-   lozinku → **Spremi postavke** → **Testiraj povezivanje**. Prikazuje se točan ishod i dnevnik koraka
+1. **Postavke → Televend Cloud**: adresa je predpopunjena službenom stranicom za prijavu
+   `https://app.televendcloud.com`; unesite korisničko ime i lozinku → **Spremi postavke** → **Testiraj povezivanje**. Prikazuje se točan ishod i dnevnik koraka
    (uspjeh, pogrešni podaci, MFA, CAPTCHA, obrazac nije pronađen, blokirano preusmjeravanje…).
 2. Ako portal traži **MFA/CAPTCHA** ili se obrazac ne prepozna: **Ručna prijava (kontrolirana sesija)** – preglednik
    radi na serveru, vi vidite njegov zaslon i sami dovršite prijavu; sprema se samo (šifrirana) sesija.
-3. Preporuka: u `.env` postavite `TELEVEND_ALLOWED_HOSTS=<domena portala>` (i `TELEVEND_EXTRA_NAVIGATION_HOSTS` za SSO).
+3. Dopuštene domene su zadano ograničene na `app.televendcloud.com` (navigacija/preusmjeravanja: `*.televendcloud.com`).
+   Ako portal prijavu preusmjerava na drugu domenu (SSO), dodajte je u `TELEVEND_EXTRA_NAVIGATION_HOSTS`.
 4. **Postavke → Izvori podataka → Istraži portal**: obilaze se poveznice izbornika (samo čitanje) i bilježe tablice,
    gumbi za izvoz i polja za razdoblje. Poveznice poput odjave ili brisanja se preskaču.
 5. Za svaki skup podataka (automati, artikli, prodaja, stanja u automatima, dopune) zadajte stvarnu stranicu,
    način (prednost: CSV/XLSX izvoz) i **mapiranje stupaca**, pa **Testiraj izvor (bez uvoza)**. Uključite izvor.
 6. **Sinkroniziraj sada**, zatim uključite automatsku sinkronizaciju (zadano 15 min).
-7. **Artikli → Televend povezivanje**: povežite Televend nazive s lokalnim artiklima.
-8. (Opcionalno) **Postavke → Skladište i nabava**: zadajte datum od kojeg se prodaja knjiži na zalihe automata.
+7. Artikli i automati stvaraju se automatski. **Artikli → Nabavne cijene**: unesite nabavne cijene (jedini ručni unos).
+8. (Opcionalno) **Postavke → Automatizacija i skladište**: izvorna lokacija dopuna, datum početka knjiženja,
+   isključivanje pojedinih automatizama. **Artikli → Televend povezivanje**: ispravak automatskog povezivanja.
 
 Ako se struktura portala ne može utvrditi: izvezite izvještaj ručno s portala i učitajte ga u
 **Postavke → Uvoz datoteke** (isti parser, mapiranje i kontrola duplikata) – i pošaljite primjer stranice/izvještaja
@@ -272,8 +284,8 @@ za doradu konektora.
 | `VENDISTOCK_MODE` | `production` | `demo` = zasebna demo baza s izmišljenim podacima |
 | `SESSION_TTL_HOURS` | `12` | trajanje sesije (neaktivnost); apsolutni maksimum 7 dana |
 | `VENDISTOCK_KEY_PROTECTION` / `DPAPI_SCOPE` | `dpapi` / `CurrentUser` | zaštita glavnog ključa |
-| `TELEVEND_ALLOWED_HOSTS` | – | dopuštene domene portala (preporučeno) |
-| `TELEVEND_EXTRA_NAVIGATION_HOSTS` | – | dodatne domene za preusmjeravanje (SSO) |
+| `TELEVEND_ALLOWED_HOSTS` | `app.televendcloud.com` | dopuštene domene adrese portala (`*` = bez ograničenja popisom) |
+| `TELEVEND_EXTRA_NAVIGATION_HOSTS` | `*.televendcloud.com` | domene za navigaciju/preusmjeravanje (SSO) |
 | `TELEVEND_BROWSER_EXECUTABLE` | – | vlastiti Chrome/Chromium umjesto Playwrightovog |
 | `LOG_LEVEL` | `info` | razina dnevnika |
 
@@ -331,23 +343,25 @@ Demo podaci se nikad ne upisuju u produkcijsku bazu.
 
 Izvršeno u razvojnom okruženju (Linux, Node.js 22.22, Chromium 153) – detalji u [docs/TESTIRANJE.md](docs/TESTIRANJE.md):
 
-- **86/86** automatskih testova (Vitest, 7 datoteka): skladišna knjiga, ulaz/izlaz, prijenosi, sprječavanje dvostrukog
+- **95/95** automatskih testova (Vitest, 8 datoteka): skladišna knjiga, ulaz/izlaz, prijenosi, sprječavanje dvostrukog
   skidanja zaliha, storno/ispravak, inventura, uvoz ponovljenih Televend transakcija, kontrola nepotpunih izvještaja,
   vremenska zona, prekid i ponavljanje sinkronizacije, izračun nabave, aktivacija/reset upozorenja, sprječavanje
-  dupliciranih e-mailova, backup/vraćanje, sigurnost (CSRF, uloge, rate limit, šifriranje, URL politika), sve API rute i izvozi.
-- **1/1** E2E test sučelja u pregledniku (sve stranice i kartice bez grešaka; ulaz robe kroz sučelje).
+  dupliciranih e-mailova, backup/vraćanje, sigurnost (CSRF, uloge, rate limit, šifriranje, URL politika), sve API rute i izvozi,
+  automatizacija (artikli iz Televenda, automatska prodaja/dopune/usklađenje automata, ručne nabavne cijene).
+- **1/1** E2E test sučelja u pregledniku (sve stranice i kartice bez grešaka; ulaz robe i unos nabavne cijene kroz sučelje).
 - Konektor testiran na **lokalnom testnom portalu** (prijava, MFA kroz ručnu sesiju, CAPTCHA, prijava u dva koraka,
   istraživanje, CSV izvoz, tablica s paginacijom, storno, HTTP 500 ponavljanje, blokada preusmjeravanja).
 
-**Nije testirano:** stvarni Televend Cloud (nema pristupa ni poznate strukture), stvarni Windows DPAPI
+**Nije testirano:** stvarni Televend Cloud (razvojno okruženje nema mrežni pristup `app.televendcloud.com` – proxy
+odbija vezu; struktura izvještaja još nepoznata), stvarni Windows DPAPI
 (simuliran u testu; PowerShell skripta nije izvršena na Windowsu), Windows servis, PowerShell skripte za
 certifikat i vatrozid, slanje stvarnog e-maila (SMTP simuliran).
 
 ## Ograničenja i preostali posao
 
 1. **Televend Cloud – potvrda na stvarnom portalu (prioritet):** test prijave, istraživanje portala, konfiguracija
-   izvora i mapiranja prema stvarnim izvještajima. Potreban je pristup portalu ili primjer stranica/izvoza
-   (CSV/XLSX). Dostupnost izvoza, prihoda po artiklu, stanja u automatima i dopuna još nije potvrđena.
+   izvora i mapiranja prema stvarnim izvještajima. Adresa portala je poznata (`https://app.televendcloud.com`);
+   potreban je mrežni pristup portalu s računala na kojem radi VendiStock ili primjer stranica/izvoza (CSV/XLSX). Dostupnost izvoza, prihoda po artiklu, stanja u automatima i dopuna još nije potvrđena.
 2. **Windows provjera:** instalacija, DPAPI, servis, HTTPS certifikat i vatrozid trebaju se proći na ciljnom računalu.
 3. **SMTP:** testno slanje prema stvarnom poslužitelju Vending Expressa.
 4. Stari Excel format `.xls` nije podržan (koristiti CSV ili XLSX); izvozi u obliku HTML tablice odbijaju se uz poruku.

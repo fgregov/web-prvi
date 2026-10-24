@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { InlineBar, SalesTimeChart } from '../components/Charts';
 import { DateRangePicker, rangeFor, type Range } from '../components/Pickers';
 import { ConnectionBadge, RunBadge } from '../components/StatusBadge';
-import { Badge, Button, Card, EmptyState, KeyValue, KpiCard, PageHeader, QueryError, Spinner } from '../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, KeyValue, KpiCard, PageHeader, QueryError, Spinner } from '../components/ui';
 import { api, qs } from '../lib/api';
 import { fmtDateTime, fmtDuration, fmtInt, fmtMoney, fmtNum, fmtQty, relativeTime } from '../lib/format';
 import type { ConnectionState, ProductSales, Recommendation, SeriesPoint } from '../lib/types';
@@ -25,6 +25,7 @@ interface DashboardData {
   salesSeries: SeriesPoint[] | null;
   top10: ProductSales[] | null;
   procurement: Recommendation[];
+  automation: { productsWithoutPrice: number; negativeCentral: number; pendingRefills: number; autoCreatedProducts: number };
   televend: {
     state: ConnectionState;
     message: string | null;
@@ -72,6 +73,24 @@ export default function Dashboard() {
         <Spinner />
       ) : (
         <div className={q.isFetching ? 'opacity-70 transition-opacity' : 'transition-opacity'}>
+          {(d.automation.productsWithoutPrice > 0 || d.automation.negativeCentral > 0) && (
+            <div className="mb-5 space-y-2">
+              {d.automation.productsWithoutPrice > 0 && (
+                <Alert tone="warning" title={`${d.automation.productsWithoutPrice} artikala bez nabavne cijene`}>
+                  Artikle je aplikacija stvorila iz Televend Clouda; nabavnu cijenu unesite ručno u{' '}
+                  <button className="font-medium underline" onClick={() => nav('/artikli')}>
+                    Artikli → Nabavne cijene
+                  </button>
+                  . Do tada se vrijednost skladišta za njih računa s 0 €.
+                </Alert>
+              )}
+              {d.automation.negativeCentral > 0 && (
+                <Alert tone="warning" title={`Negativno stanje centralnog skladišta (${d.automation.negativeCentral} artikala)`}>
+                  Dopune iz Televenda su automatski proknjižene, ali ulaz robe još nije unesen. Unesite ulaz robe s nabavnom cijenom (Skladište → Novi ulaz).
+                </Alert>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               label="Ukupna vrijednost skladišta"

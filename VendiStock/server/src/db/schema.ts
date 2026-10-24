@@ -455,4 +455,17 @@ CREATE TABLE recipe_ingredients (
 INSERT INTO locations (type, name, note) VALUES ('central', 'Centralno skladište', 'Glavno skladište Vending Expressa');
 `,
   },
+  {
+    version: 2,
+    name: 'automation',
+    sql: `
+-- Artikli koje je aplikacija sama stvorila iz Televenda; nabavna cijena unosi se ručno
+ALTER TABLE products ADD COLUMN auto_created INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN price_set INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE tv_products ADD COLUMN category_raw TEXT;
+-- Oznaka automatski generiranih skladišnih dokumenata (dopune, prodaja, usklađenje s Televendom)
+ALTER TABLE stock_movements ADD COLUMN auto_generated INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX ix_sales_unposted ON sales_transactions(sold_date_local) WHERE stock_movement_id IS NULL;
+`,
+  },
 ];

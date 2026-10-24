@@ -9,6 +9,9 @@ import { fmtDateTime, fmtDuration, fmtNum } from '../../lib/format';
 import type { ConnectionState } from '../../lib/types';
 import { ManualSession } from './ManualSession';
 
+/** Službena adresa korisničkog portala Televend Cloud. */
+const OFFICIAL_URL = 'https://app.televendcloud.com';
+
 export interface DatasetConfig {
   enabled: boolean;
   method: 'export' | 'table';
@@ -118,7 +121,7 @@ export default function TelevendSettings() {
     if (st.data && !form) {
       const c = st.data.config;
       setForm({
-        portalUrl: c.portalUrl,
+        portalUrl: c.portalUrl || OFFICIAL_URL,
         username: c.username,
         password: '',
         autoSync: c.autoSync,
@@ -211,7 +214,7 @@ export default function TelevendSettings() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
         <Card className="xl:col-span-3" title="Podaci za prijavu" subtitle="Postavke → Televend Cloud">
           <div className="space-y-4">
-            <Field label="Web adresa / HTTPS URL" required hint={st.data.allowedHosts.length ? `Dopuštene domene (konfiguracija servera): ${st.data.allowedHosts.join(', ')}` : 'Adresa stranice za prijavu korisničkog portala, npr. https://…'}>
+            <Field label="Web adresa / HTTPS URL" required hint={st.data.allowedHosts.length ? `Dopuštene domene (konfiguracija servera): ${st.data.allowedHosts.join(', ')}` : `Službena adresa portala: ${OFFICIAL_URL}`}>
               <Input type="url" value={form.portalUrl} onChange={(e) => setF({ portalUrl: e.target.value })} placeholder="https://" autoComplete="off" />
             </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -9,49 +9,116 @@ import { api, download, qs } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { fmtBytes, fmtDateTime, todayIso } from '../../lib/format';
 
-// ---------------------------------------------------------------- Skladište i nabava
+// ---------------------------------------------------------------- Automatizacija, skladište i nabava
+interface AutomationOverview {
+  settings: {
+    autoCreateProducts: boolean;
+    autoPostSales: boolean;
+    autoBookRefills: boolean;
+    autoSyncMachineStock: boolean;
+    refillSourceLocationId: number | null;
+    startDate: string | null;
+  };
+  productsWithoutPrice: number;
+  autoCreatedProducts: number;
+  negativeCentral: number;
+  pendingRefills: number;
+  autoMovements: number;
+}
+
 export function InventorySettings() {
   const toast = useToast();
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['inventory-settings'],
-    queryFn: () => api.get<{ inventory: { updatePurchasePriceOnReceipt: boolean; salesPostingStartDate: string | null }; procurement: { roundToPacks: boolean } }>('/api/settings/inventory'),
+    queryFn: () => api.get<{ inventory: { updatePurchasePriceOnReceipt: boolean }; procurement: { roundToPacks: boolean } }>('/api/settings/inventory'),
   });
-  const [f, setF] = useState<{ updatePurchasePriceOnReceipt: boolean; salesPostingStartDate: string | null; roundToPacks: boolean } | null>(null);
+  const auto = useQuery({ queryKey: ['automation'], queryFn: () => api.get<AutomationOverview>('/api/settings/automation') });
+  const locations = useQuery({ queryKey: ['locations'], queryFn: () => api.get<{ id: number; name: string; type: string; active: number }[]>('/api/locations') });
+  const [f, setF] = useState<{ updatePurchasePriceOnReceipt: boolean; roundToPacks: boolean } | null>(null);
+  const [a, setA] = useState<AutomationOverview['settings'] | null>(null);
   useEffect(() => {
     if (q.data && !f) setF({ ...q.data.inventory, roundToPacks: q.data.procurement.roundToPacks });
   }, [q.data, f]);
+  useEffect(() => {
+    if (auto.data && !a) setA(auto.data.settings);
+  }, [auto.data, a]);
+  const invalidate = () => ['inventory-settings', 'automation', 'stock-overview', 'recommendations', 'dashboard', 'products'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const save = useMutation({
-    mutationFn: () => api.put<{ posting: { posted: number; reversed: number; unmapped: number } | null }>('/api/settings/inventory', f),
-    onSuccess: (r) => {
-      toast.success(r.posting ? `Spremljeno. Knjiženo prodaja: ${r.posting.posted}, nepovezanih: ${r.posting.unmapped}.` : 'Postavke spremljene.');
-      ['inventory-settings', 'stock-overview', 'recommendations', 'dashboard'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+    mutationFn: () => api.put('/api/settings/inventory', f),
+    onSuccess: () => {
+      toast.success('Postavke spremljene.');
+      invalidate();
     },
     onError: (e) => toast.error(e),
   });
-  if (!f) return <Spinner />;
+  const saveAuto = useMutation({
+    mutationFn: () => api.put<{ createdProducts: number; sales: { posted: number }; refills: { booked: number; reconciled: number } }>('/api/settings/automation', a),
+    onSuccess: (r) => {
+      toast.success(`Automatizacija spremljena. Novih artikala: ${r.createdProducts}, knjiženo prodaja: ${r.sales.posted}, dopuna: ${r.refills.booked}.`);
+      invalidate();
+    },
+    onError: (e) => toast.error(e),
+  });
+  if (!f || !a || !auto.data) return <Spinner />;
+  const o = auto.data;
   return (
-    <Card title="Skladište i nabava">
-      <div className="space-y-5">
-        <Checkbox checked={f.updatePurchasePriceOnReceipt} onChange={(v) => setF({ ...f, updatePurchasePriceOnReceipt: v })} label="Ažuriraj nabavnu cijenu artikla prema posljednjem ulazu robe" />
-        <Checkbox checked={f.roundToPacks} onChange={(v) => setF({ ...f, roundToPacks: v })} label="Zaokruži preporučenu nabavu na cijela dobavljačka pakiranja" />
-        <div className="rounded-lg border border-slate-200 p-4">
-          <h4 className="text-sm font-semibold text-slate-800">Knjiženje prodaje iz Televenda na zalihe automata</h4>
-          <p className="mt-1 text-sm text-slate-600">
-            Prodaja u automatu smanjuje zalihu <b>automata</b> (nikad centralnog skladišta – roba je iz njega već razdužena prijenosom). Uključuje se zadavanjem datuma od kojeg se prodaja knjiži, kako se povijesna prodaja ne bi knjižila na tek uneseno početno stanje. Svaka transakcija knjiži se najviše jednom; storno u Televendu stornira knjiženje.
-          </p>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <Field label="Knjiži prodaju od datuma" className="w-56">
-              <Input type="date" value={f.salesPostingStartDate ?? ''} max={todayIso()} onChange={(e) => setF({ ...f, salesPostingStartDate: e.target.value || null })} />
-            </Field>
-            {f.salesPostingStartDate ? <Badge color="green">uključeno</Badge> : <Badge>isključeno</Badge>}
-          </div>
+    <div className="space-y-6">
+      <Card title="Automatizacija iz Televend Clouda" subtitle="Ručno se unosi samo ulaz robe s nabavnom cijenom; sve ostalo aplikacija generira iz preuzetih podataka">
+        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
+          {[
+            ['Artikli iz Televenda', o.autoCreatedProducts],
+            ['Bez nabavne cijene', o.productsWithoutPrice],
+            ['Automatskih dokumenata', o.autoMovements],
+            ['Dopune na čekanju', o.pendingRefills],
+            ['Negativno centralno stanje', o.negativeCentral],
+          ].map(([k, v]) => (
+            <div key={String(k)} className="rounded-lg border border-slate-200 p-3">
+              <div className="text-xs text-slate-500">{k}</div>
+              <div className={`tabular mt-1 text-xl font-semibold ${(k === 'Bez nabavne cijene' || k === 'Negativno centralno stanje') && Number(v) > 0 ? 'text-amber-700' : 'text-slate-900'}`}>{v}</div>
+            </div>
+          ))}
         </div>
-        <Button variant="primary" icon={<Save className="h-4 w-4" />} loading={save.isPending} onClick={() => save.mutate()}>
-          Spremi
-        </Button>
-      </div>
-    </Card>
+        <div className="space-y-3">
+          <Checkbox checked={a.autoCreateProducts} onChange={(v) => setA({ ...a, autoCreateProducts: v })} label="Automatski stvaraj artikle iz Televenda" hint="Novi Televend artikl postaje lokalni artikl (šifra TV-…); nabavnu cijenu unosite ručno (Artikli → Nabavne cijene)" />
+          <Checkbox checked={a.autoPostSales} onChange={(v) => setA({ ...a, autoPostSales: v })} label="Prodaja smanjuje zalihu automata" hint="Nikad ponovno centralno skladište; storno u Televendu vraća zalihu" />
+          <Checkbox checked={a.autoBookRefills} onChange={(v) => setA({ ...a, autoBookRefills: v })} label="Dopune automata knjiže se automatski (izvorna lokacija → automat)" hint="Ako je ista dopuna već ručno unesena prijenosom, samo se povezuje – bez dvostrukog knjiženja" />
+          <Checkbox checked={a.autoSyncMachineStock} onChange={(v) => setA({ ...a, autoSyncMachineStock: v })} label="Stanje automata usklađuje se sa stanjem u Televendu" hint="Razlika se knjiži kao automatska inventurna korekcija (ako portal nudi stanja u automatima)" />
+          <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
+            <Field label="Izvorna lokacija dopuna" hint="Zadano: centralno skladište">
+              <Select value={a.refillSourceLocationId ?? ''} onChange={(e) => setA({ ...a, refillSourceLocationId: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">Centralno skladište</option>
+                {locations.data
+                  ?.filter((l) => l.active && l.type !== 'machine' && l.type !== 'central')
+                  .map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field label="Kretanja se generiraju od datuma" hint="Postavlja se automatski pri prvom uvozu; starija prodaja se samo analizira">
+              <Input type="date" value={a.startDate ?? ''} max={todayIso()} onChange={(e) => setA({ ...a, startDate: e.target.value || null })} />
+            </Field>
+          </div>
+          {o.negativeCentral > 0 && (
+            <Alert tone="warning">Centralno skladište ima negativno stanje za {o.negativeCentral} artikala – dopune iz Televenda su knjižene, a ulaz robe još nije unesen. Unesite ulaz robe s nabavnom cijenom.</Alert>
+          )}
+          <Button variant="primary" icon={<Save className="h-4 w-4" />} loading={saveAuto.isPending} onClick={() => saveAuto.mutate()}>
+            Spremi i primijeni
+          </Button>
+        </div>
+      </Card>
+      <Card title="Skladište i nabava">
+        <div className="space-y-4">
+          <Checkbox checked={f.updatePurchasePriceOnReceipt} onChange={(v) => setF({ ...f, updatePurchasePriceOnReceipt: v })} label="Ažuriraj nabavnu cijenu artikla prema posljednjem ulazu robe" />
+          <Checkbox checked={f.roundToPacks} onChange={(v) => setF({ ...f, roundToPacks: v })} label="Zaokruži preporučenu nabavu na cijela dobavljačka pakiranja" />
+          <Button variant="primary" icon={<Save className="h-4 w-4" />} loading={save.isPending} onClick={() => save.mutate()}>
+            Spremi
+          </Button>
+        </div>
+      </Card>
+    </div>
   );
 }
 
